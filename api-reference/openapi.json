@@ -240,7 +240,7 @@
     "/swaps/whale": {
       "get": {
         "summary": "Whale swaps (above threshold)",
-        "description": "Returns recent swaps with `sol_amount` above a threshold (default 10 SOL).\n\n**Note:** this endpoint scans a wider window than `/swaps` and tends to be slower. If you're polling, prefer the streaming [WebSocket](/streaming/websocket) or [gRPC](/streaming/grpc) with a `min_sol` filter for similar results in real time.",
+        "description": "Returns recent swaps with `sol_amount` above a threshold (default 10 SOL).",
         "operationId": "listWhaleSwaps",
         "tags": ["Swaps"],
         "parameters": [
