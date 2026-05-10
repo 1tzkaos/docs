@@ -1,216 +1,424 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "OpenAPI Plant Store",
-    "description": "A sample API that uses a plant store as an example to demonstrate features in the OpenAPI specification",
-    "license": {
-      "name": "MIT"
-    },
-    "version": "1.0.0"
+    "title": "Dexploit API",
+    "version": "1.0.0",
+    "description": "Real-time and historical Solana DEX swap and OHLCV data."
   },
   "servers": [
-    {
-      "url": "http://sandbox.mintlify.com"
-    }
+    { "url": "https://api.dexploit.dev", "description": "Production" }
   ],
-  "security": [
-    {
-      "bearerAuth": []
-    }
-  ],
-  "paths": {
-    "/plants": {
-      "get": {
-        "description": "Returns all plants from the system that the user has access to",
-        "parameters": [
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "The maximum number of results to return",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Plant response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/Plant"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "description": "Creates a new plant in the store",
-        "requestBody": {
-          "description": "Plant to add to the store",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NewPlant"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "plant response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Plant"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/plants/{id}": {
-      "delete": {
-        "description": "Deletes a single plant based on the ID supplied",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "ID of plant to delete",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int64"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Plant deleted",
-            "content": {}
-          },
-          "400": {
-            "description": "unexpected error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "webhooks": {
-    "/plant/webhook": {
-      "post": {
-        "description": "Information about a new plant added to the store",
-        "requestBody": {
-          "description": "Plant added to the store",
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/NewPlant"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Return a 200 status to indicate that the data was received successfully"
-          }
-        }
-      }
-    }
-  },
+  "security": [{ "ApiKeyAuth": [] }],
   "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-API-Key" }
+    },
     "schemas": {
-      "Plant": {
-        "required": [
-          "name"
-        ],
+      "ErrorEnvelope": {
         "type": "object",
+        "required": ["success", "error"],
         "properties": {
-          "name": {
-            "description": "The name of the plant",
-            "type": "string"
-          },
-          "tag": {
-            "description": "Tag to specify the type",
-            "type": "string"
+          "success": { "type": "boolean", "enum": [false] },
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": { "type": "string", "example": "INVALID_PARAM" },
+              "message": { "type": "string", "example": "use pair_address; see /api/v1/pairs?token_address=X to discover pools" }
+            }
           }
         }
       },
-      "NewPlant": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/Plant"
-          },
-          {
-            "required": [
-              "id"
-            ],
-            "type": "object",
-            "properties": {
-              "id": {
-                "description": "Identification number of the plant",
-                "type": "integer",
-                "format": "int64"
-              }
-            }
-          }
-        ]
-      },
-      "Error": {
-        "required": [
-          "error",
-          "message"
-        ],
+      "Pair": {
         "type": "object",
         "properties": {
-          "error": {
-            "type": "integer",
-            "format": "int32"
+          "pair_address": { "type": "string", "description": "On-chain pool/LP account address" },
+          "protocol": { "type": "string", "enum": ["pumpfun", "pumpswap", "raydium", "meteora"] },
+          "recent_volume_sol": { "type": "number", "description": "Volume in SOL over a recent rolling window" }
+        }
+      },
+      "Candle": {
+        "type": "object",
+        "properties": {
+          "timestamp":      { "type": "string", "format": "date-time" },
+          "pair_address":   { "type": "string" },
+          "token_address":  { "type": "string" },
+          "base_mint":      { "type": "string", "example": "So11111111111111111111111111111111111111112" },
+          "timeframe":      { "type": "string", "enum": ["1s","30s","1m","5m","15m","1h","4h","1d"] },
+          "open":           { "type": "number" },
+          "high":           { "type": "number" },
+          "low":            { "type": "number" },
+          "close":          { "type": "number" },
+          "volume_sol":     { "type": "number" },
+          "volume_token":   { "type": "number" },
+          "trade_count":    { "type": "integer" },
+          "buy_count":      { "type": "integer" },
+          "sell_count":     { "type": "integer" },
+          "unique_traders": { "type": "integer" }
+        }
+      },
+      "Swap": {
+        "type": "object",
+        "properties": {
+          "signature":   { "type": "string", "description": "Solana transaction signature" },
+          "slot":        { "type": "integer" },
+          "timestamp":   { "type": "string", "format": "date-time" },
+          "dex":         { "type": "string" },
+          "swap_type":   { "type": "string", "enum": ["buy", "sell"] },
+          "trader":      { "type": "string" },
+          "token_mint":  { "type": "string" },
+          "pool_address":{ "type": "string" },
+          "sol_amount":  { "type": "integer", "format": "int64", "description": "Lamports (1 SOL = 1e9 lamports)" },
+          "token_amount":{ "type": "integer", "format": "int64", "description": "Token base units; divide by 10**token_decimals for human-readable" }
+        }
+      },
+      "Protocol": {
+        "type": "object",
+        "properties": {
+          "name":        { "type": "string", "example": "pumpswap" },
+          "label":       { "type": "string", "example": "Pump Swap" },
+          "active_pools":{ "type": "integer" }
+        }
+      },
+      "GlobalStats": {
+        "type": "object",
+        "properties": {
+          "total_swaps_24h":   { "type": "integer" },
+          "total_volume_sol_24h": { "type": "number" },
+          "active_pools_24h":  { "type": "integer" },
+          "active_traders_24h":{ "type": "integer" }
+        }
+      },
+      "TraderStats": {
+        "type": "object",
+        "properties": {
+          "wallet":            { "type": "string" },
+          "total_swaps":       { "type": "integer" },
+          "total_volume_sol":  { "type": "number" },
+          "buy_count":         { "type": "integer" },
+          "sell_count":        { "type": "integer" },
+          "first_seen":        { "type": "string", "format": "date-time" },
+          "last_seen":         { "type": "string", "format": "date-time" }
+        }
+      },
+      "TokenStats": {
+        "type": "object",
+        "properties": {
+          "token_mint":        { "type": "string" },
+          "total_swaps_24h":   { "type": "integer" },
+          "total_volume_sol_24h":{ "type": "number" },
+          "unique_traders_24h":{ "type": "integer" },
+          "pool_count":        { "type": "integer" }
+        }
+      },
+      "Trending": {
+        "type": "object",
+        "properties": {
+          "token_mint":          { "type": "string" },
+          "volume_sol_change_pct": { "type": "number" },
+          "volume_sol_24h":      { "type": "number" },
+          "swap_count_24h":      { "type": "integer" }
+        }
+      },
+      "TopMover": {
+        "type": "object",
+        "properties": {
+          "pair_address":     { "type": "string" },
+          "token_address":    { "type": "string" },
+          "price_change_pct": { "type": "number" },
+          "current_price":    { "type": "number" },
+          "volume_sol_24h":   { "type": "number" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/pairs": {
+      "get": {
+        "summary": "List pools (pairs)",
+        "description": "List on-chain pools. Pass `token_address` to discover pools that trade a token, or `protocol` to list all pools on a given DEX. The returned `pair_address` is what you pass to candle and swap endpoints.",
+        "operationId": "listPairs",
+        "tags": ["Pairs"],
+        "parameters": [
+          { "name": "token_address", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Token mint to find pools for. When set, returns pools sorted by recent volume." },
+          { "name": "protocol",      "in": "query", "required": false, "schema": { "type": "string", "enum": ["pumpfun", "pumpswap", "raydium", "meteora"] } },
+          { "name": "limit",         "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of pools",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Pair" } } } } } }
           },
-          "message": {
-            "type": "string"
-          }
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Quota or rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
-    "securitySchemes": {
-      "bearerAuth": {
-        "type": "http",
-        "scheme": "bearer"
+    "/api/v1/candles": {
+      "get": {
+        "summary": "Historical candles for a pool",
+        "description": "Returns OHLCV bars for `pair_address` between `start` and `end`. Bars are built from real swap events — see [Swap-event OHLCV](/concepts/swap-event-ohlcv).\n\n**Requires `pair_address`.** Sending `mint`, `pair`, or `protocol` returns 400 with a pointer to /api/v1/pairs.",
+        "operationId": "listCandles",
+        "tags": ["Candles (OHLCV)"],
+        "parameters": [
+          { "name": "pair_address", "in": "query", "required": true,  "schema": { "type": "string" } },
+          { "name": "timeframe",    "in": "query", "required": true,  "schema": { "type": "string", "enum": ["1s","30s","1m","5m","15m","1h","4h","1d"] } },
+          { "name": "start",        "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "end",          "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" }, "description": "Defaults to a 30s-aligned 'now'." },
+          { "name": "limit",        "in": "query", "required": false, "schema": { "type": "integer", "default": 1000, "minimum": 1, "maximum": 10000 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Array of candles",
+            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Candle" } } } } } }
+          },
+          "400": {
+            "description": "Missing pair_address or sent legacy mint/pair/protocol",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }, "example": { "success": false, "error": { "code": "INVALID_PARAM", "message": "use pair_address; see /api/v1/pairs?token_address=X to discover pools" } } } }
+          },
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "404": { "description": "Unknown pair_address", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Quota or rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/api/v1/candles/latest": {
+      "get": {
+        "summary": "Most recent candles for a pool",
+        "description": "Returns the most-recent N candles. Same `pair_address` requirement as /api/v1/candles.",
+        "operationId": "listLatestCandles",
+        "tags": ["Candles (OHLCV)"],
+        "parameters": [
+          { "name": "pair_address", "in": "query", "required": true,  "schema": { "type": "string" } },
+          { "name": "timeframe",    "in": "query", "required": true,  "schema": { "type": "string", "enum": ["1s","30s","1m","5m","15m","1h","4h","1d"] } },
+          { "name": "limit",        "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 10000 } }
+        ],
+        "responses": {
+          "200": { "description": "Latest candles", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Candle" } } } } } } },
+          "400": { "description": "Missing pair_address", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "404": { "description": "Unknown pair_address", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Quota or rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/swaps": {
+      "get": {
+        "summary": "Latest swaps",
+        "description": "Returns recent swaps with optional filters. Use this for a real-time-ish polling view; for true real-time, use [WebSocket](/streaming/websocket) or [gRPC](/streaming/grpc).",
+        "operationId": "listSwaps",
+        "tags": ["Swaps"],
+        "parameters": [
+          { "name": "limit",    "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } },
+          { "name": "min_sol",  "in": "query", "required": false, "schema": { "type": "number" }, "description": "Minimum SOL amount (decimal SOL, not lamports)" },
+          { "name": "dex",      "in": "query", "required": false, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } },
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
+          "429": { "description": "Quota or rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/swaps/range": {
+      "get": {
+        "summary": "Swaps in a time range",
+        "description": "Page through historical swaps within a time or slot range.",
+        "operationId": "listSwapsRange",
+        "tags": ["Swaps"],
+        "parameters": [
+          { "name": "start", "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "end",   "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
+        ],
+        "responses": {
+          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } },
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/swaps/whale": {
+      "get": {
+        "summary": "Whale swaps (above threshold)",
+        "description": "Returns recent swaps with `sol_amount` above a threshold (default 10 SOL).",
+        "operationId": "listWhaleSwaps",
+        "tags": ["Swaps"],
+        "parameters": [
+          { "name": "min_sol", "in": "query", "required": false, "schema": { "type": "number", "default": 10 } },
+          { "name": "limit",   "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
+        ],
+        "responses": {
+          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } }
+        }
+      }
+    },
+    "/swaps/{signature}": {
+      "get": {
+        "summary": "Single swap by transaction signature",
+        "description": "Look up the swap event(s) emitted by a specific Solana transaction.",
+        "operationId": "getSwapBySignature",
+        "tags": ["Swaps"],
+        "parameters": [
+          { "name": "signature", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Swap event", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/Swap" } } } } } },
+          "404": { "description": "Signature not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/swaps/trader/{wallet}": {
+      "get": {
+        "summary": "Swap history for a trader",
+        "description": "All swaps a wallet has made, across pools and DEXs.",
+        "operationId": "listTraderSwaps",
+        "tags": ["Swaps"],
+        "parameters": [
+          { "name": "wallet", "in": "path",  "required": true, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
+        ],
+        "responses": {
+          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } }
+        }
+      }
+    },
+    "/swaps/token/{mint}": {
+      "get": {
+        "summary": "Swap history for a token (across pools)",
+        "description": "Returns swaps for a token across **every** pool we index. This is one of the few endpoints where token mint (not `pair_address`) is the right input — it intentionally aggregates. See [Pairs vs tokens](/concepts/pairs-vs-tokens).",
+        "operationId": "listTokenSwaps",
+        "tags": ["Swaps"],
+        "parameters": [
+          { "name": "mint",  "in": "path",  "required": true, "schema": { "type": "string" } },
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
+        ],
+        "responses": {
+          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } }
+        }
+      }
+    },
+    "/stats/global": {
+      "get": {
+        "summary": "Global 24h stats",
+        "description": "Aggregate stats across the platform for the last 24h.",
+        "operationId": "getGlobalStats",
+        "tags": ["Stats & trends"],
+        "responses": {
+          "200": { "description": "Global stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/GlobalStats" } } } } } }
+        }
+      }
+    },
+    "/stats/trader/{wallet}": {
+      "get": {
+        "summary": "Stats for a trader",
+        "operationId": "getTraderStats",
+        "tags": ["Stats & trends"],
+        "parameters": [
+          { "name": "wallet", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Trader stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/TraderStats" } } } } } }
+        }
+      }
+    },
+    "/stats/token/{mint}": {
+      "get": {
+        "summary": "Stats for a token (across pools)",
+        "description": "Aggregate stats for a token mint across every indexed pool. One of the few endpoints where token mint is correct (see [Pairs vs tokens](/concepts/pairs-vs-tokens)).",
+        "operationId": "getTokenStats",
+        "tags": ["Stats & trends"],
+        "parameters": [
+          { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Token stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/TokenStats" } } } } } }
+        }
+      }
+    },
+    "/trending": {
+      "get": {
+        "summary": "Trending tokens",
+        "description": "Tokens with the largest 24h volume change.",
+        "operationId": "listTrending",
+        "tags": ["Stats & trends"],
+        "parameters": [
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 25, "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Trending list", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Trending" } } } } } } }
+        }
+      }
+    },
+    "/api/v1/top-movers": {
+      "get": {
+        "summary": "Top price movers",
+        "description": "Pools with the largest absolute price change over a recent window.",
+        "operationId": "listTopMovers",
+        "tags": ["Stats & trends"],
+        "parameters": [
+          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 25, "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Top movers", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/TopMover" } } } } } } }
+        }
+      }
+    },
+    "/api/v1/protocols": {
+      "get": {
+        "summary": "List supported DEX protocols",
+        "operationId": "listProtocols",
+        "tags": ["Stats & trends"],
+        "responses": {
+          "200": { "description": "List of supported DEX protocols", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Protocol" } } } } } } }
+        }
+      }
+    },
+    "/api/v1/stats": {
+      "get": {
+        "summary": "Aggregate platform stats",
+        "description": "Roll-up stats across the OHLCV index.",
+        "operationId": "getOhlcvStats",
+        "tags": ["Stats & trends"],
+        "responses": {
+          "200": { "description": "Aggregate stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "object" } } } } } }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Liveness probe",
+        "description": "Returns 200 if the API process is alive. No auth required.",
+        "operationId": "getHealth",
+        "tags": ["Health & metrics"],
+        "security": [],
+        "responses": {
+          "200": { "description": "OK", "content": { "text/plain": { "schema": { "type": "string", "example": "ok" } } } }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Readiness probe",
+        "description": "Returns 200 if dependencies (ClickHouse, cache) are healthy; 503 otherwise. No auth required.",
+        "operationId": "getReady",
+        "tags": ["Health & metrics"],
+        "security": [],
+        "responses": {
+          "200": { "description": "Ready" },
+          "503": { "description": "Dependency unavailable" }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "summary": "Prometheus metrics",
+        "description": "Prometheus text-format exposition. No auth required.",
+        "operationId": "getMetrics",
+        "tags": ["Health & metrics"],
+        "security": [],
+        "responses": {
+          "200": { "description": "Metrics", "content": { "text/plain": { "schema": { "type": "string" } } } }
+        }
       }
     }
   }

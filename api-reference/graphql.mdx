@@ -1,0 +1,97 @@
+---
+title: "GraphQL"
+description: "GraphQL endpoint for fetching multiple resources in one round-trip. Mirrors the REST surface."
+---
+
+The same data the REST endpoints expose is also available via GraphQL. Use REST for simple, cacheable queries; use GraphQL when you want to fetch a few related resources in one round-trip.
+
+## Endpoint
+
+```
+POST https://api.dexploit.dev/graphql
+Content-Type: application/json
+X-API-Key: ohlcv_live_sk_<your_key>
+```
+
+## Playground
+
+Open the same URL in a browser to load the GraphQL Playground (interactive query builder, schema browser, query history). Authenticate via the playground's HTTP-headers panel:
+
+```json
+{ "X-API-Key": "ohlcv_live_sk_<your_key>" }
+```
+
+## Sample queries
+
+The exact schema is exposed via introspection — these are illustrative. The Playground's "Docs" sidebar is the source of truth.
+
+### Recent swaps for a pool
+
+```graphql
+{
+  swaps(pair_address: "<pool>", limit: 20) {
+    signature
+    timestamp
+    swap_type
+    sol_amount
+    token_amount
+    trader
+  }
+}
+```
+
+### Candles + recent swaps in one round-trip
+
+```graphql
+query DashboardData($pair: String!) {
+  candles(pair_address: $pair, timeframe: "1m", limit: 60) {
+    timestamp
+    open
+    close
+    volume_sol
+    trade_count
+  }
+  swaps(pair_address: $pair, limit: 5) {
+    timestamp
+    swap_type
+    sol_amount
+  }
+}
+```
+
+### Trader stats + recent activity
+
+```graphql
+query TraderProfile($wallet: String!) {
+  traderStats(wallet: $wallet) {
+    total_volume_sol
+    swap_count
+  }
+  traderSwaps(wallet: $wallet, limit: 20) {
+    signature
+    timestamp
+    pool_address
+    swap_type
+    sol_amount
+  }
+}
+```
+
+## Schema introspection
+
+Standard GraphQL introspection works. From the command line:
+
+```bash
+curl -X POST -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+  -H 'Content-Type: application/json' \
+  https://api.dexploit.dev/graphql \
+  -d '{"query":"{ __schema { types { name } } }"}'
+```
+
+## When to use GraphQL vs REST
+
+| Need | Use |
+| --- | --- |
+| One resource, paginate, possibly cache | REST |
+| Several related resources, one round-trip | GraphQL |
+| WebSocket-style subscriptions | [WebSocket](/streaming/websocket), not GraphQL subscriptions |
