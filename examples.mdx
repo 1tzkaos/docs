@@ -1,0 +1,29 @@
+---
+title: "Examples"
+description: "Working sample apps for the most common integration patterns. Source on GitHub, runnable with one command."
+---
+
+Each card below points at a folder of [DexploitV1/Dexploit-Examples](https://github.com/DexploitV1/Dexploit-Examples) — clone the repo, follow the per-folder README.
+
+<Columns cols={2}>
+  <Card title="Stream all swap events (gRPC)" icon="bolt" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_all_swap_events">
+    Subscribe to every swap with no filter — useful for indexers and full-firehose pipelines.
+  </Card>
+  <Card title="Whale-trade alerter (gRPC)" icon="dollar-sign" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_whale_swap_alerts">
+    Filter on `min_sol` to surface large trades only.
+  </Card>
+  <Card title="Stream by token (gRPC)" icon="coins" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_swaps_by_token_mint">
+    Watch every pool of a specific token across DEXs.
+  </Card>
+  <Card title="Stream by trader wallet (gRPC)" icon="wallet" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_swaps_by_trader_wallet">
+    Follow specific traders in real time.
+  </Card>
+  <Card title="Custom filter combinations (gRPC)" icon="sliders" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_swaps_with_custom_filters">
+    Compose filters for tokens / traders / dexes / amounts via env vars.
+  </Card>
+  <Card title="gRPC stream in Rust" icon="rust" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/rust/stream_all_swap_events">
+    Idiomatic `tonic` client.
+  </Card>
+</Columns>
+
+The repo also includes WebSocket and REST examples. If a particular pattern is missing, [open an issue](https://github.com/DexploitV1/Dexploit-Examples/issues) — request-driven additions are how the repo grows.

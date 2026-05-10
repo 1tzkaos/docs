@@ -1,32 +1,3 @@
----
-title: "Claude Code setup"
-description: "Configure Claude Code for your documentation workflow"
-icon: "asterisk"
----
-
-Claude Code is Anthropic's official CLI tool. This guide will help you set up Claude Code to help you write and maintain your documentation.
-
-## Prerequisites
-
-- Active Claude subscription (Pro, Max, or API access)
-
-## Setup
-
-1. Install Claude Code globally:
-
-  ```bash
-  npm install -g @anthropic-ai/claude-code
-```
-
-2. Navigate to your docs directory.
-3. (Optional) Add the `CLAUDE.md` file below to your project.
-4. Run `claude` to start.
-
-## Create `CLAUDE.md`
-
-Create a `CLAUDE.md` file at the root of your documentation repository to train Claude Code on your specific documentation standards:
-
-````markdown
 # Mintlify documentation
 
 ## Working relationship
@@ -73,4 +44,30 @@ Create a `CLAUDE.md` file at the root of your documentation repository to train 
 - Use absolute URLs for internal links
 - Include untested code examples
 - Make assumptions - always ask for clarification
-````
+
+## Project-specific notes (Dexploit)
+
+### OpenAPI is the contract
+
+`api-reference/openapi.json` is the source of truth for the REST surface. If the Rust API changes, update `openapi.json` in the same PR. Mintlify groups operations by their first `tags` value into the navigation groups defined in `docs.json` — adding a new endpoint means adding both an entry under `paths` and (if it's the first of its kind) a tag-matching `group` in the API-reference tab.
+
+Source-of-truth handlers (read these before changing endpoint docs):
+
+- REST raw swaps: `/opt/Dexploit-Swaps/crates/swaps-api/src/handlers.rs`
+- REST OHLCV: `/opt/Dexploit-Swaps/crates/swaps-ohlcv-api/src/handlers/`
+- WebSocket: `/opt/Dexploit-Swaps/crates/swaps-streamer/src/main.rs` and `filters.rs`
+- gRPC: `/opt/Dexploit-Swaps/crates/swaps-streamer/src/grpc_server.rs` plus `examples/grpc/typescript/.../proto/swaps.proto` (canonical client-facing proto)
+- Quotas/tiers: `/opt/Dexploit-Swaps/crates/swaps-api/src/quota.rs`
+
+### Examples repo is the canonical home for runnable code
+
+`https://github.com/DexploitV1/Dexploit-Examples`. Don't duplicate runnable client code in MDX. Inline TypeScript snippets here are illustrative; full clients live in the examples repo.
+
+### Validate before push
+
+```bash
+npx --yes mintlify validate     # strict: warnings → exit
+npx --yes mintlify broken-links # internal + external link check
+```
+
+Both must pass.

@@ -1,0 +1,68 @@
+---
+title: "Authentication"
+description: "API keys, request headers, and tier-based quotas."
+---
+
+Every request needs an API key. Generate one from your [dashboard](https://www.dexploit.dev/dashboard).
+
+## Sending the key
+
+Pass your key in the `X-API-Key` header on every request:
+
+<CodeGroup>
+```bash curl
+curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+  https://api.dexploit.dev/api/v1/pairs?token_address=...
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.dexploit.dev/api/v1/pairs?token_address=...', {
+  headers: { 'X-API-Key': 'ohlcv_live_sk_<your_key>' }
+});
+```
+</CodeGroup>
+
+For browser-side WebSocket connections where headers aren't easy, you can pass the key as a `?api_key=` query string instead. See [Streaming: WebSocket](/streaming/websocket).
+
+## Key format and security
+
+Keys look like `ohlcv_<env>_sk_<48_random_chars>` where `<env>` is `live`, `dev`, or `test`.
+
+Keys are hashed (SHA-256) at rest. You see the full key once at generation. Lost a key? **Rotate** to issue a new one — there's no way to retrieve the original. Rotation issues a fresh key and grants the old one a 7-day grace period before it stops working.
+
+## Tiers and quotas
+
+| Tier | Price | Daily quota | Monthly quota | Rate limit |
+| --- | --- | --- | --- | --- |
+| Free | $0 | 1,000 | 10,000 | Yes |
+| Developer | $50/mo | 20,000 | 200,000 | None |
+| Pro | $199/mo | 200,000 | 2,000,000 | None |
+| Enterprise | Custom | Unlimited | Unlimited | None |
+
+Quota counts include all REST endpoints. Streaming connections are billed on connection time, not per message — see your dashboard for current usage.
+
+## Quota response headers
+
+Every successful response includes:
+
+- `X-RateLimit-Limit` — your monthly cap.
+- `X-RateLimit-Remaining` — calls left this period.
+- `X-RateLimit-Reset` — Unix timestamp when the counter resets.
+
+## Error responses
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 401 | `UNAUTHORIZED` | Key missing, malformed, or revoked. |
+| 429 | `RATE_LIMITED` | Free-tier rate limit exceeded. Back off and retry. |
+| 429 | `QUOTA_EXCEEDED` | Monthly quota hit. [Upgrade](https://www.dexploit.dev/pricing) or wait for reset. |

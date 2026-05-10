@@ -1,13 +1,13 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Dexploit",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#FFFFFF",
+    "light": "#FFFFFF",
+    "dark": "#0A0A0A"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/favicon.ico",
   "navigation": {
     "tabs": [
       {
@@ -15,35 +15,28 @@
         "groups": [
           {
             "group": "Getting started",
+            "pages": ["index", "quickstart", "authentication"]
+          },
+          {
+            "group": "Concepts",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "concepts/pairs-vs-tokens",
+              "concepts/swap-event-ohlcv",
+              "concepts/timeframes-resolution",
+              "concepts/quotas-errors"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Streaming",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "streaming/websocket",
+              "streaming/grpc",
+              "streaming/reconnect-backpressure"
             ]
           },
           {
-            "group": "Writing content",
-            "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
-            ]
+            "group": "Examples",
+            "pages": ["examples"]
           }
         ]
       },
@@ -51,19 +44,28 @@
         "tab": "API reference",
         "groups": [
           {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
+            "group": "Pairs",
+            "openapi": "api-reference/openapi.json"
           },
           {
-            "group": "Endpoint examples",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
+            "group": "Candles (OHLCV)",
+            "openapi": "api-reference/openapi.json"
+          },
+          {
+            "group": "Swaps",
+            "openapi": "api-reference/openapi.json"
+          },
+          {
+            "group": "Stats & trends",
+            "openapi": "api-reference/openapi.json"
+          },
+          {
+            "group": "GraphQL",
+            "pages": ["api-reference/graphql"]
+          },
+          {
+            "group": "Health & metrics",
+            "openapi": "api-reference/openapi.json"
           }
         ]
       }
@@ -71,52 +73,47 @@
     "global": {
       "anchors": [
         {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
+          "anchor": "Dashboard",
+          "href": "https://www.dexploit.dev/dashboard",
+          "icon": "gauge"
         },
         {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
+          "anchor": "GitHub Examples",
+          "href": "https://github.com/DexploitV1/Dexploit-Examples",
+          "icon": "github"
+        },
+        {
+          "anchor": "Status",
+          "href": "https://www.dexploit.dev/status",
+          "icon": "heart-pulse"
         }
       ]
     }
   },
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png"
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "https://www.dexploit.dev/contact"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
+      "label": "Get API Key",
+      "href": "https://www.dexploit.dev/dashboard"
     }
   },
   "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "x": "https://x.com/dexploit",
+      "github": "https://github.com/DexploitV1"
     }
   }
 }

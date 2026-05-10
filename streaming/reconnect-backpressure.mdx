@@ -1,0 +1,52 @@
+---
+title: "Reconnect & backpressure"
+description: "Production hardening: how to recover from drops, fill missed events, and not get disconnected for being slow."
+---
+
+Both [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) eventually drop. This page is the playbook for keeping a stream healthy in production.
+
+## Reconnect
+
+The pattern that works:
+
+1. **Detect the close.** WS: `'close'` event. gRPC: stream `'end'` or `'error'`.
+2. **Wait with exponential backoff.** Start at 1 second, double each retry, cap at 60 seconds.
+3. **Reconnect.** Reset the backoff to 1 second on a successful connect.
+4. **Re-send your subscriptions.** They are not persisted across reconnects.
+5. **Fill the gap with REST.** From the timestamp of your last good event, query [`/api/v1/candles?start=...`](/api-reference) or [`/swaps/range?start=...`](/api-reference) for the missing window. We do **not** replay missed events on the stream.
+
+## Backpressure
+
+If your client is slower than the message rate, the server's send buffer fills up. When it overflows, you get disconnected with an error indicating overflow.
+
+To stay under:
+
+- **Don't await heavy work in the receive loop.** Push events into an in-memory queue and process them on a separate worker.
+- **Coalesce.** If you're rendering a chart, you usually only need the latest event per pool per frame, not every event.
+- **Filter aggressively.** Subscribe with the narrowest filter you can — a `pools` filter is much cheaper than no filter.
+
+## Keepalive
+
+WebSocket: send `{ "type": "ping" }` every 30 seconds. The server replies with `{ "type": "pong" }`. If you don't see a pong within ~10 seconds, treat it like a disconnect.
+
+gRPC: configure HTTP/2 keepalive on the channel:
+
+```typescript
+const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+  'grpc.keepalive_time_ms': 30_000,
+  'grpc.keepalive_timeout_ms': 10_000,
+  'grpc.keepalive_permit_without_calls': 1,
+});
+```
+
+Without these, half-open TCP hangs (firewall idle-timeouts, NAT drops, ungraceful peer crashes) look like the stream stalled — your client thinks it's connected but no events arrive. The keepalive ping forces the OS to surface the dead connection so your reconnect logic can fire.
+
+## Common failure modes
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| Stream silently stalls, no events for minutes | Half-open TCP | Configure keepalive (above). |
+| Reconnect succeeds but no events | Forgot to re-subscribe | Re-send your subscribe message after every connect. |
+| Events stop after a key rotation | Using the old key | Update your client to the new key; old key works for 7 days during grace, then 401s mid-stream. |
+| Constant disconnects under load | Backpressure overflow | Move work off the receive loop or filter more narrowly. |
+| 429 immediately on connect | Free-tier rate limit on connections | Add backoff or upgrade. |
