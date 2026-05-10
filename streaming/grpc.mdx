@@ -1,0 +1,132 @@
+---
+title: "gRPC"
+description: "Highest-throughput swap stream. Schema-typed clients in any language via the .proto file."
+---
+
+For high-volume pipelines or when you want a strongly-typed client across multiple languages, use gRPC.
+
+## When to use gRPC over WebSocket
+
+- You need binary efficiency at high message rates.
+- You want auto-generated clients for Go, Rust, Python, Kotlin, etc.
+- Your runtime supports HTTP/2 and bidirectional streaming.
+
+## Endpoint and auth
+
+```
+grpc.dexploit.dev:443
+```
+
+TLS is required. Authenticate via gRPC metadata:
+
+```
+authorization: Bearer ohlcv_live_sk_<your_key>
+```
+
+## Service definition
+
+The service is `swaps.SwapStream.Subscribe`. The full `.proto` is in [GitHub Examples](https://github.com/DexploitV1/Dexploit-Examples).
+
+```proto
+syntax = "proto3";
+
+package swaps;
+
+service SwapStream {
+  rpc Subscribe(SubscribeRequest) returns (stream SwapEvent);
+}
+
+message SubscribeRequest {
+  repeated string tokens   = 1;
+  repeated string traders  = 2;
+  repeated string pools    = 3;   // pool / pair addresses
+  repeated string dexes    = 4;
+  optional uint64 min_sol  = 5;   // lamports
+  optional uint64 max_sol  = 6;
+  optional bool   is_buy   = 7;
+}
+
+message SwapEvent {
+  string signature       = 1;
+  uint64 slot            = 2;
+  int64  timestamp       = 3;
+  string dex             = 4;
+  string swap_type       = 5;   // "buy" or "sell"
+  string trader          = 6;
+  string token_mint      = 7;
+  string token_decimals  = 8;
+  string sol_amount      = 9;   // string-encoded uint64 (lamports)
+  string token_amount    = 10;  // string-encoded uint64
+  string pool_address    = 11;
+}
+```
+
+`sol_amount`, `token_amount`, and `token_decimals` arrive as strings to dodge JS/TS `Number` precision issues — convert to `BigInt` or parse as needed.
+
+## Complete TypeScript client
+
+Install:
+
+```bash
+npm i @grpc/grpc-js @grpc/proto-loader
+```
+
+Save the proto above as `./proto/swaps.proto`, then:
+
+```typescript
+import * as grpc from '@grpc/grpc-js';
+import * as protoLoader from '@grpc/proto-loader';
+import path from 'path';
+
+const ENDPOINT = 'grpc.dexploit.dev:443';
+const API_KEY  = 'ohlcv_live_sk_<your_key>';
+const POOL     = '<pool_address>';
+
+const PROTO_PATH = path.join(__dirname, 'proto', 'swaps.proto');
+const def = protoLoader.loadSync(PROTO_PATH, {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true,
+});
+const proto = grpc.loadPackageDefinition(def) as any;
+
+const creds = grpc.credentials.combineChannelCredentials(
+  grpc.credentials.createSsl(),
+  grpc.credentials.createFromMetadataGenerator((_params, cb) => {
+    const md = new grpc.Metadata();
+    md.add('authorization', `Bearer ${API_KEY}`);
+    cb(null, md);
+  })
+);
+
+const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+  // Mandatory — without these, half-open TCP hangs look like a stalled stream.
+  'grpc.keepalive_time_ms': 30_000,
+  'grpc.keepalive_timeout_ms': 10_000,
+  'grpc.keepalive_permit_without_calls': 1,
+});
+
+const call = client.Subscribe({ pools: [POOL] });
+
+call.on('data', (e: any) => {
+  const sol = Number(BigInt(e.sol_amount)) / 1e9;
+  const decimals = Number(e.token_decimals) || 6;
+  const tok = Number(BigInt(e.token_amount)) / Math.pow(10, decimals);
+  const price = sol / tok;
+  console.log(
+    `${e.swap_type.toUpperCase()} ${tok.toFixed(2)} @ ${price.toExponential(3)} SOL ` +
+    `(${e.dex}, ${e.signature.slice(0, 8)}…)`
+  );
+});
+
+call.on('error', (err: Error) => console.error('stream error:', err.message));
+call.on('end',   ()           => console.warn('stream ended'));
+```
+
+The keepalive options are not optional — see [Reconnect & backpressure](/streaming/reconnect-backpressure) for why and what to do when the stream drops.
+
+## Other languages
+
+Run `protoc` against the proto to generate clients for any language gRPC supports. Idiomatic examples for Rust (`tonic`), Python (`grpcio`), and TypeScript live in [DexploitV1/Dexploit-Examples](https://github.com/DexploitV1/Dexploit-Examples).

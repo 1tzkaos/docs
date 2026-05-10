@@ -1,0 +1,168 @@
+---
+title: "WebSocket"
+description: "Real-time swap stream over WebSocket. Subscribe by pool, get pushes as trades happen."
+---
+
+The WebSocket stream is the easiest way to get real-time swap data into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc).
+
+## When to use WebSocket
+
+| Need | Use |
+| --- | --- |
+| Browser app, dashboard | WebSocket |
+| Low-to-mid throughput server | WebSocket |
+| Highest throughput, schema-typed clients | [gRPC](/streaming/grpc) |
+| One-shot historical data | [REST](/quickstart) |
+
+## Endpoint and auth
+
+```
+wss://ws.dexploit.dev/ws/swaps
+```
+
+Authenticate either via Bearer header (server) or query string (browser):
+
+```
+Authorization: Bearer ohlcv_live_sk_<your_key>
+
+# or, for browsers where setting headers is awkward:
+wss://ws.dexploit.dev/ws/swaps?api_key=ohlcv_live_sk_<your_key>
+```
+
+## Subscribe
+
+After the connection is up, send a `subscribe` message. Filters are optional — empty filters mean "every swap on every pool".
+
+```json
+{
+  "type": "subscribe",
+  "filters": {
+    "pools": ["<pool_address>"]
+  }
+}
+```
+
+You'll receive:
+
+```json
+{ "type": "subscribed", "message": "Subscribed: pools" }
+```
+
+Then `swap` messages flow as trades happen.
+
+### Supported filters
+
+All filters are optional and combine as AND. Set to `null` or omit to disable.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `pools` | `string[]` | Filter by pool address (this is the most common filter — see [Pairs vs tokens](/concepts/pairs-vs-tokens)). |
+| `tokens` | `string[]` | Filter by token mint. |
+| `traders` | `string[]` | Filter by trader wallet. |
+| `dexes` | `string[]` | Values: `pump_fun`, `pump_swap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm`, `meteora_damm_v2`, `meteora_dbc`, `meteora_dlmm`, `meteora_pools`. |
+| `min_sol` | `number` (lamports) | Minimum SOL amount. 1 SOL = 1,000,000,000 lamports. |
+| `max_sol` | `number` (lamports) | Maximum SOL amount. |
+| `is_buy` | `boolean` | `true` for buys only, `false` for sells only. |
+
+## Wire format gotchas
+
+A `swap` message looks like this (UnifiedSwapEvent inlined):
+
+```json
+{
+  "type": "swap",
+  "signature": "5xa...",
+  "slot": 281234567,
+  "timestamp": 1735000000,
+  "dex": "pump_swap",
+  "trader": "...",
+  "token_mint": "...",
+  "pool_address": "...",
+  "swap_type": "buy",
+  "sol_amount": 123000000,
+  "token_amount": 4567890000,
+  "lp_fee_bps": 100,
+  "base_decimals": 9,
+  "quote_decimals": 6
+}
+```
+
+A few things worth flagging:
+
+- **`swap_type`** is the string `"buy"` or `"sell"` (lowercase). Not `is_buy`. (`is_buy` is only a *filter* key, not a field on the event.)
+- **There is no `price` field.** Compute it client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
+- **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
+- **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account).
+
+## Complete TypeScript client
+
+```typescript
+import WebSocket from 'ws'; // browser: use the global WebSocket
+
+const URL = 'wss://ws.dexploit.dev/ws/swaps';
+const API_KEY = 'ohlcv_live_sk_<your_key>';
+const POOL = '<pool_address>';
+
+let backoff = 1000;
+
+function connect() {
+  const ws = new WebSocket(URL, {
+    headers: { Authorization: `Bearer ${API_KEY}` }
+  });
+
+  ws.on('open', () => {
+    backoff = 1000; // reset on successful connect
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      filters: { pools: [POOL] }
+    }));
+  });
+
+  ws.on('message', (raw) => {
+    const msg = JSON.parse(raw.toString());
+    switch (msg.type) {
+      case 'subscribed':
+        console.log('subscribed:', msg.message);
+        break;
+      case 'swap': {
+        const sol = msg.sol_amount / 1e9;
+        const tok = msg.token_amount / Math.pow(10, msg.quote_decimals ?? 6);
+        const price = sol / tok;
+        console.log(
+          `${msg.swap_type.toUpperCase()} ${tok.toFixed(2)} @ ${price.toExponential(3)} SOL ` +
+          `(${msg.dex}, sig ${msg.signature.slice(0, 8)}…)`
+        );
+        break;
+      }
+      case 'error':
+        console.error('stream error:', msg.message);
+        break;
+    }
+  });
+
+  ws.on('close', () => {
+    console.warn(`disconnected, retrying in ${backoff}ms`);
+    setTimeout(connect, backoff);
+    backoff = Math.min(backoff * 2, 60_000);
+  });
+
+  ws.on('error', (err) => {
+    console.error('ws error:', err);
+    // 'close' fires next; reconnect happens there.
+  });
+}
+
+connect();
+```
+
+For production hardening (resubscribe state, gap-filling via REST, idle pings), see [Reconnect & backpressure](/streaming/reconnect-backpressure).
+
+## Server messages
+
+| `type` | When |
+| --- | --- |
+| `subscribed` | After your `subscribe`. |
+| `unsubscribed` | After your `unsubscribe`. |
+| `swap` | A trade matched your filters. |
+| `pong` | Reply to your `ping`. |
+| `error` | Subscribe rejected, auth failed, or server-side error. |
