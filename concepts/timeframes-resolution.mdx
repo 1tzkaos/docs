@@ -1,0 +1,46 @@
+---
+title: "Timeframes & resolution"
+description: "Supported candle timeframes, request defaults, and timestamp conventions."
+---
+
+## Supported timeframes
+
+Pass one of these strings as the `timeframe` query parameter on candle endpoints:
+
+| timeframe | Notes |
+| --- | --- |
+| `1s` | One second. Highest resolution. |
+| `30s` | |
+| `1m` | One minute. The most common chart resolution. |
+| `5m` | |
+| `15m` | |
+| `1h` | |
+| `4h` | |
+| `1d` | One day, UTC-aligned. |
+
+Each timeframe is its own [ClickHouse materialized view](https://clickhouse.com/docs/en/sql-reference/statements/create/view#materialized) — there's no on-the-fly resampling, so larger timeframes return as fast as `1m`.
+
+Anything else (`2m`, `30m`, etc.) returns 400.
+
+## Bar alignment
+
+Bars are aligned to UTC clock boundaries:
+
+- `1m` bars start at `HH:MM:00`.
+- `1h` bars start at `HH:00:00`.
+- `1d` bars start at `00:00:00` UTC.
+
+The `timestamp` field on a candle is the **start** of the bar.
+
+## Timestamps
+
+Every timestamp on the API is ISO-8601 UTC, e.g., `2026-05-09T12:34:00Z`. When you pass `start` and `end` to `/api/v1/candles`, send ISO-8601 strings.
+
+## Limits
+
+| Endpoint | Default `limit` | Max `limit` |
+| --- | --- | --- |
+| `/api/v1/candles` | 1,000 | 10,000 |
+| `/api/v1/candles/latest` | 100 | 10,000 |
+
+If `end` is omitted on `/api/v1/candles`, the server snaps to a 30-second-aligned "now" so consecutive live queries hit the cache. To pull a precise instantaneous range, set both `start` and `end` explicitly.

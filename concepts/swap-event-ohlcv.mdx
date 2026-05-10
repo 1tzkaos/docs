@@ -1,0 +1,57 @@
+---
+title: "Swap-event OHLCV"
+description: "How Dexploit builds candles. The short version: from real trades, not from polled pool state."
+---
+
+Most Solana OHLCV APIs poll pool *account state* every block or two and build a candle from those snapshots. The price comes from `reserves_a / reserves_b`, the volume comes from differencing reserves between snapshots.
+
+Dexploit doesn't do that. We process every swap event from the [Yellowstone gRPC stream](https://github.com/rpcpool/yellowstone-grpc) as it arrives, normalize it across protocols (Pump.fun, PumpSwap, Raydium, Meteora), and aggregate the events into bars.
+
+## Why this matters for you
+
+Building from events instead of state changes a few things you can rely on:
+
+- **Volume is exact.** `volume_sol` and `volume_token` on each candle are the sum of actual swap amounts within the bar.
+- **Trade counts are real.** `trade_count`, `buy_count`, `sell_count`, and `unique_traders` are direct counts. State-snapshot APIs can't produce these.
+- **No phantom bars.** When a pool has zero trades during a 1-minute interval, that interval has no bar. We don't carry-forward the previous close.
+- **Bar boundaries are clean.** 1-minute bars start at `:00`. RPC drops or block-time jitter don't shift them.
+
+## What's in a candle
+
+```json
+{
+  "timestamp": "2026-05-09T12:34:00Z",
+  "pair_address": "...",
+  "token_address": "...",
+  "base_mint": "So11111111111111111111111111111111111111112",
+  "timeframe": "1m",
+  "open": 0.0000178,
+  "high": 0.0000182,
+  "low":  0.0000176,
+  "close": 0.0000181,
+  "volume_sol": 12.34,
+  "volume_token": 691234.0,
+  "trade_count": 47,
+  "buy_count": 25,
+  "sell_count": 22,
+  "unique_traders": 31
+}
+```
+
+`base_mint` is always wrapped SOL — prices are quoted in SOL.
+
+## Comparison with the account-update model
+
+|  | Account-update model | Swap-event model (Dexploit) |
+| --- | --- | --- |
+| Source | Poll pool reserves | Yellowstone swap stream |
+| Volume accuracy | Approximate (delta of reserves) | Exact (sum of swap amounts) |
+| Empty bars | Carries forward last close | Skipped (no trades = no bar) |
+| Trade count | Not available | Per bar |
+| Late RPC blocks | Bars shift / duplicate | Bars stay aligned |
+
+## Getting the data
+
+[`GET /api/v1/candles`](/api-reference) for a time range, [`GET /api/v1/candles/latest`](/api-reference) for the most-recent N bars. Both require [`pair_address`](/concepts/pairs-vs-tokens), not token mint.
+
+For real-time bars and ticks, subscribe over [WebSocket](/streaming/websocket).

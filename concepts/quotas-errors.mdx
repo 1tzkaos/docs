@@ -1,0 +1,48 @@
+---
+title: "Quotas & errors"
+description: "Daily and monthly quotas, response envelope shape, and error codes."
+---
+
+## Response envelope
+
+Every JSON response is wrapped:
+
+```json
+// Success
+{ "success": true, "data": { /* payload */ } }
+
+// Error
+{ "success": false, "error": { "code": "...", "message": "..." } }
+```
+
+Streaming protocols (WebSocket, gRPC) use protocol-native error frames — see the [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) pages.
+
+## Quotas
+
+Quotas are enforced per API key:
+
+- **Daily** soft cap (resets at 00:00 UTC).
+- **Monthly** hard cap (resets on the calendar 1st).
+
+When you exceed a cap, requests return 429 with `code: "QUOTA_EXCEEDED"`. The response includes `X-RateLimit-Reset` indicating when you're back under.
+
+See [Authentication](/authentication) for tier-specific numbers.
+
+## Rate limits
+
+Free tier has a per-second rate limit. Paid tiers (Developer, Pro, Enterprise) do not — only quotas apply.
+
+## Error codes
+
+| Code | Status | Meaning | Remedy |
+| --- | --- | --- | --- |
+| `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
+| `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
+| `QUOTA_EXCEEDED` | 429 | Monthly quota hit. | Wait for reset or upgrade. |
+| `RATE_LIMITED` | 429 | Free-tier rate limit hit. | Back off and retry. |
+| `INVALID_PARAM` | 400 | One of your query params is wrong. The `message` says which. | Check the request. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
+| `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
+| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |
+| `UNAVAILABLE` | 503 | Backend dependency is down. | Retry with backoff. |
+| `GATEWAY_TIMEOUT` | 504 | Upstream took too long. | Retry; reduce `limit` if persistent. |
+| `INTERNAL` | 500 | Server-side error. | Retry. If it persists, [contact support](https://www.dexploit.dev/contact). |

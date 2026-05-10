@@ -1,0 +1,60 @@
+---
+title: "Pairs vs tokens"
+description: "Why every OHLCV endpoint asks for a pair address, not a token mint."
+---
+
+If you've used other Solana data APIs, you probably ask for OHLCV by token mint. Dexploit doesn't work that way, and here's why.
+
+## One token, many pools
+
+A token like BONK trades on multiple DEX pools simultaneously. Each pool has its own liquidity, price, and volume. Asking "what's the price of BONK?" is ambiguous — it depends which pool.
+
+For example, BONK trades across pools like these (real shape — fetch the latest from `/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`):
+
+| pair_address | protocol | recent_volume_sol |
+| --- | --- | --- |
+| `<pumpswap_pool_address>` | pumpswap | 1234.56 |
+| `<raydium_pool_address>` | raydium | 987.65 |
+| `<meteora_pool_address>` | meteora | 543.21 |
+
+These are different pools — different LP accounts on-chain. They'll have small price differences and different volume profiles.
+
+## What `pair_address` actually is
+
+`pair_address` is the on-chain address of the pool / LP account. Every swap that happens against that pool is captured under that address. When you ask Dexploit for OHLCV or swap history, you're asking about activity in that specific pool.
+
+## Discovery: find pairs for a token
+
+Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume.
+
+```bash
+curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+  'https://api.dexploit.dev/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&limit=10'
+```
+
+Pick the pool you want — usually the one with highest recent volume — and pass its `pair_address` to the OHLCV / swap endpoints.
+
+## What happens if you send `mint` or `pair`
+
+The API rejects it with a clear pointer:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_PARAM",
+    "message": "use pair_address; see /api/v1/pairs?token_address=X to discover pools"
+  }
+}
+```
+
+This is intentional. Aggregating OHLCV across pools requires us to make tradeoffs about which pool is "the" pool, and we'd rather hand that decision to you.
+
+## When `mint` is the right input
+
+A few endpoints intentionally take a token mint, because they aggregate across all pools:
+
+- [`GET /swaps/token/{mint}`](/api-reference) — every swap of a token, across pools.
+- [`GET /stats/token/{mint}`](/api-reference) — aggregate token stats.
+
+If you're using one of those, mint is correct. Everywhere else, use `pair_address`.
