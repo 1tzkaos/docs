@@ -84,6 +84,14 @@
             ]
           },
           {
+            "group": "Streaming",
+            "pages": [
+              "streaming/websocket",
+              "streaming/grpc",
+              "streaming/reconnect-backpressure"
+            ]
+          },
+          {
             "group": "GraphQL",
             "pages": ["api-reference/graphql"]
           },
