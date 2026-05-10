@@ -45,27 +45,55 @@
         "groups": [
           {
             "group": "Pairs",
-            "openapi": "api-reference/openapi.json"
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /api/v1/pairs"
+            ]
           },
           {
             "group": "Candles (OHLCV)",
-            "openapi": "api-reference/openapi.json"
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /api/v1/candles",
+              "GET /api/v1/candles/latest"
+            ]
           },
           {
             "group": "Swaps",
-            "openapi": "api-reference/openapi.json"
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /swaps",
+              "GET /swaps/range",
+              "GET /swaps/whale",
+              "GET /swaps/{signature}",
+              "GET /swaps/trader/{wallet}",
+              "GET /swaps/token/{mint}"
+            ]
           },
           {
             "group": "Stats & trends",
-            "openapi": "api-reference/openapi.json"
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /stats/global",
+              "GET /stats/trader/{wallet}",
+              "GET /stats/token/{mint}",
+              "GET /trending",
+              "GET /api/v1/top-movers",
+              "GET /api/v1/protocols",
+              "GET /api/v1/stats"
+            ]
           },
           {
             "group": "GraphQL",
             "pages": ["api-reference/graphql"]
           },
           {
-            "group": "Health & metrics",
-            "openapi": "api-reference/openapi.json"
+            "group": "Health",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /health",
+              "GET /ready"
+            ]
           }
         ]
       }

@@ -136,12 +136,12 @@
     "/api/v1/pairs": {
       "get": {
         "summary": "List pools (pairs)",
-        "description": "List on-chain pools. Pass `token_address` to discover pools that trade a token, or `protocol` to list all pools on a given DEX. The returned `pair_address` is what you pass to candle and swap endpoints.",
+        "description": "List on-chain pools indexed by Dexploit.\n\nWith no parameters: returns up to `limit` pools across all DEXs. Pass `protocol` to filter by DEX (e.g. `pumpswap`). Pass `token_address` to find every pool that trades a specific token, sorted by recent SOL volume — this is the discovery path for the `pair_address` you'll pass to candle and swap endpoints.\n\n`token_address` and `protocol` can be combined; if both are present, `token_address` is the primary filter.",
         "operationId": "listPairs",
         "tags": ["Pairs"],
         "parameters": [
-          { "name": "token_address", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Token mint to find pools for. When set, returns pools sorted by recent volume." },
-          { "name": "protocol",      "in": "query", "required": false, "schema": { "type": "string", "enum": ["pumpfun", "pumpswap", "raydium", "meteora"] } },
+          { "name": "token_address", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Token mint to find pools for. When set, the response is sorted by recent SOL volume." },
+          { "name": "protocol",      "in": "query", "required": false, "schema": { "type": "string", "enum": ["pumpfun", "pumpswap", "raydium", "meteora"] }, "description": "DEX protocol to filter by." },
           { "name": "limit",         "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 } }
         ],
         "responses": {
@@ -240,7 +240,7 @@
     "/swaps/whale": {
       "get": {
         "summary": "Whale swaps (above threshold)",
-        "description": "Returns recent swaps with `sol_amount` above a threshold (default 10 SOL).",
+        "description": "Returns recent swaps with `sol_amount` above a threshold (default 10 SOL).\n\n**Note:** this endpoint scans a wider window than `/swaps` and tends to be slower. If you're polling, prefer the streaming [WebSocket](/streaming/websocket) or [gRPC](/streaming/grpc) with a `min_sol` filter for similar results in real time.",
         "operationId": "listWhaleSwaps",
         "tags": ["Swaps"],
         "parameters": [
@@ -352,14 +352,16 @@
     "/api/v1/top-movers": {
       "get": {
         "summary": "Top price movers",
-        "description": "Pools with the largest absolute price change over a recent window.",
+        "description": "Pools with the largest absolute price change over the requested timeframe.",
         "operationId": "listTopMovers",
         "tags": ["Stats & trends"],
         "parameters": [
-          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 25, "minimum": 1, "maximum": 100 } }
+          { "name": "timeframe", "in": "query", "required": true,  "schema": { "type": "string", "enum": ["1m","5m","15m","1h","4h","1d"] }, "description": "Window over which to compute price change." },
+          { "name": "limit",     "in": "query", "required": false, "schema": { "type": "integer", "default": 25, "minimum": 1, "maximum": 100 } }
         ],
         "responses": {
-          "200": { "description": "Top movers", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/TopMover" } } } } } } }
+          "200": { "description": "Top movers", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/TopMover" } } } } } } },
+          "400": { "description": "Missing or invalid `timeframe`", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }, "example": { "success": false, "error": { "code": "INVALID_PARAM", "message": "Failed to deserialize query string: missing field `timeframe`" } } } } }
         }
       }
     },
@@ -387,37 +389,25 @@
     "/health": {
       "get": {
         "summary": "Liveness probe",
-        "description": "Returns 200 if the API process is alive. No auth required.",
+        "description": "Returns 200 if the API process is alive. Requires authentication like every other endpoint.",
         "operationId": "getHealth",
-        "tags": ["Health & metrics"],
-        "security": [],
+        "tags": ["Health"],
         "responses": {
-          "200": { "description": "OK", "content": { "text/plain": { "schema": { "type": "string", "example": "ok" } } } }
+          "200": { "description": "OK", "content": { "text/plain": { "schema": { "type": "string", "example": "ok" } } } },
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
     "/ready": {
       "get": {
         "summary": "Readiness probe",
-        "description": "Returns 200 if dependencies (ClickHouse, cache) are healthy; 503 otherwise. No auth required.",
+        "description": "Returns 200 if dependencies (ClickHouse, cache) are healthy; 503 otherwise. Requires authentication.",
         "operationId": "getReady",
-        "tags": ["Health & metrics"],
-        "security": [],
+        "tags": ["Health"],
         "responses": {
           "200": { "description": "Ready" },
+          "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
           "503": { "description": "Dependency unavailable" }
-        }
-      }
-    },
-    "/metrics": {
-      "get": {
-        "summary": "Prometheus metrics",
-        "description": "Prometheus text-format exposition. No auth required.",
-        "operationId": "getMetrics",
-        "tags": ["Health & metrics"],
-        "security": [],
-        "responses": {
-          "200": { "description": "Metrics", "content": { "text/plain": { "schema": { "type": "string" } } } }
         }
       }
     }
