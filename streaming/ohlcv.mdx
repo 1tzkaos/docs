@@ -1,6 +1,7 @@
 ---
 title: "WebSocket: OHLCV"
 description: "Live candle bars pushed as they're built — mid-bar updates and final closes for any pool, any timeframe."
+asyncapi: "/api-reference/asyncapi.json ohlcv"
 ---
 
 The OHLCV WebSocket emits one frame per bar update for each `(pool, timeframe)` you subscribe to. You get mid-bar updates while a bar is open (`is_closed: false`) and a final update on close (`is_closed: true`).
