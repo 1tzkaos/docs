@@ -9,6 +9,7 @@
   "servers": {
     "production": {
       "host": "ws.dexploit.dev",
+      "pathname": "/",
       "protocol": "wss",
       "description": "Production WebSocket edge. TLS required. Authenticate with `?api_key=ohlcv_live_sk_…` or `Authorization: Bearer …`.",
       "security": [
