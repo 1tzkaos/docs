@@ -2,6 +2,25 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Dexploit",
+  "description": "Real-time and historical Solana DEX data: swap streams, swap-event OHLCV candles, token intel, wallet tagging, and pump.fun lifecycle events. Built for dApp teams, dashboards, and data builders who'd rather skip the parsing tax.",
+  "metadata": {
+    "og:site_name":   "Dexploit Docs",
+    "og:type":        "website",
+    "og:image":       "/logo/light.png",
+    "og:locale":      "en_US",
+    "twitter:card":   "summary_large_image",
+    "twitter:site":   "@dexploit",
+    "twitter:image":  "/logo/light.png",
+    "robots":         "index, follow",
+    "googlebot":      "index, follow, max-image-preview:large, max-snippet:-1",
+    "article:author": "Dexploit"
+  },
+  "seo": {
+    "indexing": "all",
+    "metatags": {
+      "keywords": "solana, dex, defi, ohlcv, candles, pumpfun, pumpswap, raydium, meteora, websocket, grpc, api, real-time, swap stream, token intel, wallet tagging, screener, mev, trading, solana data, solana api, pumpfun api, raydium api"
+    }
+  },
   "colors": {
     "primary": "#FFFFFF",
     "light": "#FFFFFF",
@@ -30,6 +49,7 @@
             "group": "Streaming",
             "pages": [
               "streaming/websocket",
+              "streaming/pump-lifecycle",
               "streaming/grpc",
               "streaming/reconnect-backpressure"
             ]
@@ -77,6 +97,7 @@
               "GET /stats/global",
               "GET /stats/trader/{wallet}",
               "GET /stats/token/{mint}",
+              "GET /stats/tokens",
               "GET /trending",
               "GET /api/v1/top-movers",
               "GET /api/v1/protocols",
@@ -84,9 +105,49 @@
             ]
           },
           {
+            "group": "Tokens",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /tokens",
+              "GET /tokens/{mint}",
+              "GET /tokens/{mint}/audit",
+              "GET /tokens/{mint}/intel"
+            ]
+          },
+          {
+            "group": "Wallet intel",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /wallets/{wallet}/tags",
+              "GET /tokens/{mint}/wallet-tag-counts"
+            ]
+          },
+          {
+            "group": "Screener",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "POST /screener"
+            ]
+          },
+          {
+            "group": "Pool events",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /pool-events"
+            ]
+          },
+          {
+            "group": "Pump lifecycle",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /pump-lifecycle"
+            ]
+          },
+          {
             "group": "Streaming",
             "pages": [
               "streaming/websocket",
+              "streaming/pump-lifecycle",
               "streaming/grpc",
               "streaming/reconnect-backpressure"
             ]

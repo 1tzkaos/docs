@@ -29,8 +29,8 @@ Building from events instead of state changes a few things you can rely on:
   "high": 0.0000182,
   "low":  0.0000176,
   "close": 0.0000181,
-  "volume_sol": 12.34,
-  "volume_token": 691234.0,
+  "volume_sol": 12340000000,
+  "volume_token": 691234000000,
   "trade_count": 47,
   "buy_count": 25,
   "sell_count": 22,
@@ -39,6 +39,13 @@ Building from events instead of state changes a few things you can rely on:
 ```
 
 `base_mint` is always wrapped SOL — prices are quoted in SOL.
+
+<Note>
+  Both `volume_sol` and `volume_token` are integers in **base units**, despite the names:
+
+  - `volume_sol` is **lamports** — divide by `1e9` to get SOL (`12340000000` → `12.34 SOL`).
+  - `volume_token` is the token's base units — divide by `10 ** quote_decimals` for the human-readable amount.
+</Note>
 
 ## Comparison with the account-update model
 

@@ -48,17 +48,20 @@ Pick the `pair_address` of the pool you want — usually the one with the highes
 
 <CodeGroup>
 ```bash curl
-curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+curl -H 'Authorization: Bearer ohlcv_live_sk_<your_key>' \
   'https://api.dexploit.dev/api/v1/candles/latest?pair_address=<from_step_1>&timeframe=1m&limit=10'
 ```
 
 ```typescript TypeScript
 const res = await fetch(
   `https://api.dexploit.dev/api/v1/candles/latest?pair_address=${pair}&timeframe=1m&limit=10`,
-  { headers: { 'X-API-Key': 'ohlcv_live_sk_<your_key>' } }
+  { headers: { 'Authorization': 'Bearer ohlcv_live_sk_<your_key>' } }
 );
 const { data: candles } = await res.json();
-candles.forEach(c => console.log(c.timestamp, c.close, `vol ${c.volume_sol.toFixed(2)} SOL`));
+// volume_sol is in **lamports** — divide by 1e9 to get SOL.
+candles.forEach(c =>
+  console.log(c.timestamp, c.close, `vol ${(c.volume_sol / 1e9).toFixed(2)} SOL`)
+);
 ```
 </CodeGroup>
 

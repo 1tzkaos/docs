@@ -1,0 +1,96 @@
+---
+title: "Pump lifecycle stream"
+description: "Real-time WebSocket of pump.fun mints, bonding-curve progress, and migrations to pumpswap."
+---
+
+The pump-lifecycle stream pushes a token's entire pump.fun journey — from the `mint_created` event, through bonding-curve progress, to `graduated` (migration to a tradeable pumpswap pool).
+
+For one-shot history of the same events, use the REST endpoint `GET /pump-lifecycle` (under **Pump lifecycle** in the API reference).
+
+## When to use it
+
+- You want to surface fresh mints the second they appear.
+- You want to alert when a token crosses some bonding-curve threshold.
+- You want to react to graduations as the AMM pool comes alive.
+
+For all *post-graduation* trading activity (swaps), switch to the main [WebSocket: swaps](/streaming/websocket) feed once you see a `graduated` event — the pool only has swap volume after that point.
+
+## Endpoint and auth
+
+```
+wss://ws.dexploit.dev/ws/pump-lifecycle
+```
+
+Authenticate the same way as the main WebSocket:
+
+```
+Authorization: Bearer ohlcv_live_sk_<your_key>
+
+# or, for browsers:
+wss://ws.dexploit.dev/ws/pump-lifecycle?api_key=ohlcv_live_sk_<your_key>
+```
+
+There is **no subscribe step** — every connected client receives every lifecycle event. Filter client-side.
+
+## Event shape
+
+```json
+{
+  "mint": "EVii5EiqTH1B6acxfJpcLnVRnVUyL6LiTksikqUDpump",
+  "event_type": "mint_created",
+  "ts": 1779274577,
+  "creator": "DyXtzQRAzPMDNwwTh16YMSXpYmUg3CSsqLD4xRPRTup1",
+  "bonding_pct": 0.0,
+  "dex": null,
+  "new_pool": null,
+  "raw_tx_sig": "2zq6B2DwRashGgQeUduWt6VNQwWr5XKdaggDah1TF931iig7bb3YBUGBJqNzz3iCTjzys3KpsaSjxPb6tdKkQ8P4"
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `event_type` | `mint_created` \| `bonding_progress` \| `graduated`. |
+| `bonding_pct` | 0.0 at mint, 1.0 at graduation. Updated on most swap-triggered progress jumps. |
+| `dex` | Destination DEX, set only on `graduated` (today: `pumpswap`). |
+| `new_pool` | The address you'll pass as `pair_address` after migration. Set only on `graduated`. |
+| `ts` | Unix epoch **seconds** (not ms — different from the main swaps feed). |
+| `raw_tx_sig` | Solana signature you can replay against `/swaps/{signature}` or an explorer. |
+
+## Minimal TypeScript client
+
+```typescript
+import WebSocket from 'ws'; // browser: use the global WebSocket
+
+const URL = 'wss://ws.dexploit.dev/ws/pump-lifecycle';
+const API_KEY = 'ohlcv_live_sk_<your_key>';
+
+let backoff = 1000;
+
+function connect() {
+  const ws = new WebSocket(URL, {
+    headers: { Authorization: `Bearer ${API_KEY}` },
+  });
+
+  ws.on('open', () => { backoff = 1000; });
+
+  ws.on('message', (raw) => {
+    const e = JSON.parse(raw.toString());
+    if (e.event_type === 'graduated') {
+      console.log(`GRADUATED ${e.mint} → pool ${e.new_pool} (${e.dex})`);
+    } else if (e.event_type === 'mint_created') {
+      console.log(`NEW MINT  ${e.mint} by ${e.creator}`);
+    }
+  });
+
+  ws.on('close', () => {
+    setTimeout(connect, backoff);
+    backoff = Math.min(backoff * 2, 60_000);
+  });
+
+  ws.on('error', () => { /* close will fire next */ });
+}
+
+connect();
+```
+
+For pings, idle timeouts, and gap-filling against the REST endpoint, see [Reconnect & backpressure](/streaming/reconnect-backpressure).
