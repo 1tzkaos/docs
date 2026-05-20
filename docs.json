@@ -178,13 +178,6 @@
               "streaming/grpc",
               "streaming/reconnect-backpressure"
             ]
-          },
-          {
-            "group": "Reference (AsyncAPI)",
-            "asyncapi": {
-              "source": "/api-reference/asyncapi.json",
-              "directory": "streaming-ws"
-            }
           }
         ]
       }
