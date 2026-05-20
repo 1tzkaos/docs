@@ -10,7 +10,10 @@
     "production": {
       "host": "ws.dexploit.dev",
       "protocol": "wss",
-      "description": "Production WebSocket edge. TLS required. Authenticate with `?api_key=ohlcv_live_sk_…` or `Authorization: Bearer …`."
+      "description": "Production WebSocket edge. TLS required. Authenticate with `?api_key=ohlcv_live_sk_…` or `Authorization: Bearer …`.",
+      "security": [
+        { "$ref": "#/components/securitySchemes/ApiKeyQuery" }
+      ]
     }
   },
   "channels": {
