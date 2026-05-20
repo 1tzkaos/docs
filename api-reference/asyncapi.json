@@ -54,7 +54,7 @@
   },
   "operations": {
     "receiveSwap": {
-      "action": "receive",
+      "action": "send",
       "channel": { "$ref": "#/channels/swaps" },
       "summary": "Receive a swap event",
       "description": "Server-pushed frame when a swap matches your active filters (or any swap, if you haven't called `subscribe` with filters).",
@@ -67,7 +67,7 @@
       ]
     },
     "sendSwapSubscribe": {
-      "action": "send",
+      "action": "receive",
       "channel": { "$ref": "#/channels/swaps" },
       "summary": "Subscribe / refine filters",
       "description": "Set or update the active filter set. Sending a new `subscribe` *replaces* the previous filter set — there's no additive mode.",
@@ -78,7 +78,7 @@
       ]
     },
     "receiveOhlcv": {
-      "action": "receive",
+      "action": "send",
       "channel": { "$ref": "#/channels/ohlcv" },
       "summary": "Receive a candle frame",
       "description": "Server pushes one `ohlcv` frame per (pool, timeframe) bar update. A bar may emit multiple frames while it's still open; the final emission for a bar has `is_closed: true`.",
@@ -90,14 +90,14 @@
       ]
     },
     "sendOhlcvSubscribe": {
-      "action": "send",
+      "action": "receive",
       "channel": { "$ref": "#/channels/ohlcv" },
       "summary": "Subscribe to pools + timeframes",
       "description": "Must be sent after connect to receive candles. Both `pair_addresses` and `timeframes` are required and additive — each subsequent `subscribe` widens the set.",
       "messages": [{ "$ref": "#/channels/ohlcv/messages/subscribe" }]
     },
     "receivePumpLifecycle": {
-      "action": "receive",
+      "action": "send",
       "channel": { "$ref": "#/channels/pumpLifecycle" },
       "summary": "Receive a lifecycle event",
       "description": "Server pushes every pump.fun lifecycle event to every connected client. No subscribe step.",
