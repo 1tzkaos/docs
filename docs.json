@@ -23,9 +23,6 @@
               "concepts/pairs-vs-tokens",
               "concepts/swap-event-ohlcv",
               "concepts/timeframes-resolution",
-              "concepts/pool-events",
-              "concepts/holders",
-              "concepts/wallet-intel-tags",
               "concepts/quotas-errors"
             ]
           },
@@ -33,8 +30,6 @@
             "group": "Streaming",
             "pages": [
               "streaming/websocket",
-              "streaming/ohlcv",
-              "streaming/pump-lifecycle",
               "streaming/grpc",
               "streaming/reconnect-backpressure"
             ]
@@ -89,73 +84,9 @@
             ]
           },
           {
-            "group": "Pool events",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "GET /pool-events"
-            ]
-          },
-          {
-            "group": "Tokens",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "GET /tokens",
-              "GET /tokens/{mint}",
-              "GET /tokens/{mint}/audit",
-              "GET /tokens/{mint}/intel",
-              "GET /tokens/{mint}/wallet-tag-counts"
-            ]
-          },
-          {
-            "group": "Holders",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "GET /tokens/{mint}/holders",
-              "GET /tokens/{mint}/concentration",
-              "POST /tokens/{mint}/snapshot-now"
-            ]
-          },
-          {
-            "group": "Wallets",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "GET /wallets/{addr}/pnl",
-              "GET /wallets/{addr}/stats",
-              "GET /wallets/{addr}/trades",
-              "GET /wallets/{addr}/holdings",
-              "GET /wallets/{addr}/tags"
-            ]
-          },
-          {
-            "group": "Screener",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "POST /screener"
-            ]
-          },
-          {
-            "group": "Pump lifecycle",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "GET /pump-lifecycle"
-            ]
-          },
-          {
-            "group": "Alerts",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "GET /alerts",
-              "POST /alerts",
-              "PATCH /alerts/{id}",
-              "DELETE /alerts/{id}"
-            ]
-          },
-          {
             "group": "Streaming",
             "pages": [
               "streaming/websocket",
-              "streaming/ohlcv",
-              "streaming/pump-lifecycle",
               "streaming/grpc",
               "streaming/reconnect-backpressure"
             ]

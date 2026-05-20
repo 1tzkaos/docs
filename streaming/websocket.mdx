@@ -164,33 +164,5 @@ For production hardening (resubscribe state, gap-filling via REST, idle pings), 
 | `subscribed` | After your `subscribe`. |
 | `unsubscribed` | After your `unsubscribe`. |
 | `swap` | A trade matched your filters. |
-| `pool_event` | LP deposit / withdraw / burn against a matching pool — see [Pool events](/concepts/pool-events) and the frame shape below. |
 | `pong` | Reply to your `ping`. |
 | `error` | Subscribe rejected, auth failed, or server-side error. |
-
-## Pool-event frames
-
-The same socket also pushes `pool_event` frames whenever an LP operation matches your filter. Frame shape mirrors [`GET /pool-events`](/api-reference) with a `type` discriminator on top:
-
-```json
-{
-  "type": "pool_event",
-  "timestamp_ms": 1779267383123,
-  "slot": 281234567,
-  "signature": "5xa...",
-  "event_type": "lp_burn",
-  "pool_address": "...",
-  "token_mint": "...",
-  "user": "...",
-  "base_amount": 0,
-  "quote_amount": 0,
-  "lp_token_amount": 4823918023,
-  "dex": "pumpswap"
-}
-```
-
-You do not subscribe to pool-events separately — any `pools` / `tokens` filter that matches the underlying pool delivers both `swap` and `pool_event` frames over the same connection. Branch on the top-level `type`.
-
-## Other live streams
-
-For OHLCV bars and pump.fun lifecycle events, see the dedicated sockets at [`/ws/ohlcv`](/streaming/ohlcv) and [`/ws/pump-lifecycle`](/streaming/pump-lifecycle).
