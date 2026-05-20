@@ -1,0 +1,49 @@
+---
+title: "Pump lifecycle WebSocket"
+description: "Live pump.fun mint, completing, and graduation events over WebSocket."
+---
+
+`/ws/pump-lifecycle` is a firehose of pump.fun lifecycle events as they happen — new mints, mints approaching the 85-SOL bonding-curve threshold, and graduations to an AMM pool. Use it to surface fresh launches without polling [`GET /pump-lifecycle`](/api-reference).
+
+## Endpoint and auth
+
+```
+wss://ws.dexploit.dev/ws/pump-lifecycle
+```
+
+Auth is the same Bearer / query-string pattern as the other Dexploit WebSockets — see [`/ws/swaps`](/streaming/websocket#endpoint-and-auth).
+
+## No subscribe step
+
+Unlike `/ws/swaps` and `/ws/ohlcv`, this socket has no client-side filter — every connected client sees every lifecycle event. Filter client-side on `event_type` or `dex`.
+
+## Frame shape
+
+Frames mirror the REST [`PumpLifecycleEvent`](/api-reference) shape:
+
+```json
+{
+  "mint": "5vr7MuT86gDRiYtnGovb8DBNExzLuVxPss97YYd3pump",
+  "ts": 1779267293,
+  "event_type": "mint_created",
+  "creator": "9UeZqg937qFPRat6j4Y32ANc2Hnf5WGz2fwrmsJZKe4N",
+  "bonding_pct": 0.0,
+  "new_pool": null,
+  "dex": null,
+  "raw_tx_sig": "4g9X..."
+}
+```
+
+`event_type` is one of:
+
+| Value | When |
+| --- | --- |
+| `mint_created` | Pump.fun mint just created. `bonding_pct: 0.0`, `new_pool: null`, `dex: null`. |
+| `completing` | Bonding curve crossed 80%; graduation is imminent. `new_pool` still null. |
+| `graduated` | Mint hit the 85 SOL threshold and migrated. `bonding_pct: 1.0`, `new_pool` and `dex` populated. |
+
+`ts` is Unix seconds (not milliseconds, unlike most other Dexploit timestamps).
+
+## Reconnect
+
+The socket does not buffer events for disconnected clients. After a reconnect, backfill any gap with `GET /pump-lifecycle?status=…&before=<your-last-ts>`.
