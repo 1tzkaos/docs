@@ -151,23 +151,6 @@
             ]
           },
           {
-            "group": "Streaming",
-            "pages": [
-              "streaming/websocket",
-              "streaming/ohlcv",
-              "streaming/pump-lifecycle",
-              "streaming/grpc",
-              "streaming/reconnect-backpressure"
-            ]
-          },
-          {
-            "group": "WebSocket (AsyncAPI)",
-            "asyncapi": {
-              "source": "/api-reference/asyncapi.json",
-              "directory": "streaming-ws"
-            }
-          },
-          {
             "group": "GraphQL",
             "pages": [
               "api-reference/graphql"
@@ -180,6 +163,28 @@
               "GET /health",
               "GET /ready"
             ]
+          }
+        ]
+      },
+      {
+        "tab": "Webstreams",
+        "groups": [
+          {
+            "group": "Guides",
+            "pages": [
+              "streaming/websocket",
+              "streaming/ohlcv",
+              "streaming/pump-lifecycle",
+              "streaming/grpc",
+              "streaming/reconnect-backpressure"
+            ]
+          },
+          {
+            "group": "Reference (AsyncAPI)",
+            "asyncapi": {
+              "source": "/api-reference/asyncapi.json",
+              "directory": "streaming-ws"
+            }
           }
         ]
       }
