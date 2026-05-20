@@ -115,8 +115,9 @@
   "components": {
     "securitySchemes": {
       "ApiKeyQuery": {
-        "type": "apiKey",
+        "type": "httpApiKey",
         "in": "query",
+        "name": "api_key",
         "description": "`?api_key=ohlcv_live_sk_…` appended to the connection URL. Browser-friendly; the only option in environments where you can't set headers."
       },
       "BearerAuth": {
