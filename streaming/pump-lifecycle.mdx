@@ -32,29 +32,51 @@ wss://ws.dexploit.dev/ws/pump-lifecycle?api_key=ohlcv_live_sk_<your_key>
 
 There is **no subscribe step** — every connected client receives every lifecycle event. Filter client-side.
 
-## Event shape
+## Event shapes
+
+Frames are typed by `type` (note: the REST `/pump-lifecycle` endpoint uses `event_type` for the same field — the streaming feed differs intentionally).
+
+**`mint_created`** — a new pump.fun token is minted; the bonding curve is at 0%.
 
 ```json
 {
-  "mint": "EVii5EiqTH1B6acxfJpcLnVRnVUyL6LiTksikqUDpump",
-  "event_type": "mint_created",
-  "ts": 1779274577,
-  "creator": "DyXtzQRAzPMDNwwTh16YMSXpYmUg3CSsqLD4xRPRTup1",
-  "bonding_pct": 0.0,
-  "dex": null,
-  "new_pool": null,
-  "raw_tx_sig": "2zq6B2DwRashGgQeUduWt6VNQwWr5XKdaggDah1TF931iig7bb3YBUGBJqNzz3iCTjzys3KpsaSjxPb6tdKkQ8P4"
+  "type": "mint_created",
+  "mint": "AkK37QB3MSaEdz2e5LFt1JuFA1MjSckonnEjW6txpump",
+  "ts": 1779279502,
+  "creator": "FeFdCVhqVyLizLGWkNkgFm4UhZXgrjq6tkjXpVEKHqSk"
+}
+```
+
+**`completing`** — the bonding curve hit its threshold and migration is imminent. `bonding_pct` reads `1.0`.
+
+```json
+{
+  "type": "completing",
+  "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
+  "ts": 1779279513,
+  "bonding_pct": 1.0
+}
+```
+
+**`graduated`** — bonding curve done, AMM pool is live at `new_pool`. Use that pool address for candles and swap queries from now on.
+
+```json
+{
+  "type": "graduated",
+  "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
+  "ts": 1779279512,
+  "dex": "pumpswap",
+  "new_pool": "DyYPN3FsuUjbXspisF4HszHswsuVMV3BxWZ8ALmXAKiF"
 }
 ```
 
 | Field | Notes |
 | --- | --- |
-| `event_type` | `mint_created` \| `bonding_progress` \| `graduated`. |
-| `bonding_pct` | 0.0 at mint, 1.0 at graduation. Updated on most swap-triggered progress jumps. |
-| `dex` | Destination DEX, set only on `graduated` (today: `pumpswap`). |
-| `new_pool` | The address you'll pass as `pair_address` after migration. Set only on `graduated`. |
-| `ts` | Unix epoch **seconds** (not ms — different from the main swaps feed). |
-| `raw_tx_sig` | Solana signature you can replay against `/swaps/{signature}` or an explorer. |
+| `type` | `mint_created` \| `completing` \| `graduated`. |
+| `ts` | Unix epoch **seconds** (not ms — different from the swaps feed). |
+| `dex` / `new_pool` | Only on `graduated`. |
+| `creator` | Only on `mint_created`. |
+| `bonding_pct` | Only on `completing` (always `1.0`). |
 
 ## Minimal TypeScript client
 
@@ -75,10 +97,16 @@ function connect() {
 
   ws.on('message', (raw) => {
     const e = JSON.parse(raw.toString());
-    if (e.event_type === 'graduated') {
-      console.log(`GRADUATED ${e.mint} → pool ${e.new_pool} (${e.dex})`);
-    } else if (e.event_type === 'mint_created') {
-      console.log(`NEW MINT  ${e.mint} by ${e.creator}`);
+    switch (e.type) {
+      case 'mint_created':
+        console.log(`NEW MINT   ${e.mint} by ${e.creator}`);
+        break;
+      case 'completing':
+        console.log(`COMPLETING ${e.mint} (curve at ${e.bonding_pct})`);
+        break;
+      case 'graduated':
+        console.log(`GRADUATED  ${e.mint} → pool ${e.new_pool} (${e.dex})`);
+        break;
     }
   });
 
@@ -94,3 +122,7 @@ connect();
 ```
 
 For pings, idle timeouts, and gap-filling against the REST endpoint, see [Reconnect & backpressure](/streaming/reconnect-backpressure).
+
+## Programmatic spec
+
+All three WebSocket channels — including this one — are described in a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). Useful for client codegen or LLM context.

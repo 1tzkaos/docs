@@ -1,9 +1,9 @@
 ---
-title: "WebSocket"
+title: "WebSocket: swaps"
 description: "Real-time swap stream over WebSocket. Subscribe by pool, get pushes as trades happen."
 ---
 
-The WebSocket stream is the easiest way to get real-time swap data into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc).
+The swaps WebSocket is the easiest way to get real-time DEX trades into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc). For other streams: [OHLCV candles](/streaming/ohlcv) and [pump.fun lifecycle](/streaming/pump-lifecycle).
 
 ## When to use WebSocket
 
@@ -12,6 +12,8 @@ The WebSocket stream is the easiest way to get real-time swap data into a browse
 | Browser app, dashboard | WebSocket |
 | Low-to-mid throughput server | WebSocket |
 | Highest throughput, schema-typed clients | [gRPC](/streaming/grpc) |
+| Live OHLCV bars | [WebSocket: OHLCV](/streaming/ohlcv) |
+| Pump.fun mint / migration events | [WebSocket: pump lifecycle](/streaming/pump-lifecycle) |
 | One-shot historical data | [REST](/quickstart) |
 
 ## Endpoint and auth
@@ -59,40 +61,61 @@ All filters are optional and combine as AND. Set to `null` or omit to disable.
 | `pools` | `string[]` | Filter by pool address (this is the most common filter — see [Pairs vs tokens](/concepts/pairs-vs-tokens)). |
 | `tokens` | `string[]` | Filter by token mint. |
 | `traders` | `string[]` | Filter by trader wallet. |
-| `dexes` | `string[]` | Values: `pump_fun`, `pump_swap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm`, `meteora_damm_v2`, `meteora_dbc`, `meteora_dlmm`, `meteora_pools`. |
+| `dexes` | `string[]` | Values: `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm`, `orca`, `meteora_damm_v2`, `meteora_dbc`, `meteora_dlmm`, `meteora_pools`. |
 | `min_sol` | `number` (lamports) | Minimum SOL amount. 1 SOL = 1,000,000,000 lamports. |
 | `max_sol` | `number` (lamports) | Maximum SOL amount. |
 | `is_buy` | `boolean` | `true` for buys only, `false` for sells only. |
 
 ## Wire format gotchas
 
-A `swap` message looks like this (UnifiedSwapEvent inlined):
+A `swap` frame looks like this (captured live from `meteora_damm_v2`):
 
 ```json
 {
   "type": "swap",
-  "signature": "5xa...",
-  "slot": 281234567,
-  "timestamp": 1735000000,
-  "dex": "pump_swap",
-  "trader": "...",
-  "token_mint": "...",
-  "pool_address": "...",
-  "swap_type": "buy",
-  "sol_amount": 123000000,
-  "token_amount": 4567890000,
-  "lp_fee_bps": 100,
+  "signature": "3rjMq3C7Zp4eDDRtKwEBmVFXErFt4twvUVryNerBgkrxqs53XhAgL3LqDvfiZjDLNHEbwkbkQMTwfSjD1BvSboES",
+  "slot": 420984167,
+  "timestamp": 1779279483,
+  "dex": "meteora_damm_v2",
+  "swap_type": "sell",
+  "trader": "rk4jdi7srE6VKtxPeCKnqpEe7uJdZLLdpv1qAPK8LRd",
+  "token_mint": "8ZiqYN6rEm6PapbhCm5wWWzkRjsYyixgqW3K2384D1C3",
+  "pool_address": "DT75gs9fygQxi2Aq2ST1jz9C6FTNcbBjpgSpdDpMDdLX",
+  "amount_in": 350832255298,
+  "amount_out": 729873626,
+  "sol_amount": 729873626,
+  "token_amount": 350832255298,
+  "virtual_sol_reserves": null,
+  "virtual_token_reserves": null,
+  "real_sol_reserves": 91985332910,
+  "real_token_reserves": 44561454812398,
+  "lp_fee_bps": 1,
+  "protocol_fee_bps": 0,
+  "fee": null,
+  "creator_fee": null,
+  "creator_fee_bps": 0,
+  "price_impact_bps": null,
   "base_decimals": 9,
-  "quote_decimals": 6
+  "quote_decimals": 6,
+  "pool_price": 2.0642354092175554e-6,
+  "transfer_fee_in": 0,
+  "transfer_fee_out": 0,
+  "cashback": null,
+  "cashback_bps": 0,
+  "maker_tags": []
 }
 ```
 
 A few things worth flagging:
 
-- **`swap_type`** is the string `"buy"` or `"sell"` (lowercase). Not `is_buy`. (`is_buy` is only a *filter* key, not a field on the event.)
-- **There is no `price` field.** Compute it client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
+- **`swap_type`** is the string `"buy"` or `"sell"` (lowercase). Not `is_buy`. (`is_buy` is only a *filter* key, not a field on the event.) The REST `/swaps*` endpoints use `is_buy` (bool) instead — these two surfaces are intentionally different.
+- **`dex` is the string name** here. On the REST `/swaps*` endpoints `dex` is an integer ID. Same enum, different encoding.
+- **`timestamp` is epoch seconds.** On REST `/swaps*` it's epoch milliseconds; on REST candles it's ISO 8601.
+- **There is no `price` field.** Use `pool_price` (decimals-adjusted mid after the swap) or compute fill price client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
 - **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
 - **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account).
+- **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
+- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings.
 
 ## Complete TypeScript client
 
@@ -166,3 +189,7 @@ For production hardening (resubscribe state, gap-filling via REST, idle pings), 
 | `swap` | A trade matched your filters. |
 | `pong` | Reply to your `ping`. |
 | `error` | Subscribe rejected, auth failed, or server-side error. |
+
+## Programmatic spec
+
+If you're generating clients or feeding the contract into an LLM/codegen pipeline, every WebSocket channel — `/ws/swaps`, `/ws/ohlcv`, `/ws/pump-lifecycle` — is described as a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). All message schemas and live-captured example payloads are included.
