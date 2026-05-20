@@ -1,0 +1,134 @@
+---
+title: "WebSocket: OHLCV"
+description: "Live candle bars pushed as they're built — mid-bar updates and final closes for any pool, any timeframe."
+---
+
+The OHLCV WebSocket emits one frame per bar update for each `(pool, timeframe)` you subscribe to. You get mid-bar updates while a bar is open (`is_closed: false`) and a final update on close (`is_closed: true`).
+
+This is the right channel when you want to render a live chart or trigger logic on bar close. For one-shot history, use [`/api/v1/candles`](/api-reference) and [`/api/v1/candles/latest`](/api-reference). For raw per-swap data, use [WebSocket: swaps](/streaming/websocket).
+
+## Endpoint and auth
+
+```
+wss://ws.dexploit.dev/ws/ohlcv
+```
+
+Authenticate either via Bearer header (server) or query string (browser):
+
+```
+Authorization: Bearer ohlcv_live_sk_<your_key>
+
+# or, for browsers:
+wss://ws.dexploit.dev/ws/ohlcv?api_key=ohlcv_live_sk_<your_key>
+```
+
+## Subscribe
+
+After the connection is up the server sends a hello frame:
+
+```json
+{ "client_id": "8caba129-bdab-…", "data_inception": "2026-05-02T00:03:00Z", "status": "connected" }
+```
+
+Then send a `subscribe`. **Both `pair_addresses` and `timeframes` are required** — the server will reply with `{"error": "invalid subscribe: timeframes empty"}` (or similar) if either is missing.
+
+```json
+{
+  "type": "subscribe",
+  "pair_addresses": ["HdqYz5GVuWgNXbE6fBkgCYXUSPGoyco5yYLBaL5ZzKAR"],
+  "timeframes": ["1s", "1m"]
+}
+```
+
+Server ack:
+
+```json
+{ "status": "subscribed", "pairs": 1, "timeframes": ["1s", "1m"], "subjects": 2 }
+```
+
+Subsequent `subscribe` messages are **additive** — they widen the subscription set rather than replace it. (Different from the [swaps WebSocket](/streaming/websocket), where each `subscribe` replaces the prior filters.)
+
+## Frame shape
+
+```json
+{
+  "type": "ohlcv",
+  "pair_address": "HdqYz5GVuWgNXbE6fBkgCYXUSPGoyco5yYLBaL5ZzKAR",
+  "token_address": "BsZoKtYtP3V2xJnqonEaYXXaQdLv8kPM45aRbt23oPEJ",
+  "timeframe": "1m",
+  "timestamp": "2026-05-20T12:20:00+00:00",
+  "open":  7.553982e-7,
+  "high":  7.613724e-7,
+  "low":   7.553982e-7,
+  "close": 7.613724e-7,
+  "volume_sol":   2058053069,
+  "volume_token": 2713479778451,
+  "trade_count":   5,
+  "buy_count":     5,
+  "sell_count":    0,
+  "unique_traders": 5,
+  "is_closed": false
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `timestamp` | Bar **open** time, ISO 8601. The bar covers `[timestamp, timestamp + timeframe)`. |
+| `is_closed` | `false` for interim mid-bar pushes; `true` on the bar's final tick. A given `(pair, timeframe, timestamp)` may emit multiple `is_closed: false` frames followed by one `is_closed: true` — the latter is authoritative. |
+| `volume_sol` | **Lamports**, despite the name. Divide by `1e9` for SOL. |
+| `volume_token` | Token base units. Divide by `10 ** quote_decimals` for human-readable. |
+| `unique_traders` | Distinct wallets that traded in this bar so far. Grows monotonically across mid-bar frames. |
+
+## Minimal TypeScript client
+
+```typescript
+import WebSocket from 'ws'; // browser: use the global WebSocket
+
+const URL    = 'wss://ws.dexploit.dev/ws/ohlcv';
+const API    = 'ohlcv_live_sk_<your_key>';
+const PAIR   = '<pool_address>';
+const TFS    = ['1m'];
+
+let backoff = 1000;
+
+function connect() {
+  const ws = new WebSocket(URL, { headers: { Authorization: `Bearer ${API}` } });
+
+  ws.on('open', () => {
+    backoff = 1000;
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      pair_addresses: [PAIR],
+      timeframes: TFS,
+    }));
+  });
+
+  ws.on('message', (raw) => {
+    const f = JSON.parse(raw.toString());
+    if (f.type !== 'ohlcv') return; // skip hello + subscribe ack + errors
+    const tag = f.is_closed ? 'CLOSED' : 'open  ';
+    const volSol = f.volume_sol / 1e9;
+    console.log(
+      `${tag} ${f.timeframe}@${f.timestamp}  o=${f.open.toExponential(3)} c=${f.close.toExponential(3)} ` +
+      `vol=${volSol.toFixed(3)} SOL (${f.trade_count} trades)`,
+    );
+  });
+
+  ws.on('close', () => {
+    setTimeout(connect, backoff);
+    backoff = Math.min(backoff * 2, 60_000);
+  });
+
+  ws.on('error', () => { /* close fires next */ });
+}
+
+connect();
+```
+
+If you're rendering a live chart, key your local bar store by `(pair_address, timeframe, timestamp)` and *overwrite* the entry on every frame for that key — the latest frame is always the freshest snapshot of that bar. When `is_closed: true` arrives, that bar is final.
+
+For reconnect strategy, gap-filling against `/api/v1/candles`, and keepalive guidance, see [Reconnect & backpressure](/streaming/reconnect-backpressure).
+
+## Programmatic spec
+
+The full message contract for this channel — and the other two WebSocket streams — is published as an [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json) you can feed into client generators, validators, or an LLM.
