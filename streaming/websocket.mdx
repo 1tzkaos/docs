@@ -170,7 +170,7 @@ For production hardening (resubscribe state, gap-filling via REST, idle pings), 
 
 ## Pool-event frames
 
-The same socket also pushes `pool_event` frames whenever an LP operation matches your filter. Frame shape mirrors [`GET /pool-events`](/api-reference/pool-events/listpoolevents) with a `type` discriminator on top:
+The same socket also pushes `pool_event` frames whenever an LP operation matches your filter. Frame shape mirrors [`GET /pool-events`](/api-reference) with a `type` discriminator on top:
 
 ```json
 {

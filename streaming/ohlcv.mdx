@@ -3,7 +3,7 @@ title: "OHLCV WebSocket"
 description: "Live partial OHLCV bars plus closed-bar finalizations over WebSocket. Drives chart UIs without polling."
 ---
 
-`/ws/ohlcv` pushes both the in-progress (partial) bar and the final (closed) bar for the timeframes you subscribe to. Use it to drive a candlestick chart without polling [`GET /api/v1/candles/latest`](/api-reference/candles-ohlcv/listlatestcandles).
+`/ws/ohlcv` pushes both the in-progress (partial) bar and the final (closed) bar for the timeframes you subscribe to. Use it to drive a candlestick chart without polling [`GET /api/v1/candles/latest`](/api-reference).
 
 ## Endpoint and auth
 
@@ -61,14 +61,14 @@ A few things worth flagging:
 
 - **`is_closed` is the signal you want.** `false` means this is an update to the currently-forming bar; the same `(pair_address, timeframe, timestamp)` will receive multiple `is_closed: false` frames as trades arrive. The bar is final the first time you see it with `is_closed: true`.
 - **`volume_sol` is in lamports** (1 SOL = 1e9). Divide by 1e9 for human-readable SOL.
-- **`volume_token` is in base units.** Divide by `10 ** token_decimals` (look up via [`GET /tokens/{mint}`](/api-reference/tokens/gettoken)).
+- **`volume_token` is in base units.** Divide by `10 ** token_decimals` (look up via [`GET /tokens/{mint}`](/api-reference)).
 - **`timestamp`** is the bar's open time as RFC3339 — the bar covers `[timestamp, timestamp + timeframe)`.
 
 ## Replay-then-stream pattern
 
 For chart UIs, the standard pattern is:
 
-1. Call [`GET /api/v1/candles/latest`](/api-reference/candles-ohlcv/listlatestcandles) for an initial backfill.
+1. Call [`GET /api/v1/candles/latest`](/api-reference) for an initial backfill.
 2. Open `/ws/ohlcv` and subscribe to the same `(pair_address, timeframe)`.
 3. On each frame: if `is_closed: true`, append (replacing any prior partial at the same timestamp). If `is_closed: false`, replace the current head bar in place.
 

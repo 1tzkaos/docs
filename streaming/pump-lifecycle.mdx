@@ -3,7 +3,7 @@ title: "Pump lifecycle WebSocket"
 description: "Live pump.fun mint, completing, and graduation events over WebSocket."
 ---
 
-`/ws/pump-lifecycle` is a firehose of pump.fun lifecycle events as they happen — new mints, mints approaching the 85-SOL bonding-curve threshold, and graduations to an AMM pool. Use it to surface fresh launches without polling [`GET /pump-lifecycle`](/api-reference/pump-lifecycle/listpumplifecycle).
+`/ws/pump-lifecycle` is a firehose of pump.fun lifecycle events as they happen — new mints, mints approaching the 85-SOL bonding-curve threshold, and graduations to an AMM pool. Use it to surface fresh launches without polling [`GET /pump-lifecycle`](/api-reference).
 
 ## Endpoint and auth
 
@@ -19,7 +19,7 @@ Unlike `/ws/swaps` and `/ws/ohlcv`, this socket has no client-side filter — ev
 
 ## Frame shape
 
-Frames mirror the REST [`PumpLifecycleEvent`](/api-reference/pump-lifecycle/listpumplifecycle) shape:
+Frames mirror the REST [`PumpLifecycleEvent`](/api-reference) shape:
 
 ```json
 {
