@@ -3,17 +3,21 @@
   "info": {
     "title": "Dexploit Streaming API",
     "version": "1.0.0",
-    "description": "Real-time WebSocket streams: raw swaps, swap-event OHLCV candles, and pump.fun token lifecycle events. Authenticate with `?api_key=…` or `Authorization: Bearer …`.",
-    "license": { "name": "Proprietary" }
+    "description": "Real-time WebSocket streams: raw swaps, swap-event OHLCV candles, and pump.fun token lifecycle events. Authenticate with `?api_key=\u2026` or `Authorization: Bearer \u2026`.",
+    "license": {
+      "name": "Proprietary"
+    }
   },
   "servers": {
     "production": {
       "host": "ws.dexploit.dev",
       "pathname": "/",
       "protocol": "wss",
-      "description": "Production WebSocket edge. TLS required. Authenticate with `?api_key=ohlcv_live_sk_…` or `Authorization: Bearer …`.",
+      "description": "Production WebSocket edge. TLS required. Authenticate with `?api_key=ohlcv_live_sk_\u2026` or `Authorization: Bearer \u2026`.",
       "security": [
-        { "$ref": "#/components/securitySchemes/ApiKeyQuery" }
+        {
+          "$ref": "#/components/securitySchemes/ApiKeyQuery"
+        }
       ]
     }
   },
@@ -21,95 +25,279 @@
     "swaps": {
       "address": "/ws/swaps",
       "title": "Raw swap stream",
-      "description": "Every swap on every indexed Solana DEX, optionally filtered by pool, token, trader, dex, SOL amount, or direction. Send a `subscribe` message after connecting to set filters — by default, every swap flows through.",
+      "description": "Every swap on every indexed Solana DEX, optionally filtered by pool, token, trader, dex, SOL amount, or direction. Send a `subscribe` message after connecting to set filters \u2014 by default, every swap flows through.",
       "messages": {
-        "subscribed":   { "$ref": "#/components/messages/SwapsSubscribed" },
-        "unsubscribed": { "$ref": "#/components/messages/SwapsUnsubscribed" },
-        "swap":         { "$ref": "#/components/messages/SwapEvent" },
-        "pong":         { "$ref": "#/components/messages/Pong" },
-        "error":        { "$ref": "#/components/messages/StreamError" },
-        "subscribe":    { "$ref": "#/components/messages/SwapsSubscribe" },
-        "unsubscribe":  { "$ref": "#/components/messages/SwapsUnsubscribe" },
-        "ping":         { "$ref": "#/components/messages/Ping" }
+        "subscribed": {
+          "$ref": "#/components/messages/SwapsSubscribed"
+        },
+        "unsubscribed": {
+          "$ref": "#/components/messages/SwapsUnsubscribed"
+        },
+        "swap": {
+          "$ref": "#/components/messages/SwapEvent"
+        },
+        "pong": {
+          "$ref": "#/components/messages/Pong"
+        },
+        "error": {
+          "$ref": "#/components/messages/StreamError"
+        },
+        "subscribe": {
+          "$ref": "#/components/messages/SwapsSubscribe"
+        },
+        "unsubscribe": {
+          "$ref": "#/components/messages/SwapsUnsubscribe"
+        },
+        "ping": {
+          "$ref": "#/components/messages/Ping"
+        }
       }
     },
     "ohlcv": {
       "address": "/ws/ohlcv",
       "title": "OHLCV candle stream",
-      "description": "Live OHLCV bars for one or more pools / timeframes. Bars are emitted as they're built — `is_closed: false` mid-bar, `is_closed: true` on the final tick.",
+      "description": "Live OHLCV bars for one or more pools / timeframes. Bars are emitted as they're built \u2014 `is_closed: false` mid-bar, `is_closed: true` on the final tick.",
       "messages": {
-        "connected":  { "$ref": "#/components/messages/OhlcvConnected" },
-        "subscribed": { "$ref": "#/components/messages/OhlcvSubscribed" },
-        "ohlcv":      { "$ref": "#/components/messages/OhlcvFrame" },
-        "error":      { "$ref": "#/components/messages/StreamError" },
-        "subscribe":  { "$ref": "#/components/messages/OhlcvSubscribe" }
+        "connected": {
+          "$ref": "#/components/messages/OhlcvConnected"
+        },
+        "subscribed": {
+          "$ref": "#/components/messages/OhlcvSubscribed"
+        },
+        "ohlcv": {
+          "$ref": "#/components/messages/OhlcvFrame"
+        },
+        "error": {
+          "$ref": "#/components/messages/StreamError"
+        },
+        "subscribe": {
+          "$ref": "#/components/messages/OhlcvSubscribe"
+        }
       }
     },
     "pumpLifecycle": {
       "address": "/ws/pump-lifecycle",
       "title": "Pump.fun lifecycle stream",
-      "description": "Every connected client receives every lifecycle event — there is no `subscribe` message. Filter client-side by `type`, `mint`, or `creator`.",
+      "description": "Every connected client receives every lifecycle event \u2014 there is no `subscribe` message. Filter client-side by `type`, `mint`, or `creator`.",
       "messages": {
-        "mintCreated": { "$ref": "#/components/messages/PumpMintCreated" },
-        "completing":  { "$ref": "#/components/messages/PumpCompleting" },
-        "graduated":   { "$ref": "#/components/messages/PumpGraduated" }
+        "mintCreated": {
+          "$ref": "#/components/messages/PumpMintCreated"
+        },
+        "completing": {
+          "$ref": "#/components/messages/PumpCompleting"
+        },
+        "graduated": {
+          "$ref": "#/components/messages/PumpGraduated"
+        }
       }
     }
   },
   "operations": {
-    "receiveSwap": {
+    "receiveSwapsSwap": {
       "action": "send",
-      "channel": { "$ref": "#/channels/swaps" },
-      "summary": "Receive a swap event",
-      "description": "Server-pushed frame when a swap matches your active filters (or any swap, if you haven't called `subscribe` with filters).",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
       "messages": [
-        { "$ref": "#/channels/swaps/messages/swap" },
-        { "$ref": "#/channels/swaps/messages/subscribed" },
-        { "$ref": "#/channels/swaps/messages/unsubscribed" },
-        { "$ref": "#/channels/swaps/messages/pong" },
-        { "$ref": "#/channels/swaps/messages/error" }
-      ]
+        {
+          "$ref": "#/channels/swaps/messages/swap"
+        }
+      ],
+      "summary": "Swap event",
+      "description": "One executed swap on a Solana DEX, normalized across protocols."
     },
-    "sendSwapSubscribe": {
+    "receiveSwapsSubscribed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/subscribed"
+        }
+      ],
+      "summary": "Connection / subscribe ack",
+      "description": "Sent on connect AND after each successful `subscribe`. The connect-time frame includes a `client-N` ID for log correlation."
+    },
+    "receiveSwapsUnsubscribed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/unsubscribed"
+        }
+      ],
+      "summary": "Unsubscribe ack"
+    },
+    "receiveSwapsPong": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/pong"
+        }
+      ],
+      "summary": "Pong",
+      "description": "Reply to a client `ping`. Send a `ping` every ~25\u201330s to keep the connection from idling out."
+    },
+    "receiveSwapsError": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/error"
+        }
+      ],
+      "summary": "Stream error",
+      "description": "Validation failure, auth issue, or server-side error. Connection usually stays open after a recoverable error."
+    },
+    "sendSwapsSubscribe": {
       "action": "receive",
-      "channel": { "$ref": "#/channels/swaps" },
-      "summary": "Subscribe / refine filters",
-      "description": "Set or update the active filter set. Sending a new `subscribe` *replaces* the previous filter set — there's no additive mode.",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
       "messages": [
-        { "$ref": "#/channels/swaps/messages/subscribe" },
-        { "$ref": "#/channels/swaps/messages/unsubscribe" },
-        { "$ref": "#/channels/swaps/messages/ping" }
-      ]
+        {
+          "$ref": "#/channels/swaps/messages/subscribe"
+        }
+      ],
+      "summary": "Set filters",
+      "description": "Replaces the active filter set. Empty `filters` means \"every swap on every pool\"."
     },
-    "receiveOhlcv": {
-      "action": "send",
-      "channel": { "$ref": "#/channels/ohlcv" },
-      "summary": "Receive a candle frame",
-      "description": "Server pushes one `ohlcv` frame per (pool, timeframe) bar update. A bar may emit multiple frames while it's still open; the final emission for a bar has `is_closed: true`.",
+    "sendSwapsUnsubscribe": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
       "messages": [
-        { "$ref": "#/channels/ohlcv/messages/ohlcv" },
-        { "$ref": "#/channels/ohlcv/messages/connected" },
-        { "$ref": "#/channels/ohlcv/messages/subscribed" },
-        { "$ref": "#/channels/ohlcv/messages/error" }
-      ]
+        {
+          "$ref": "#/channels/swaps/messages/unsubscribe"
+        }
+      ],
+      "summary": "Clear filters"
+    },
+    "sendSwapsPing": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/ping"
+        }
+      ],
+      "summary": "Heartbeat",
+      "description": "Optional keepalive. Server replies with `pong`. Recommended every 25\u201330 seconds."
+    },
+    "receiveOhlcvOhlcv": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/ohlcv"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/ohlcv/messages/ohlcv"
+        }
+      ],
+      "summary": "Candle update",
+      "description": "One bar update for a subscribed (pool, timeframe). NOTE: `volume_sol` is in **lamports** despite the name (divide by 1e9 for SOL); `volume_token` is in base units (divide by 10**quote_decimals)."
+    },
+    "receiveOhlcvConnected": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/ohlcv"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/ohlcv/messages/connected"
+        }
+      ],
+      "summary": "Connect hello",
+      "description": "Sent once on connect with a UUID `client_id` and the index inception timestamp."
+    },
+    "receiveOhlcvSubscribed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/ohlcv"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/ohlcv/messages/subscribed"
+        }
+      ],
+      "summary": "Subscribe ack",
+      "description": "Sent after each successful `subscribe`. `pairs` is the new total subscribed pool count; `subjects` is the count of (pool \u00d7 timeframe) Cartesian-product subjects on the NATS backbone."
+    },
+    "receiveOhlcvError": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/ohlcv"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/ohlcv/messages/error"
+        }
+      ],
+      "summary": "Stream error",
+      "description": "Validation failure, auth issue, or server-side error. Connection usually stays open after a recoverable error."
     },
     "sendOhlcvSubscribe": {
       "action": "receive",
-      "channel": { "$ref": "#/channels/ohlcv" },
-      "summary": "Subscribe to pools + timeframes",
-      "description": "Must be sent after connect to receive candles. Both `pair_addresses` and `timeframes` are required and additive — each subsequent `subscribe` widens the set.",
-      "messages": [{ "$ref": "#/channels/ohlcv/messages/subscribe" }]
-    },
-    "receivePumpLifecycle": {
-      "action": "send",
-      "channel": { "$ref": "#/channels/pumpLifecycle" },
-      "summary": "Receive a lifecycle event",
-      "description": "Server pushes every pump.fun lifecycle event to every connected client. No subscribe step.",
+      "channel": {
+        "$ref": "#/channels/ohlcv"
+      },
       "messages": [
-        { "$ref": "#/channels/pumpLifecycle/messages/mintCreated" },
-        { "$ref": "#/channels/pumpLifecycle/messages/completing" },
-        { "$ref": "#/channels/pumpLifecycle/messages/graduated" }
-      ]
+        {
+          "$ref": "#/channels/ohlcv/messages/subscribe"
+        }
+      ],
+      "summary": "Subscribe to (pools \u00d7 timeframes)",
+      "description": "Both arrays are required. Server emits frames for every (pool \u00d7 timeframe) pair."
+    },
+    "receivePumpLifecycleMintCreated": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/pumpLifecycle"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/pumpLifecycle/messages/mintCreated"
+        }
+      ],
+      "summary": "Mint created",
+      "description": "A new pump.fun token has been minted. Bonding curve sits at 0%."
+    },
+    "receivePumpLifecycleCompleting": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/pumpLifecycle"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/pumpLifecycle/messages/completing"
+        }
+      ],
+      "summary": "Bonding curve completing",
+      "description": "The pump.fun bonding curve has reached its threshold and migration to pumpswap is imminent. `bonding_pct` will read 1.0."
+    },
+    "receivePumpLifecycleGraduated": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/pumpLifecycle"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/pumpLifecycle/messages/graduated"
+        }
+      ],
+      "summary": "Token graduated to pumpswap",
+      "description": "The token has finished bonding and an AMM pool exists at `new_pool`. Use that pair address on the candles / swaps endpoints."
     }
   },
   "components": {
@@ -118,12 +306,12 @@
         "type": "httpApiKey",
         "in": "query",
         "name": "api_key",
-        "description": "`?api_key=ohlcv_live_sk_…` appended to the connection URL. Browser-friendly; the only option in environments where you can't set headers."
+        "description": "`?api_key=ohlcv_live_sk_\u2026` appended to the connection URL. Browser-friendly; the only option in environments where you can't set headers."
       },
       "BearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "`Authorization: Bearer ohlcv_live_sk_…` on the HTTP upgrade request. Preferred from servers."
+        "description": "`Authorization: Bearer ohlcv_live_sk_\u2026` on the HTTP upgrade request. Preferred from servers."
       }
     },
     "messages": {
@@ -131,98 +319,134 @@
         "name": "subscribed",
         "title": "Connection / subscribe ack",
         "summary": "Sent on connect AND after each successful `subscribe`. The connect-time frame includes a `client-N` ID for log correlation.",
-        "payload": { "$ref": "#/components/schemas/SwapsSubscribedAck" }
+        "payload": {
+          "$ref": "#/components/schemas/SwapsSubscribedAck"
+        }
       },
       "SwapsUnsubscribed": {
         "name": "unsubscribed",
         "title": "Unsubscribe ack",
-        "payload": { "$ref": "#/components/schemas/StreamSimpleAck" }
+        "payload": {
+          "$ref": "#/components/schemas/StreamSimpleAck"
+        }
       },
       "SwapEvent": {
         "name": "swap",
         "title": "Swap event",
         "summary": "One executed swap on a Solana DEX, normalized across protocols.",
-        "payload": { "$ref": "#/components/schemas/WsSwapFrame" }
+        "payload": {
+          "$ref": "#/components/schemas/WsSwapFrame"
+        }
       },
       "Pong": {
         "name": "pong",
         "title": "Pong",
-        "summary": "Reply to a client `ping`. Send a `ping` every ~25–30s to keep the connection from idling out.",
+        "summary": "Reply to a client `ping`. Send a `ping` every ~25\u201330s to keep the connection from idling out.",
         "payload": {
           "type": "object",
-          "properties": { "type": { "const": "pong" } }
+          "properties": {
+            "type": {
+              "const": "pong"
+            }
+          }
         }
       },
       "StreamError": {
         "name": "error",
         "title": "Stream error",
         "summary": "Validation failure, auth issue, or server-side error. Connection usually stays open after a recoverable error.",
-        "payload": { "$ref": "#/components/schemas/StreamErrorBody" }
+        "payload": {
+          "$ref": "#/components/schemas/StreamErrorBody"
+        }
       },
       "SwapsSubscribe": {
         "name": "subscribe",
         "title": "Set filters",
         "summary": "Replaces the active filter set. Empty `filters` means \"every swap on every pool\".",
-        "payload": { "$ref": "#/components/schemas/SwapsSubscribeBody" }
+        "payload": {
+          "$ref": "#/components/schemas/SwapsSubscribeBody"
+        }
       },
       "SwapsUnsubscribe": {
         "name": "unsubscribe",
         "title": "Clear filters",
         "payload": {
           "type": "object",
-          "properties": { "type": { "const": "unsubscribe" } }
+          "properties": {
+            "type": {
+              "const": "unsubscribe"
+            }
+          }
         }
       },
       "Ping": {
         "name": "ping",
         "title": "Heartbeat",
-        "summary": "Optional keepalive. Server replies with `pong`. Recommended every 25–30 seconds.",
+        "summary": "Optional keepalive. Server replies with `pong`. Recommended every 25\u201330 seconds.",
         "payload": {
           "type": "object",
-          "properties": { "type": { "const": "ping" } }
+          "properties": {
+            "type": {
+              "const": "ping"
+            }
+          }
         }
       },
       "OhlcvConnected": {
         "name": "connected",
         "title": "Connect hello",
         "summary": "Sent once on connect with a UUID `client_id` and the index inception timestamp.",
-        "payload": { "$ref": "#/components/schemas/OhlcvConnectedBody" }
+        "payload": {
+          "$ref": "#/components/schemas/OhlcvConnectedBody"
+        }
       },
       "OhlcvSubscribed": {
         "name": "subscribed",
         "title": "Subscribe ack",
-        "summary": "Sent after each successful `subscribe`. `pairs` is the new total subscribed pool count; `subjects` is the count of (pool × timeframe) Cartesian-product subjects on the NATS backbone.",
-        "payload": { "$ref": "#/components/schemas/OhlcvSubscribedBody" }
+        "summary": "Sent after each successful `subscribe`. `pairs` is the new total subscribed pool count; `subjects` is the count of (pool \u00d7 timeframe) Cartesian-product subjects on the NATS backbone.",
+        "payload": {
+          "$ref": "#/components/schemas/OhlcvSubscribedBody"
+        }
       },
       "OhlcvFrame": {
         "name": "ohlcv",
         "title": "Candle update",
         "summary": "One bar update for a subscribed (pool, timeframe). NOTE: `volume_sol` is in **lamports** despite the name (divide by 1e9 for SOL); `volume_token` is in base units (divide by 10**quote_decimals).",
-        "payload": { "$ref": "#/components/schemas/WsOhlcvFrame" }
+        "payload": {
+          "$ref": "#/components/schemas/WsOhlcvFrame"
+        }
       },
       "OhlcvSubscribe": {
         "name": "subscribe",
-        "title": "Subscribe to (pools × timeframes)",
-        "summary": "Both arrays are required. Server emits frames for every (pool × timeframe) pair.",
-        "payload": { "$ref": "#/components/schemas/OhlcvSubscribeBody" }
+        "title": "Subscribe to (pools \u00d7 timeframes)",
+        "summary": "Both arrays are required. Server emits frames for every (pool \u00d7 timeframe) pair.",
+        "payload": {
+          "$ref": "#/components/schemas/OhlcvSubscribeBody"
+        }
       },
       "PumpMintCreated": {
         "name": "mint_created",
         "title": "Mint created",
         "summary": "A new pump.fun token has been minted. Bonding curve sits at 0%.",
-        "payload": { "$ref": "#/components/schemas/PumpMintCreatedBody" }
+        "payload": {
+          "$ref": "#/components/schemas/PumpMintCreatedBody"
+        }
       },
       "PumpCompleting": {
         "name": "completing",
         "title": "Bonding curve completing",
         "summary": "The pump.fun bonding curve has reached its threshold and migration to pumpswap is imminent. `bonding_pct` will read 1.0.",
-        "payload": { "$ref": "#/components/schemas/PumpCompletingBody" }
+        "payload": {
+          "$ref": "#/components/schemas/PumpCompletingBody"
+        }
       },
       "PumpGraduated": {
         "name": "graduated",
         "title": "Token graduated to pumpswap",
         "summary": "The token has finished bonding and an AMM pool exists at `new_pool`. Use that pair address on the candles / swaps endpoints.",
-        "payload": { "$ref": "#/components/schemas/PumpGraduatedBody" }
+        "payload": {
+          "$ref": "#/components/schemas/PumpGraduatedBody"
+        }
       }
     },
     "schemas": {
@@ -240,89 +464,266 @@
           "meteora_dlmm",
           "meteora_pools"
         ],
-        "description": "Lowercase snake_case DEX name. Note: on the WebSocket feed `dex` is the string name, but on the REST `/swaps*` endpoints it's an integer ID — these surfaces are intentionally different."
+        "description": "Lowercase snake_case DEX name. Note: on the WebSocket feed `dex` is the string name, but on the REST `/swaps*` endpoints it's an integer ID \u2014 these surfaces are intentionally different."
       },
       "Timeframe": {
         "type": "string",
-        "enum": ["1s", "30s", "1m", "5m", "15m", "1h", "4h", "1d"]
+        "enum": [
+          "1s",
+          "30s",
+          "1m",
+          "5m",
+          "15m",
+          "1h",
+          "4h",
+          "1d"
+        ]
       },
       "SwapsSubscribedAck": {
         "type": "object",
         "properties": {
-          "type":    { "const": "subscribed" },
-          "message": { "type": "string", "example": "Connected as client-196. Send {\"type\":\"subscribe\",\"filters\":{...}} to set filters." }
+          "type": {
+            "const": "subscribed"
+          },
+          "message": {
+            "type": "string",
+            "example": "Connected as client-196. Send {\"type\":\"subscribe\",\"filters\":{...}} to set filters."
+          }
         }
       },
       "StreamSimpleAck": {
         "type": "object",
         "properties": {
-          "type":    { "type": "string" },
-          "message": { "type": "string" }
+          "type": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
         }
       },
       "StreamErrorBody": {
         "type": "object",
         "properties": {
-          "type":    { "const": "error" },
-          "message": { "type": "string", "example": "invalid subscribe: timeframes empty" },
-          "error":   { "type": "string", "description": "Some errors return just `{\"error\":\"…\"}` instead of `{\"type\":\"error\",\"message\":\"…\"}` — handle both.", "example": "invalid subscribe: pair_addresses required" }
+          "type": {
+            "const": "error"
+          },
+          "message": {
+            "type": "string",
+            "example": "invalid subscribe: timeframes empty"
+          },
+          "error": {
+            "type": "string",
+            "description": "Some errors return just `{\"error\":\"\u2026\"}` instead of `{\"type\":\"error\",\"message\":\"\u2026\"}` \u2014 handle both.",
+            "example": "invalid subscribe: pair_addresses required"
+          }
         }
       },
       "SwapsSubscribeBody": {
         "type": "object",
-        "required": ["type"],
+        "required": [
+          "type"
+        ],
         "properties": {
-          "type":    { "const": "subscribe" },
+          "type": {
+            "const": "subscribe"
+          },
           "filters": {
             "type": "object",
             "description": "All filters combine as AND. Set to `null` or omit to disable a filter.",
             "properties": {
-              "pools":   { "type": "array", "items": { "type": "string" }, "description": "Pool / pair address — usually the most useful filter." },
-              "tokens":  { "type": "array", "items": { "type": "string" }, "description": "Token mints. Matches any pool that trades this token." },
-              "traders": { "type": "array", "items": { "type": "string" }, "description": "Wallet addresses." },
-              "dexes":   { "type": "array", "items": { "$ref": "#/components/schemas/Dex" } },
-              "min_sol": { "type": "integer", "format": "int64", "description": "Lamports. 1 SOL = 1e9 lamports." },
-              "max_sol": { "type": "integer", "format": "int64" },
-              "is_buy":  { "type": "boolean", "description": "`true` for buys only, `false` for sells only." }
+              "pools": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Pool / pair address \u2014 usually the most useful filter."
+              },
+              "tokens": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Token mints. Matches any pool that trades this token."
+              },
+              "traders": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Wallet addresses."
+              },
+              "dexes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Dex"
+                }
+              },
+              "min_sol": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Lamports. 1 SOL = 1e9 lamports."
+              },
+              "max_sol": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "is_buy": {
+                "type": "boolean",
+                "description": "`true` for buys only, `false` for sells only."
+              }
             }
           }
         }
       },
       "WsSwapFrame": {
         "type": "object",
-        "description": "Streaming swap shape. Differs from the REST `Swap` schema — see the *Wire format gotchas* section in the WebSocket page.",
+        "description": "Streaming swap shape. Differs from the REST `Swap` schema \u2014 see the *Wire format gotchas* section in the WebSocket page.",
         "properties": {
-          "type":                  { "const": "swap" },
-          "signature":             { "type": "string" },
-          "slot":                  { "type": "integer", "format": "int64" },
-          "timestamp":             { "type": "integer", "format": "int64", "description": "Unix epoch **seconds** (REST candles use ISO; REST swaps use ms — yes, all three are different)." },
-          "dex":                   { "$ref": "#/components/schemas/Dex" },
-          "swap_type":             { "type": "string", "enum": ["buy", "sell"], "description": "**Different from REST**: streaming uses `swap_type` (string), REST uses `is_buy` (bool)." },
-          "trader":                { "type": "string" },
-          "token_mint":            { "type": "string" },
-          "pool_address":          { "type": "string" },
-          "amount_in":             { "type": "integer", "format": "int64", "description": "Base-unit amount of whichever side the trader sold. For buys, this is the input SOL." },
-          "amount_out":            { "type": "integer", "format": "int64" },
-          "sol_amount":            { "type": "integer", "format": "int64", "description": "Lamports." },
-          "token_amount":          { "type": "integer", "format": "int64", "description": "Token base units; divide by `10**quote_decimals`." },
-          "virtual_sol_reserves":  { "type": ["integer", "null"], "format": "int64", "description": "Pump.fun bonding curve only — null elsewhere." },
-          "virtual_token_reserves":{ "type": ["integer", "null"], "format": "int64" },
-          "real_sol_reserves":     { "type": "integer", "format": "int64" },
-          "real_token_reserves":   { "type": "integer", "format": "int64" },
-          "lp_fee_bps":            { "type": "integer", "description": "LP fee on this swap, in basis points." },
-          "protocol_fee_bps":      { "type": "integer" },
-          "fee":                   { "type": ["integer", "null"], "format": "int64", "description": "Aggregate lamports paid in fees; null when the protocol breaks it down per fee_bps field instead." },
-          "creator_fee":           { "type": ["integer", "null"], "format": "int64" },
-          "creator_fee_bps":       { "type": "integer" },
-          "price_impact_bps":      { "type": ["integer", "null"] },
-          "base_decimals":         { "type": "integer" },
-          "quote_decimals":        { "type": "integer" },
-          "pool_price":            { "type": "number", "description": "Pool mid-price after the swap (decimals-adjusted)." },
-          "transfer_fee_in":       { "type": "integer", "format": "int64", "description": "Token-2022 transfer fee paid on the input side." },
-          "transfer_fee_out":      { "type": "integer", "format": "int64" },
-          "cashback":              { "type": ["integer", "null"], "format": "int64" },
-          "cashback_bps":          { "type": "integer" },
-          "maker_tags":            { "type": "array", "items": { "type": "string" }, "description": "Wallet-intel tags applied to the maker (e.g. `sniper`, `insider`)." }
+          "type": {
+            "const": "swap"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "slot": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix epoch **seconds** (REST candles use ISO; REST swaps use ms \u2014 yes, all three are different)."
+          },
+          "dex": {
+            "$ref": "#/components/schemas/Dex"
+          },
+          "swap_type": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell"
+            ],
+            "description": "**Different from REST**: streaming uses `swap_type` (string), REST uses `is_buy` (bool)."
+          },
+          "trader": {
+            "type": "string"
+          },
+          "token_mint": {
+            "type": "string"
+          },
+          "pool_address": {
+            "type": "string"
+          },
+          "amount_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Base-unit amount of whichever side the trader sold. For buys, this is the input SOL."
+          },
+          "amount_out": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "sol_amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Lamports."
+          },
+          "token_amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Token base units; divide by `10**quote_decimals`."
+          },
+          "virtual_sol_reserves": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Pump.fun bonding curve only \u2014 null elsewhere."
+          },
+          "virtual_token_reserves": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "real_sol_reserves": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "real_token_reserves": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lp_fee_bps": {
+            "type": "integer",
+            "description": "LP fee on this swap, in basis points."
+          },
+          "protocol_fee_bps": {
+            "type": "integer"
+          },
+          "fee": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Aggregate lamports paid in fees; null when the protocol breaks it down per fee_bps field instead."
+          },
+          "creator_fee": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "creator_fee_bps": {
+            "type": "integer"
+          },
+          "price_impact_bps": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "base_decimals": {
+            "type": "integer"
+          },
+          "quote_decimals": {
+            "type": "integer"
+          },
+          "pool_price": {
+            "type": "number",
+            "description": "Pool mid-price after the swap (decimals-adjusted)."
+          },
+          "transfer_fee_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Token-2022 transfer fee paid on the input side."
+          },
+          "transfer_fee_out": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cashback": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "cashback_bps": {
+            "type": "integer"
+          },
+          "maker_tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Wallet-intel tags applied to the maker (e.g. `sniper`, `insider`)."
+          }
         },
         "example": {
           "type": "swap",
@@ -350,7 +751,7 @@
           "price_impact_bps": null,
           "base_decimals": 9,
           "quote_decimals": 6,
-          "pool_price": 0.0000020642354092175554,
+          "pool_price": 2.0642354092175554e-06,
           "transfer_fee_in": 0,
           "transfer_fee_out": 0,
           "cashback": null,
@@ -361,48 +762,127 @@
       "OhlcvConnectedBody": {
         "type": "object",
         "properties": {
-          "client_id":      { "type": "string", "format": "uuid" },
-          "data_inception": { "type": "string", "format": "date-time" },
-          "status":         { "const": "connected" }
+          "client_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "data_inception": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "status": {
+            "const": "connected"
+          }
         }
       },
       "OhlcvSubscribeBody": {
         "type": "object",
-        "required": ["type", "pair_addresses", "timeframes"],
+        "required": [
+          "type",
+          "pair_addresses",
+          "timeframes"
+        ],
         "properties": {
-          "type":           { "const": "subscribe" },
-          "pair_addresses": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "Pool / pair addresses." },
-          "timeframes":     { "type": "array", "items": { "$ref": "#/components/schemas/Timeframe" }, "minItems": 1 }
+          "type": {
+            "const": "subscribe"
+          },
+          "pair_addresses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "description": "Pool / pair addresses."
+          },
+          "timeframes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Timeframe"
+            },
+            "minItems": 1
+          }
         }
       },
       "OhlcvSubscribedBody": {
         "type": "object",
         "properties": {
-          "status":     { "const": "subscribed" },
-          "pairs":      { "type": "integer", "description": "Total subscribed pool count after this call." },
-          "timeframes": { "type": "array", "items": { "$ref": "#/components/schemas/Timeframe" } },
-          "subjects":   { "type": "integer", "description": "NATS subjects under the hood (pools × timeframes)." }
+          "status": {
+            "const": "subscribed"
+          },
+          "pairs": {
+            "type": "integer",
+            "description": "Total subscribed pool count after this call."
+          },
+          "timeframes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Timeframe"
+            }
+          },
+          "subjects": {
+            "type": "integer",
+            "description": "NATS subjects under the hood (pools \u00d7 timeframes)."
+          }
         }
       },
       "WsOhlcvFrame": {
         "type": "object",
         "properties": {
-          "type":           { "const": "ohlcv" },
-          "pair_address":   { "type": "string" },
-          "token_address":  { "type": "string" },
-          "timeframe":      { "$ref": "#/components/schemas/Timeframe" },
-          "timestamp":      { "type": "string", "format": "date-time", "description": "Bar open time. ISO 8601 — different from the `/ws/swaps` epoch-seconds convention." },
-          "open":           { "type": "number" },
-          "high":           { "type": "number" },
-          "low":            { "type": "number" },
-          "close":          { "type": "number" },
-          "volume_sol":     { "type": "integer", "format": "int64", "description": "**Lamports**, despite the name. Divide by 1e9." },
-          "volume_token":   { "type": "integer", "format": "int64", "description": "Token base units." },
-          "trade_count":    { "type": "integer" },
-          "buy_count":      { "type": "integer" },
-          "sell_count":     { "type": "integer" },
-          "unique_traders": { "type": "integer" },
-          "is_closed":      { "type": "boolean", "description": "`false` for mid-bar updates, `true` on the final tick for that bar. A `(pair, timeframe, timestamp)` triple emitted with `is_closed: true` is the authoritative bar — earlier `is_closed: false` frames for that same triple are interim." }
+          "type": {
+            "const": "ohlcv"
+          },
+          "pair_address": {
+            "type": "string"
+          },
+          "token_address": {
+            "type": "string"
+          },
+          "timeframe": {
+            "$ref": "#/components/schemas/Timeframe"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Bar open time. ISO 8601 \u2014 different from the `/ws/swaps` epoch-seconds convention."
+          },
+          "open": {
+            "type": "number"
+          },
+          "high": {
+            "type": "number"
+          },
+          "low": {
+            "type": "number"
+          },
+          "close": {
+            "type": "number"
+          },
+          "volume_sol": {
+            "type": "integer",
+            "format": "int64",
+            "description": "**Lamports**, despite the name. Divide by 1e9."
+          },
+          "volume_token": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Token base units."
+          },
+          "trade_count": {
+            "type": "integer"
+          },
+          "buy_count": {
+            "type": "integer"
+          },
+          "sell_count": {
+            "type": "integer"
+          },
+          "unique_traders": {
+            "type": "integer"
+          },
+          "is_closed": {
+            "type": "boolean",
+            "description": "`false` for mid-bar updates, `true` on the final tick for that bar. A `(pair, timeframe, timestamp)` triple emitted with `is_closed: true` is the authoritative bar \u2014 earlier `is_closed: false` frames for that same triple are interim."
+          }
         },
         "example": {
           "type": "ohlcv",
@@ -410,10 +890,10 @@
           "token_address": "BsZoKtYtP3V2xJnqonEaYXXaQdLv8kPM45aRbt23oPEJ",
           "timeframe": "1m",
           "timestamp": "2026-05-20T12:20:00+00:00",
-          "open": 0.000000755398,
-          "high": 0.000000761372,
-          "low":  0.000000755398,
-          "close": 0.000000761372,
+          "open": 7.55398e-07,
+          "high": 7.61372e-07,
+          "low": 7.55398e-07,
+          "close": 7.61372e-07,
           "volume_sol": 2058053069,
           "volume_token": 2713479778451,
           "trade_count": 5,
@@ -426,19 +906,39 @@
       "PumpEventBase": {
         "type": "object",
         "properties": {
-          "type": { "type": "string", "enum": ["mint_created", "completing", "graduated"], "description": "**Different from REST**: the streaming feed uses the field name `type`. The REST `/pump-lifecycle` response uses `event_type` for the same value." },
-          "mint": { "type": "string" },
-          "ts":   { "type": "integer", "description": "Unix epoch **seconds**." }
+          "type": {
+            "type": "string",
+            "enum": [
+              "mint_created",
+              "completing",
+              "graduated"
+            ],
+            "description": "**Different from REST**: the streaming feed uses the field name `type`. The REST `/pump-lifecycle` response uses `event_type` for the same value."
+          },
+          "mint": {
+            "type": "string"
+          },
+          "ts": {
+            "type": "integer",
+            "description": "Unix epoch **seconds**."
+          }
         }
       },
       "PumpMintCreatedBody": {
         "allOf": [
-          { "$ref": "#/components/schemas/PumpEventBase" },
+          {
+            "$ref": "#/components/schemas/PumpEventBase"
+          },
           {
             "type": "object",
             "properties": {
-              "type":    { "const": "mint_created" },
-              "creator": { "type": "string", "description": "Wallet that minted the token." }
+              "type": {
+                "const": "mint_created"
+              },
+              "creator": {
+                "type": "string",
+                "description": "Wallet that minted the token."
+              }
             }
           }
         ],
@@ -451,12 +951,19 @@
       },
       "PumpCompletingBody": {
         "allOf": [
-          { "$ref": "#/components/schemas/PumpEventBase" },
+          {
+            "$ref": "#/components/schemas/PumpEventBase"
+          },
           {
             "type": "object",
             "properties": {
-              "type":        { "const": "completing" },
-              "bonding_pct": { "type": "number", "description": "1.0 when this fires." }
+              "type": {
+                "const": "completing"
+              },
+              "bonding_pct": {
+                "type": "number",
+                "description": "1.0 when this fires."
+              }
             }
           }
         ],
@@ -469,13 +976,23 @@
       },
       "PumpGraduatedBody": {
         "allOf": [
-          { "$ref": "#/components/schemas/PumpEventBase" },
+          {
+            "$ref": "#/components/schemas/PumpEventBase"
+          },
           {
             "type": "object",
             "properties": {
-              "type":     { "const": "graduated" },
-              "dex":      { "type": "string", "description": "Destination DEX (today: `pumpswap`)." },
-              "new_pool": { "type": "string", "description": "Pool address on the destination DEX — use this as `pair_address` for candles + swap queries from now on." }
+              "type": {
+                "const": "graduated"
+              },
+              "dex": {
+                "type": "string",
+                "description": "Destination DEX (today: `pumpswap`)."
+              },
+              "new_pool": {
+                "type": "string",
+                "description": "Pool address on the destination DEX \u2014 use this as `pair_address` for candles + swap queries from now on."
+              }
             }
           }
         ],
