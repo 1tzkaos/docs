@@ -8,10 +8,16 @@
   "servers": [
     { "url": "https://api.dexploit.dev", "description": "Production" }
   ],
-  "security": [{ "ApiKeyAuth": [] }],
+  "security": [
+    { "ApiKeyHeader": [] },
+    { "BearerAuth": [] },
+    { "ApiKeyQuery": [] }
+  ],
   "components": {
     "securitySchemes": {
-      "ApiKeyAuth": { "type": "apiKey", "in": "header", "name": "X-API-Key" }
+      "ApiKeyHeader": { "type": "apiKey", "in": "header", "name": "X-API-Key", "description": "Preferred for swaps-api endpoints (`/swaps/*`, `/stats/*`, `/trending`, `/pool-events`)." },
+      "BearerAuth":   { "type": "http",  "scheme": "bearer", "description": "Required by the OHLCV endpoints (`/api/v1/*`) and accepted by every other endpoint. Send `Authorization: Bearer ohlcv_live_sk_<your_key>`." },
+      "ApiKeyQuery":  { "type": "apiKey", "in": "query",  "name": "api_key", "description": "Browser-friendly alternative to the Bearer header — accepted by every endpoint and required for WebSocket from the browser." }
     },
     "schemas": {
       "ErrorEnvelope": {
@@ -40,94 +46,305 @@
       "Candle": {
         "type": "object",
         "properties": {
-          "timestamp":      { "type": "string", "format": "date-time" },
+          "timestamp":      { "type": "string", "format": "date-time", "description": "Bar open time (UTC)." },
           "pair_address":   { "type": "string" },
           "token_address":  { "type": "string" },
-          "base_mint":      { "type": "string", "example": "So11111111111111111111111111111111111111112" },
+          "base_mint":      { "type": "string", "example": "So11111111111111111111111111111111111111112", "description": "Base side of the pool — almost always wrapped SOL." },
           "timeframe":      { "type": "string", "enum": ["1s","30s","1m","5m","15m","1h","4h","1d"] },
-          "open":           { "type": "number" },
+          "open":           { "type": "number", "description": "SOL per 1 token, decimals-adjusted." },
           "high":           { "type": "number" },
           "low":            { "type": "number" },
           "close":          { "type": "number" },
-          "volume_sol":     { "type": "number" },
-          "volume_token":   { "type": "number" },
+          "volume_sol":     { "type": "integer", "format": "int64", "description": "**Lamports**, despite the field name. Divide by 1e9 to get SOL." },
+          "volume_token":   { "type": "integer", "format": "int64", "description": "Token base units. Divide by 10**`quote_decimals` for human-readable." },
           "trade_count":    { "type": "integer" },
           "buy_count":      { "type": "integer" },
           "sell_count":     { "type": "integer" },
           "unique_traders": { "type": "integer" }
         }
       },
+      "DexId": {
+        "type": "integer",
+        "description": "Integer DEX identifier used in raw swap rows. Mapping:\n\n| ID | DEX |\n| -- | --- |\n| 1  | `pumpfun` |\n| 2  | `pumpswap` |\n| 3  | `raydium_amm` |\n| 4  | `raydium_clmm` |\n| 5  | `raydium_cpmm` |\n| 6  | `orca` |\n| 7  | `meteora_damm_v2` |\n| 8  | `meteora_dbc` |\n| 9  | `meteora_dlmm` |\n| 10 | `meteora_pools` |",
+        "enum": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+      },
       "Swap": {
         "type": "object",
+        "description": "A single swap event from the raw swaps index. Same shape across `/swaps`, `/swaps/range`, `/swaps/whale`, `/swaps/{signature}`, `/swaps/trader/{wallet}`, `/swaps/token/{mint}`.\n\nNote that the streaming feeds (WebSocket and gRPC) use a *different* shape — see [WebSocket wire format](/streaming/websocket) — most notably `swap_type` (string) vs `is_buy` (bool) here, and `dex` as the string name vs `dex` as the integer ID here.",
         "properties": {
-          "signature":   { "type": "string", "description": "Solana transaction signature" },
-          "slot":        { "type": "integer" },
-          "timestamp":   { "type": "string", "format": "date-time" },
-          "dex":         { "type": "string" },
-          "swap_type":   { "type": "string", "enum": ["buy", "sell"] },
-          "trader":      { "type": "string" },
-          "token_mint":  { "type": "string" },
-          "pool_address":{ "type": "string" },
-          "sol_amount":  { "type": "integer", "format": "int64", "description": "Lamports (1 SOL = 1e9 lamports)" },
-          "token_amount":{ "type": "integer", "format": "int64", "description": "Token base units; divide by 10**token_decimals for human-readable" }
+          "signature":             { "type": "string", "description": "Solana transaction signature (base58)." },
+          "slot":                  { "type": "integer", "format": "int64" },
+          "timestamp":             { "type": "integer", "format": "int64", "description": "Unix epoch **milliseconds**." },
+          "token_address":         { "type": "string", "description": "Non-SOL side of the pool (the token being bought/sold)." },
+          "pair_address":          { "type": "string", "description": "On-chain pool/LP account." },
+          "user":                  { "type": "string", "description": "Trader wallet." },
+          "is_buy":                { "type": "boolean", "description": "`true` if SOL → token; `false` if token → SOL." },
+          "dex":                   { "$ref": "#/components/schemas/DexId" },
+          "sol_amount":            { "type": "integer", "format": "int64", "description": "Lamports (1 SOL = 1e9)." },
+          "token_amount":          { "type": "integer", "format": "int64", "description": "Token base units; divide by 10**`quote_decimals` for human-readable." },
+          "fee":                   { "type": "integer", "format": "int64", "description": "LP fee paid, in lamports." },
+          "fee_bps":               { "type": "integer", "description": "Effective LP fee, in basis points." },
+          "creator_fee":           { "type": "integer", "format": "int64", "description": "Creator-set fee paid, in lamports (pump.fun + meteora-dbc)." },
+          "creator_fee_bps":       { "type": "integer" },
+          "price_per_token":       { "type": "number", "description": "Realized fill price (SOL per 1 token, decimals-adjusted)." },
+          "pool_price":            { "type": "number", "description": "Pool mid-price after the swap." },
+          "price_impact_bps":      { "type": "integer", "description": "Difference between fill price and pre-swap mid, in basis points." },
+          "base_decimals":         { "type": "integer", "description": "Decimals of the *base* (SOL) side — typically 9." },
+          "quote_decimals":        { "type": "integer", "description": "Decimals of the *quote* (token) side." },
+          "virtual_sol_reserves":  { "type": "integer", "format": "int64", "description": "Virtual SOL reserves (pump.fun bonding curve). 0 on non-pump pools." },
+          "virtual_token_reserves":{ "type": "integer", "format": "int64" },
+          "real_sol_reserves":     { "type": "integer", "format": "int64", "description": "Actual reserves on the pool after the swap." },
+          "real_token_reserves":   { "type": "integer", "format": "int64" },
+          "transfer_fee_in":       { "type": "integer", "format": "int64", "description": "Token-2022 transfer-fee paid on the input side (lamports/base units)." },
+          "transfer_fee_out":      { "type": "integer", "format": "int64" },
+          "cashback":              { "type": "integer", "format": "int64", "description": "Cashback rebated to the trader (lamports)." },
+          "cashback_bps":          { "type": "integer" }
+        }
+      },
+      "SwapsPage": {
+        "type": "object",
+        "description": "Paged list of swaps, shared by `/swaps`, `/swaps/range`, `/swaps/whale`.",
+        "properties": {
+          "swaps":    { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } },
+          "total":    { "type": "integer", "description": "Count of swaps in this page." },
+          "has_more": { "type": "boolean", "description": "True if more rows match — increment `offset` to page." }
         }
       },
       "Protocol": {
-        "type": "object",
-        "properties": {
-          "name":        { "type": "string", "example": "pumpswap" },
-          "label":       { "type": "string", "example": "Pump Swap" },
-          "active_pools":{ "type": "integer" }
-        }
+        "type": "string",
+        "description": "Canonical lowercase snake_case DEX name.",
+        "enum": ["pumpfun", "pumpswap", "raydium_amm", "raydium_clmm", "raydium_cpmm", "orca", "meteora_damm_v2", "meteora_dbc", "meteora_dlmm", "meteora_pools"]
       },
       "GlobalStats": {
         "type": "object",
+        "description": "Lifetime totals across the entire index (not a 24h window).",
         "properties": {
-          "total_swaps_24h":   { "type": "integer" },
-          "total_volume_sol_24h": { "type": "number" },
-          "active_pools_24h":  { "type": "integer" },
-          "active_traders_24h":{ "type": "integer" }
+          "total_swaps":      { "type": "integer", "format": "int64" },
+          "total_volume_sol": { "type": "number", "description": "Cumulative SOL volume." },
+          "unique_traders":   { "type": "integer", "format": "int64" },
+          "unique_tokens":    { "type": "integer", "format": "int64" }
         }
       },
       "TraderStats": {
         "type": "object",
+        "description": "Lifetime stats for a wallet across all pools and DEXs.",
         "properties": {
-          "wallet":            { "type": "string" },
-          "total_swaps":       { "type": "integer" },
-          "total_volume_sol":  { "type": "number" },
-          "buy_count":         { "type": "integer" },
-          "sell_count":        { "type": "integer" },
-          "first_seen":        { "type": "string", "format": "date-time" },
-          "last_seen":         { "type": "string", "format": "date-time" }
+          "total_swaps":      { "type": "integer" },
+          "total_buys":       { "type": "integer" },
+          "total_sells":      { "type": "integer" },
+          "total_sol_volume": { "type": "number", "description": "Cumulative SOL volume routed by this wallet." },
+          "unique_tokens":    { "type": "integer", "description": "Number of distinct token mints this wallet has traded." }
         }
       },
       "TokenStats": {
         "type": "object",
+        "description": "Lifetime stats for a token mint across every indexed pool.",
         "properties": {
-          "token_mint":        { "type": "string" },
-          "total_swaps_24h":   { "type": "integer" },
-          "total_volume_sol_24h":{ "type": "number" },
-          "unique_traders_24h":{ "type": "integer" },
-          "pool_count":        { "type": "integer" }
-        }
-      },
-      "Trending": {
-        "type": "object",
-        "properties": {
-          "token_mint":          { "type": "string" },
-          "volume_sol_change_pct": { "type": "number" },
-          "volume_sol_24h":      { "type": "number" },
-          "swap_count_24h":      { "type": "integer" }
+          "total_swaps":      { "type": "integer" },
+          "total_buys":       { "type": "integer" },
+          "total_sells":      { "type": "integer" },
+          "total_sol_volume": { "type": "number" },
+          "unique_traders":   { "type": "integer" },
+          "buy_sell_ratio":   { "type": "number", "description": "`total_buys / total_sells`." }
         }
       },
       "TopMover": {
         "type": "object",
+        "description": "One pool in a top-movers response. The `gainers` and `losers` arrays each contain these.",
         "properties": {
-          "pair_address":     { "type": "string" },
-          "token_address":    { "type": "string" },
-          "price_change_pct": { "type": "number" },
-          "current_price":    { "type": "number" },
-          "volume_sol_24h":   { "type": "number" }
+          "mint":             { "type": "string", "description": "Token mint (non-SOL side of the pool)." },
+          "protocols":        { "type": "array", "items": { "type": "string" }, "description": "DEXes the token trades on." },
+          "price_change_pct": { "type": "number", "description": "Percent change in price over `timeframe`." },
+          "open_price":       { "type": "number", "description": "Price (SOL) at the start of `timeframe`." },
+          "close_price":      { "type": "number", "description": "Most recent price (SOL)." },
+          "high":             { "type": "number" },
+          "low":              { "type": "number" },
+          "volume_sol":       { "type": "number", "description": "SOL volume over `timeframe`. **Lamports** despite the name — divide by 1e9." },
+          "trade_count":      { "type": "integer" }
+        }
+      },
+      "TrendingResult": {
+        "type": "object",
+        "description": "One token in a /trending response. Volume and liquidity are in USD via the Pyth SOL/USD oracle.",
+        "properties": {
+          "mint":          { "type": "string" },
+          "change_pct":    { "type": "number", "description": "Price change percent over the trending `window`." },
+          "liquidity_usd": { "type": "number" },
+          "price_usd":     { "type": "number" },
+          "volume_usd":    { "type": "number" },
+          "trending_score": {
+            "type": "number",
+            "description": "Composite score (only present when `include_score=true`). Higher = more momentum."
+          },
+          "formula_breakdown": {
+            "type": "object",
+            "description": "Per-component contribution to `trending_score`. Only present when `include_score=true`.",
+            "properties": {
+              "vol_velocity":      { "type": "number" },
+              "unique_buyers":     { "type": "number" },
+              "dev_sell_penalty":  { "type": "number" },
+              "holder_growth":     { "type": ["number", "null"] },
+              "top10_penalty":     { "type": ["number", "null"] }
+            }
+          }
+        }
+      },
+      "PoolEvent": {
+        "type": "object",
+        "description": "Liquidity-pool event other than a swap — LP deposit, LP withdraw, or token burn.",
+        "properties": {
+          "signature":     { "type": "string" },
+          "slot":          { "type": "integer" },
+          "timestamp":     { "type": "integer", "description": "Unix epoch milliseconds." },
+          "event_type":    { "type": "string", "enum": ["lp_deposit", "lp_withdraw", "token_burn"] },
+          "dex":           { "type": "string" },
+          "pool_address":  { "type": "string" },
+          "token_mint":    { "type": "string" },
+          "actor":         { "type": "string", "description": "Wallet that emitted the event." },
+          "base_amount":   { "type": "integer", "format": "int64", "description": "Token base units." },
+          "quote_amount":  { "type": "integer", "format": "int64", "description": "Lamports for SOL-quoted pools." },
+          "lp_token_amount": { "type": "integer", "format": "int64", "description": "DAMM v2 saturates this to u64::MAX — prefer `base_amount` + `quote_amount` for math." }
+        }
+      },
+      "ScreenerFilters": {
+        "type": "object",
+        "description": "Body filters for POST /screener. All fields optional; combine as AND.",
+        "properties": {
+          "volume_sol":      { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } }, "description": "SOL volume range." },
+          "change_pct":      { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } }, "description": "Price-change range over the screener window." },
+          "liquidity_sol":   { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } },
+          "trending_score":  { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } },
+          "audit":           { "type": "object", "description": "Require audit flags — e.g. `{ \"lp_burnt\": true, \"mint_revoked\": true }`.", "properties": { "lp_burnt": { "type": "boolean" }, "mint_revoked": { "type": "boolean" }, "freeze_revoked": { "type": "boolean" } } },
+          "sectors":         { "type": "array", "items": { "type": "string" }, "description": "Only return tokens in any of these sector tags." }
+        }
+      },
+      "ScreenerSort": {
+        "type": "object",
+        "properties": {
+          "by":    { "type": "string", "enum": ["volume_sol", "change_pct", "liquidity_sol", "trending_score", "age_hours"] },
+          "order": { "type": "string", "enum": ["asc", "desc"], "default": "desc" }
+        }
+      },
+      "ScreenerResult": {
+        "type": "object",
+        "properties": {
+          "mint":            { "type": "string" },
+          "volume_sol":      { "type": "number" },
+          "price_per_token": { "type": "number", "description": "Price in SOL per 1 token (decimals-adjusted)." },
+          "last_ts":         { "type": "integer", "description": "Epoch ms of most recent swap considered." },
+          "first_ts":        { "type": "integer", "description": "Epoch ms of first swap in the window." },
+          "change_pct":      { "type": "number" },
+          "age_hours":       { "type": "number" }
+        }
+      },
+      "TokenAudit": {
+        "type": "object",
+        "description": "On-chain authority and LP-burn checks for a token.",
+        "properties": {
+          "mint":           { "type": "string" },
+          "lp_burnt":       { "type": ["boolean", "null"], "description": "True if the dominant LP token is burnt/locked." },
+          "mint_revoked":   { "type": ["boolean", "null"] },
+          "freeze_revoked": { "type": ["boolean", "null"] },
+          "top10_pct":      { "type": ["number", "null"], "description": "Share of supply held by top 10 wallets (excluding the pool)." },
+          "computed_at":    { "type": "integer", "description": "Unix epoch seconds." }
+        }
+      },
+      "TokenMetadata": {
+        "type": "object",
+        "description": "Token metadata as indexed from on-chain + the Metaplex URI. Audit flags are inlined.",
+        "properties": {
+          "mint":             { "type": "string" },
+          "name":             { "type": "string" },
+          "symbol":           { "type": "string" },
+          "decimals":         { "type": "integer" },
+          "description":      { "type": ["string", "null"] },
+          "image_url":        { "type": ["string", "null"] },
+          "image_url_cached": { "type": ["string", "null"], "description": "Dexploit-hosted mirror; safe to embed without CORS pain." },
+          "metadata_uri":     { "type": ["string", "null"] },
+          "twitter":          { "type": ["string", "null"] },
+          "telegram":         { "type": ["string", "null"] },
+          "website":          { "type": ["string", "null"] },
+          "creator":          { "type": "string" },
+          "supply_atomic":    { "type": "integer", "format": "int64", "description": "Base-unit supply; divide by 10**decimals for human-readable." },
+          "mint_authority":   { "type": ["string", "null"] },
+          "freeze_authority": { "type": ["string", "null"] },
+          "update_authority": { "type": ["string", "null"] },
+          "sectors":          { "type": "array", "items": { "type": "string" } },
+          "audit":            { "$ref": "#/components/schemas/TokenAudit" },
+          "created_at":       { "type": "integer", "description": "Unix epoch seconds." },
+          "updated_at":       { "type": "integer", "description": "Unix epoch seconds." }
+        }
+      },
+      "TokenIntelEntry": {
+        "type": "object",
+        "description": "One entry in the `snipers`, `insiders`, `top_70`, or `dev` arrays.",
+        "properties": {
+          "wallet":    { "type": "string" },
+          "balance":   { "type": "number", "description": "Current token balance (decimals-adjusted)." },
+          "pct":       { "type": "number", "description": "Percent of circulating supply held." },
+          "sol_spent": { "type": "number" },
+          "tags":      { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "TokenIntel": {
+        "type": "object",
+        "description": "Aggregated intelligence for one token mint: actor classification, holders, price/volume trend, dev concentration. Cached server-side ~60s.",
+        "properties": {
+          "mint":                 { "type": "string" },
+          "snipers":              { "type": "array", "items": { "$ref": "#/components/schemas/TokenIntelEntry" } },
+          "insiders":             { "type": "array", "items": { "$ref": "#/components/schemas/TokenIntelEntry" } },
+          "top_70":               { "type": "array", "items": { "$ref": "#/components/schemas/TokenIntelEntry" }, "description": "Top 70 holders (excluding the pool LP account)." },
+          "dev":                  { "type": ["object", "null"], "description": "Creator wallet's current position, or null if unknown." },
+          "change_pct":           { "type": "object", "description": "Price change percent across canonical windows.", "properties": { "5m": { "type": "number" }, "1h": { "type": "number" }, "6h": { "type": "number" }, "24h": { "type": "number" } } },
+          "bonding_pct":          { "type": ["number", "null"], "description": "Pump.fun bonding-curve progress (0–1); null for graduated/non-pump tokens." },
+          "liquidity_usd":        { "type": "number" },
+          "volume_24h_usd":       { "type": "number" },
+          "volume_pct_change_24h":{ "type": "number" },
+          "creator_held_pct":     { "type": "number", "description": "Percent of supply still held by the creator wallet." },
+          "dev_held_lp_pct":      { "type": ["number", "null"], "description": "Percent of LP tokens still held by the creator (when LP is not burnt)." },
+          "holders":              { "type": "integer" },
+          "computed_at":          { "type": "integer", "description": "Unix epoch milliseconds." }
+        }
+      },
+      "WalletTags": {
+        "type": "object",
+        "properties": {
+          "wallet":      { "type": "string" },
+          "tags":        { "type": "array", "items": { "type": "string", "enum": ["sniper", "insider", "dev", "whale", "smart_money", "fresh", "kol"] } },
+          "computed_at": { "type": "integer", "description": "Unix epoch seconds; 0 if never computed." }
+        }
+      },
+      "WalletTagCounts": {
+        "type": "object",
+        "description": "Per-tag count of wallets currently holding a given token. Useful for surfacing 'sniper-heavy' or 'whale-heavy' tokens.",
+        "properties": {
+          "mint":   { "type": "string" },
+          "counts": {
+            "type": "object",
+            "properties": {
+              "sniper":      { "type": "integer" },
+              "insider":     { "type": "integer" },
+              "dev":         { "type": "integer" },
+              "whale":       { "type": "integer" },
+              "smart_money": { "type": "integer" },
+              "fresh":       { "type": "integer" },
+              "kol":         { "type": "integer" }
+            }
+          }
+        }
+      },
+      "PumpLifecycleEvent": {
+        "type": "object",
+        "description": "A point in a pump.fun token's lifecycle: mint, bonding-curve progress, or migration to pumpswap.",
+        "properties": {
+          "mint":         { "type": "string" },
+          "event_type":   { "type": "string", "enum": ["mint_created", "bonding_progress", "graduated"], "description": "`graduated` fires once the bonding curve completes and the token migrates to a tradeable AMM pool." },
+          "ts":           { "type": "integer", "description": "Unix epoch seconds." },
+          "creator":      { "type": ["string", "null"] },
+          "bonding_pct":  { "type": "number", "description": "0.0 at mint → 1.0 at graduation." },
+          "dex":          { "type": ["string", "null"], "description": "Destination DEX (set on `graduated`)." },
+          "new_pool":     { "type": ["string", "null"], "description": "Migration target pool (set on `graduated`)." },
+          "raw_tx_sig":   { "type": "string" }
         }
       }
     }
@@ -136,18 +353,35 @@
     "/api/v1/pairs": {
       "get": {
         "summary": "List pools (pairs)",
-        "description": "List on-chain pools indexed by Dexploit.\n\nWith no parameters: returns up to `limit` pools across all DEXs. Pass `protocol` to filter by DEX (e.g. `pumpswap`). Pass `token_address` to find every pool that trades a specific token, sorted by recent SOL volume — this is the discovery path for the `pair_address` you'll pass to candle and swap endpoints.\n\n`token_address` and `protocol` can be combined; if both are present, `token_address` is the primary filter.",
+        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings — the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol` and `recent_volume_sol`, sorted by recent SOL volume — the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
         "operationId": "listPairs",
         "tags": ["Pairs"],
         "parameters": [
-          { "name": "token_address", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Token mint to find pools for. When set, the response is sorted by recent SOL volume." },
-          { "name": "protocol",      "in": "query", "required": false, "schema": { "type": "string", "enum": ["pumpfun", "pumpswap", "raydium", "meteora"] }, "description": "DEX protocol to filter by." },
-          { "name": "limit",         "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 } }
+          { "name": "token_address",   "in": "query", "required": false, "schema": { "type": "string" }, "description": "Token mint to find pools for. When set, the response is sorted by recent SOL volume." },
+          { "name": "token_addresses", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated list of token mints (max 200). Same enriched response as `token_address`." },
+          { "name": "protocol",        "in": "query", "required": false, "schema": { "$ref": "#/components/schemas/Protocol" }, "description": "DEX protocol to filter by." },
+          { "name": "limit",           "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 } }
         ],
         "responses": {
           "200": {
-            "description": "List of pools",
-            "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Pair" } } } } } }
+            "description": "List of pools. Shape depends on whether `token_address`/`token_addresses` was supplied (see endpoint description).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "enum": [true] },
+                    "data": {
+                      "oneOf": [
+                        { "type": "object", "description": "When no `token_address` is given.", "properties": { "pairs": { "type": "array", "items": { "type": "string" }, "description": "Array of `pair_address` strings." } } },
+                        { "type": "array", "description": "When `token_address` or `token_addresses` is given.", "items": { "$ref": "#/components/schemas/Pair" } }
+                      ]
+                    },
+                    "error":   { "type": ["object", "null"] }
+                  }
+                }
+              }
+            }
           },
           "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
           "429": { "description": "Quota or rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
@@ -209,12 +443,18 @@
         "operationId": "listSwaps",
         "tags": ["Swaps"],
         "parameters": [
-          { "name": "limit",    "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } },
-          { "name": "min_sol",  "in": "query", "required": false, "schema": { "type": "number" }, "description": "Minimum SOL amount (decimal SOL, not lamports)" },
-          { "name": "dex",      "in": "query", "required": false, "schema": { "type": "string" } }
+          { "name": "limit",     "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } },
+          { "name": "offset",    "in": "query", "required": false, "schema": { "type": "integer", "default": 0,   "minimum": 0 } },
+          { "name": "token",     "in": "query", "required": false, "schema": { "type": "string" }, "description": "Token mint filter." },
+          { "name": "trader",    "in": "query", "required": false, "schema": { "type": "string" }, "description": "Trader wallet filter." },
+          { "name": "pool",      "in": "query", "required": false, "schema": { "type": "string" }, "description": "Pool / pair address filter." },
+          { "name": "is_buy",    "in": "query", "required": false, "schema": { "type": "boolean" } },
+          { "name": "min_sol",   "in": "query", "required": false, "schema": { "type": "number" }, "description": "Minimum SOL amount (decimal SOL, not lamports)." },
+          { "name": "dex",       "in": "query", "required": false, "schema": { "type": "string", "enum": ["pumpfun", "pumpswap", "raydium_amm", "raydium_clmm", "raydium_cpmm", "orca", "meteora_damm_v2", "meteora_dbc", "meteora_dlmm", "meteora_pools"] } },
+          { "name": "signature", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Restrict to one Solana tx signature." }
         ],
         "responses": {
-          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } },
+          "200": { "description": "Page of swaps", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SwapsPage" } } } },
           "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } },
           "429": { "description": "Quota or rate limit exceeded", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
@@ -222,17 +462,26 @@
     },
     "/swaps/range": {
       "get": {
-        "summary": "Swaps in a time range",
-        "description": "Page through historical swaps within a time or slot range.",
+        "summary": "Swaps in a time or slot range",
+        "description": "Page through historical swaps within a `[start_time, end_time]` (Unix epoch **seconds**) or `[start_slot, end_slot]` range. Combine with the same filters as [/swaps](#tag/swaps/get/swaps).",
         "operationId": "listSwapsRange",
         "tags": ["Swaps"],
         "parameters": [
-          { "name": "start", "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "end",   "in": "query", "required": false, "schema": { "type": "string", "format": "date-time" } },
-          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
+          { "name": "start_time", "in": "query", "required": false, "schema": { "type": "integer" }, "description": "Unix epoch seconds." },
+          { "name": "end_time",   "in": "query", "required": false, "schema": { "type": "integer" } },
+          { "name": "start_slot", "in": "query", "required": false, "schema": { "type": "integer", "format": "int64" } },
+          { "name": "end_slot",   "in": "query", "required": false, "schema": { "type": "integer", "format": "int64" } },
+          { "name": "token",      "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "trader",     "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "pool",       "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "is_buy",     "in": "query", "required": false, "schema": { "type": "boolean" } },
+          { "name": "min_sol",    "in": "query", "required": false, "schema": { "type": "number" } },
+          { "name": "dex",        "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit",      "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } },
+          { "name": "offset",     "in": "query", "required": false, "schema": { "type": "integer", "default": 0,   "minimum": 0 } }
         ],
         "responses": {
-          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } },
+          "200": { "description": "Page of swaps", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SwapsPage" } } } },
           "401": { "description": "Missing or invalid API key", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
@@ -244,123 +493,196 @@
         "operationId": "listWhaleSwaps",
         "tags": ["Swaps"],
         "parameters": [
-          { "name": "min_sol", "in": "query", "required": false, "schema": { "type": "number", "default": 10 } },
+          { "name": "min_sol", "in": "query", "required": false, "schema": { "type": "number", "default": 10 }, "description": "Threshold in decimal SOL." },
+          { "name": "token",   "in": "query", "required": false, "schema": { "type": "string" } },
           { "name": "limit",   "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
         ],
         "responses": {
-          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } }
+          "200": { "description": "Page of swaps", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SwapsPage" } } } }
         }
       }
     },
     "/swaps/{signature}": {
       "get": {
         "summary": "Single swap by transaction signature",
-        "description": "Look up the swap event(s) emitted by a specific Solana transaction.",
+        "description": "Look up the swap event emitted by a specific Solana transaction. Returns the swap object directly (no envelope).",
         "operationId": "getSwapBySignature",
         "tags": ["Swaps"],
         "parameters": [
           { "name": "signature", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": { "description": "Swap event", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/Swap" } } } } } },
+          "200": { "description": "Swap event", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Swap" } } } },
           "404": { "description": "Signature not found", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
         }
       }
     },
     "/swaps/trader/{wallet}": {
       "get": {
-        "summary": "Swap history for a trader",
-        "description": "All swaps a wallet has made, across pools and DEXs.",
+        "summary": "Swap history for a trader (with lifetime stats)",
+        "description": "All swaps a wallet has made, across pools and DEXs, plus the same `TraderStats` block returned by [/stats/trader/{wallet}](#tag/stats-trends/get/stats/trader/{wallet}) — saves a second round-trip when rendering a wallet page.",
         "operationId": "listTraderSwaps",
         "tags": ["Swaps"],
         "parameters": [
           { "name": "wallet", "in": "path",  "required": true, "schema": { "type": "string" } },
-          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } },
+          { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "default": 0,   "minimum": 0 } }
         ],
         "responses": {
-          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } }
+          "200": {
+            "description": "Trader swaps + stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "trader": { "type": "string" },
+                    "swaps":  { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } },
+                    "stats":  { "$ref": "#/components/schemas/TraderStats" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
     "/swaps/token/{mint}": {
       "get": {
-        "summary": "Swap history for a token (across pools)",
-        "description": "Returns swaps for a token across **every** pool we index. This is one of the few endpoints where token mint (not `pair_address`) is the right input — it intentionally aggregates. See [Pairs vs tokens](/concepts/pairs-vs-tokens).",
+        "summary": "Swap history for a token (with lifetime stats)",
+        "description": "Returns swaps for a token across **every** pool we index, plus a `TokenStats` block. This is one of the few endpoints where token mint (not `pair_address`) is the right input — it intentionally aggregates. See [Pairs vs tokens](/concepts/pairs-vs-tokens).",
         "operationId": "listTokenSwaps",
         "tags": ["Swaps"],
         "parameters": [
-          { "name": "mint",  "in": "path",  "required": true, "schema": { "type": "string" } },
-          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } }
+          { "name": "mint",   "in": "path",  "required": true,  "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 1000 } },
+          { "name": "offset", "in": "query", "required": false, "schema": { "type": "integer", "default": 0,   "minimum": 0 } }
         ],
         "responses": {
-          "200": { "description": "Array of swaps", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } } } } } } }
+          "200": {
+            "description": "Token swaps + stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": { "type": "string" },
+                    "swaps": { "type": "array", "items": { "$ref": "#/components/schemas/Swap" } },
+                    "stats": { "$ref": "#/components/schemas/TokenStats" }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
     "/stats/global": {
       "get": {
-        "summary": "Global 24h stats",
-        "description": "Aggregate stats across the platform for the last 24h.",
+        "summary": "Global lifetime stats",
+        "description": "Aggregate lifetime stats across the entire index. (Not a 24h window — these are cumulative since `data_inception` reported by [/api/v1/stats](#tag/stats-trends/get/api/v1/stats).)",
         "operationId": "getGlobalStats",
         "tags": ["Stats & trends"],
         "responses": {
-          "200": { "description": "Global stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/GlobalStats" } } } } } }
+          "200": { "description": "Global stats", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GlobalStats" } } } }
         }
       }
     },
     "/stats/trader/{wallet}": {
       "get": {
         "summary": "Stats for a trader",
+        "description": "Lifetime stats for a single wallet. Returns the `TraderStats` block directly.",
         "operationId": "getTraderStats",
         "tags": ["Stats & trends"],
         "parameters": [
           { "name": "wallet", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": { "description": "Trader stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/TraderStats" } } } } } }
+          "200": { "description": "Trader stats", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TraderStats" } } } }
         }
       }
     },
     "/stats/token/{mint}": {
       "get": {
         "summary": "Stats for a token (across pools)",
-        "description": "Aggregate stats for a token mint across every indexed pool. One of the few endpoints where token mint is correct (see [Pairs vs tokens](/concepts/pairs-vs-tokens)).",
+        "description": "Aggregate lifetime stats for a token mint across every indexed pool. Returns the `TokenStats` block directly. One of the few endpoints where token mint is correct (see [Pairs vs tokens](/concepts/pairs-vs-tokens)).",
         "operationId": "getTokenStats",
         "tags": ["Stats & trends"],
         "parameters": [
           { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
         ],
         "responses": {
-          "200": { "description": "Token stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "$ref": "#/components/schemas/TokenStats" } } } } } }
+          "200": { "description": "Token stats", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenStats" } } } }
         }
       }
     },
     "/trending": {
       "get": {
         "summary": "Trending tokens",
-        "description": "Tokens with the largest 24h volume change.",
+        "description": "Tokens with the highest momentum over the requested window. Pricing/liquidity are USD via the Pyth SOL/USD oracle. Pass `include_score=true` to get a composite `trending_score` plus its `formula_breakdown` (volume velocity, unique buyers, dev-sell penalty, etc.) — useful for sorting your own dashboards.",
         "operationId": "listTrending",
         "tags": ["Stats & trends"],
         "parameters": [
-          { "name": "limit", "in": "query", "required": false, "schema": { "type": "integer", "default": 25, "minimum": 1, "maximum": 100 } }
+          { "name": "window",        "in": "query", "required": false, "schema": { "type": "string", "enum": ["5m", "30m", "1h", "6h", "24h"], "default": "1h" }, "description": "Trend window." },
+          { "name": "limit",         "in": "query", "required": false, "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 200 } },
+          { "name": "sector",        "in": "query", "required": false, "schema": { "type": "string" }, "description": "Restrict to one sector tag (e.g. `meme`, `defi`)." },
+          { "name": "include_score", "in": "query", "required": false, "schema": { "type": "boolean", "default": false }, "description": "Add `trending_score` and `formula_breakdown` to each result." },
+          { "name": "extra_windows", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated list (max 3) of additional windows to include for cross-window comparison." }
         ],
         "responses": {
-          "200": { "description": "Trending list", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Trending" } } } } } } }
+          "200": {
+            "description": "Trending list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "window":  { "type": "string" },
+                    "sector":  { "type": ["string", "null"] },
+                    "results": { "type": "array", "items": { "$ref": "#/components/schemas/TrendingResult" } }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/v1/top-movers": {
       "get": {
         "summary": "Top price movers",
-        "description": "Pools with the largest absolute price change over the requested timeframe.",
+        "description": "Pools with the largest absolute price change over the requested timeframe. Returns *both* sides: `gainers` (sorted by largest positive change) and `losers` (sorted by largest negative change).",
         "operationId": "listTopMovers",
         "tags": ["Stats & trends"],
         "parameters": [
-          { "name": "timeframe", "in": "query", "required": true,  "schema": { "type": "string", "enum": ["1m","5m","15m","1h","4h","1d"] }, "description": "Window over which to compute price change." },
-          { "name": "limit",     "in": "query", "required": false, "schema": { "type": "integer", "default": 25, "minimum": 1, "maximum": 100 } }
+          { "name": "timeframe", "in": "query", "required": true,  "schema": { "type": "string", "enum": ["5m", "15m", "1h", "4h", "24h"] }, "description": "Window over which to compute price change." },
+          { "name": "protocol",  "in": "query", "required": false, "schema": { "$ref": "#/components/schemas/Protocol" }, "description": "Restrict to one DEX." },
+          { "name": "limit",     "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 }, "description": "Per side — you get up to `limit` gainers AND up to `limit` losers." }
         ],
         "responses": {
-          "200": { "description": "Top movers", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/TopMover" } } } } } } },
+          "200": {
+            "description": "Top movers (gainers and losers)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "enum": [true] },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "timeframe": { "type": "string" },
+                        "protocol":  { "type": ["string", "null"] },
+                        "gainers":   { "type": "array", "items": { "$ref": "#/components/schemas/TopMover" } },
+                        "losers":    { "type": "array", "items": { "$ref": "#/components/schemas/TopMover" } }
+                      }
+                    },
+                    "error":   { "type": ["object", "null"] }
+                  }
+                }
+              }
+            }
+          },
           "400": { "description": "Missing or invalid `timeframe`", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" }, "example": { "success": false, "error": { "code": "INVALID_PARAM", "message": "Failed to deserialize query string: missing field `timeframe`" } } } } }
         }
       }
@@ -368,21 +690,298 @@
     "/api/v1/protocols": {
       "get": {
         "summary": "List supported DEX protocols",
+        "description": "Returns the lowercase snake_case names of every DEX Dexploit currently indexes. These are the values you'll pass as `protocol=` to [/api/v1/pairs](#tag/pairs/get/api/v1/pairs) and [/api/v1/top-movers](#tag/stats-trends/get/api/v1/top-movers), or as `dex=` to [/swaps](#tag/swaps/get/swaps).",
         "operationId": "listProtocols",
         "tags": ["Stats & trends"],
         "responses": {
-          "200": { "description": "List of supported DEX protocols", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "array", "items": { "$ref": "#/components/schemas/Protocol" } } } } } } }
+          "200": {
+            "description": "Supported protocols",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "enum": [true] },
+                    "data":    { "type": "object", "properties": { "protocols": { "type": "array", "items": { "$ref": "#/components/schemas/Protocol" } } } },
+                    "error":   { "type": ["object", "null"] }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
     "/api/v1/stats": {
       "get": {
         "summary": "Aggregate platform stats",
-        "description": "Roll-up stats across the OHLCV index.",
+        "description": "Roll-up of the OHLCV index — how many candles, pools, mints, and supported timeframes; plus when the index started.",
         "operationId": "getOhlcvStats",
         "tags": ["Stats & trends"],
         "responses": {
-          "200": { "description": "Aggregate stats", "content": { "application/json": { "schema": { "type": "object", "properties": { "success": { "type": "boolean", "enum": [true] }, "data": { "type": "object" } } } } } }
+          "200": {
+            "description": "Aggregate stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "enum": [true] },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "total_candles":   { "type": "integer", "format": "int64", "description": "Total bars across all timeframes." },
+                        "protocols":       { "type": "integer", "description": "Distinct DEX protocols indexed." },
+                        "pairs":           { "type": "integer", "description": "Distinct pools indexed." },
+                        "mints":           { "type": "integer", "description": "Distinct token mints indexed." },
+                        "timeframes":      { "type": "array", "items": { "type": "string" }, "description": "Bar resolutions Dexploit aggregates to." },
+                        "oldest_candle":   { "type": "string", "format": "date-time", "description": "Oldest bar in the index." },
+                        "newest_candle":   { "type": "string", "format": "date-time" },
+                        "data_inception":  { "type": "string", "format": "date-time", "description": "When Dexploit started ingesting Solana swaps." }
+                      }
+                    },
+                    "error":   { "type": ["object", "null"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/stats/tokens": {
+      "get": {
+        "summary": "Batch stats for many tokens",
+        "description": "Fetch `/stats/token/{mint}` for up to 200 mints in one round-trip. Returned object is keyed by mint.",
+        "operationId": "getTokenStatsBatch",
+        "tags": ["Stats & trends"],
+        "parameters": [
+          { "name": "mints", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Comma-separated list of token mints (max 200)." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Map of mint → TokenStats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "stats": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/TokenStats" } }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing `mints` or too many", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/pool-events": {
+      "get": {
+        "summary": "LP and burn events for a token",
+        "description": "Non-swap pool activity for a token: LP deposits, LP withdrawals, and token burns across every indexed pool.\n\nUseful for detecting rug-pulls (large `lp_withdraw` events), tracking dev positions, or surfacing freshly-locked liquidity.",
+        "operationId": "listPoolEvents",
+        "tags": ["Pool events"],
+        "parameters": [
+          { "name": "token",  "in": "query", "required": true,  "schema": { "type": "string" }, "description": "Token mint." },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 500 } },
+          { "name": "before", "in": "query", "required": false, "schema": { "type": "integer" }, "description": "Cursor — epoch ms; returns events strictly older than this." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pool events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events":   { "type": "array", "items": { "$ref": "#/components/schemas/PoolEvent" } },
+                    "total":    { "type": "integer" },
+                    "has_more": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Missing `token`", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/screener": {
+      "post": {
+        "summary": "Filter tokens by volume / price-change / liquidity / audit / sector",
+        "description": "Server-side filtered + sorted token list. Filters combine as AND. The screener evaluates against a rolling 1h window.\n\nThe NL-style query bar on the Dexploit terminal screener is sugar over this endpoint — the chip bar serializes into the same JSON body.",
+        "operationId": "runScreener",
+        "tags": ["Screener"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "limit":   { "type": "integer", "default": 50, "minimum": 1, "maximum": 500 },
+                  "offset":  { "type": "integer", "default": 0,  "minimum": 0 },
+                  "filters": { "$ref": "#/components/schemas/ScreenerFilters" },
+                  "sort":    { "$ref": "#/components/schemas/ScreenerSort" }
+                }
+              },
+              "example": {
+                "limit": 25,
+                "filters": {
+                  "volume_sol":   { "min": 500 },
+                  "audit":        { "lp_burnt": true, "mint_revoked": true }
+                },
+                "sort": { "by": "trending_score", "order": "desc" }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Filtered results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results":       { "type": "array", "items": { "$ref": "#/components/schemas/ScreenerResult" } },
+                    "total_matches": { "type": "integer", "description": "Total matching tokens before `limit`/`offset` paging." },
+                    "limit":         { "type": "integer" },
+                    "offset":        { "type": "integer" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "description": "Malformed filter body", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/tokens": {
+      "get": {
+        "summary": "Batch token metadata",
+        "description": "Resolve metadata + audit flags for up to 200 mints in one call. This is the right endpoint for hydrating a list view — don't loop over `/tokens/{mint}`.",
+        "operationId": "listTokens",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mints", "in": "query", "required": true, "schema": { "type": "string" }, "description": "Comma-separated list of token mints (max 200)." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resolved metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "tokens": { "type": "array", "items": { "$ref": "#/components/schemas/TokenMetadata" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens/{mint}": {
+      "get": {
+        "summary": "Single-token metadata",
+        "description": "Metadata + audit for one mint. Includes the Dexploit-hosted `image_url_cached` mirror.",
+        "operationId": "getToken",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Token", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenMetadata" } } } },
+          "404": { "description": "Unknown mint",  "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorEnvelope" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/audit": {
+      "get": {
+        "summary": "On-chain audit flags",
+        "description": "Just the audit subset of `/tokens/{mint}`. Cheaper when you only need rug-check signals.",
+        "operationId": "getTokenAudit",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Audit flags", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenAudit" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/intel": {
+      "get": {
+        "summary": "Token intelligence (snipers, insiders, top holders, dev)",
+        "description": "Aggregated actor classification and price/liquidity context for a single token. Useful for a 'token detail' panel. Server-side cached ~60s.\n\nClassifications come from wallet tagging — see [`/wallets/{wallet}/tags`](#tag/wallet-intel/get/wallets/{wallet}/tags) for the per-wallet view.",
+        "operationId": "getTokenIntel",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Token intel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenIntel" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/wallet-tag-counts": {
+      "get": {
+        "summary": "Per-tag count of holders for a token",
+        "description": "How many wallets currently holding this token fall in each tag bucket. Drives the 'sniper count', 'whale count' badges on token cards.",
+        "operationId": "getTokenWalletTagCounts",
+        "tags": ["Wallet intel"],
+        "parameters": [
+          { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Tag counts", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WalletTagCounts" } } } }
+        }
+      }
+    },
+    "/wallets/{wallet}/tags": {
+      "get": {
+        "summary": "Wallet classification tags",
+        "description": "Returns the set of tags Dexploit's wallet-intel pipeline has applied to a wallet (e.g. `sniper`, `insider`, `whale`, `smart_money`). Tags are computed asynchronously — `computed_at: 0` means we haven't profiled this wallet yet.",
+        "operationId": "getWalletTags",
+        "tags": ["Wallet intel"],
+        "parameters": [
+          { "name": "wallet", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Wallet tags", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/WalletTags" } } } }
+        }
+      }
+    },
+    "/pump-lifecycle": {
+      "get": {
+        "summary": "Pump.fun token lifecycle events",
+        "description": "Stream of mint-create / bonding-progress / graduation events for pump.fun tokens. Filter by lifecycle status to surface fresh mints (`new`), tokens about to migrate (`graduating`), or completed migrations (`migrated`).\n\nFor a real-time push of these events, see [WebSocket: pump lifecycle](/streaming/pump-lifecycle).",
+        "operationId": "listPumpLifecycle",
+        "tags": ["Pump lifecycle"],
+        "parameters": [
+          { "name": "status", "in": "query", "required": false, "schema": { "type": "string", "enum": ["new", "graduating", "migrated"], "default": "new" }, "description": "Lifecycle phase. `new` = recent mints; `graduating` = bonding curve near 100%; `migrated` = already on pumpswap." },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 30, "minimum": 1, "maximum": 100 } },
+          { "name": "before", "in": "query", "required": false, "schema": { "type": "integer" }, "description": "Cursor — epoch seconds; returns events strictly older than this." }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lifecycle events",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status":         { "type": "string" },
+                    "events":         { "type": "array", "items": { "$ref": "#/components/schemas/PumpLifecycleEvent" } },
+                    "next_before_ts": { "type": ["integer", "null"], "description": "Pass this back as `before` for the next page; null when exhausted." }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },
