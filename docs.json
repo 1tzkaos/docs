@@ -161,6 +161,13 @@
             ]
           },
           {
+            "group": "WebSocket (AsyncAPI)",
+            "asyncapi": {
+              "source": "/api-reference/asyncapi.json",
+              "directory": "streaming-ws"
+            }
+          },
+          {
             "group": "GraphQL",
             "pages": [
               "api-reference/graphql"
