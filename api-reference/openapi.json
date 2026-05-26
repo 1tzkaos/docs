@@ -168,8 +168,8 @@
         "description": "One token in a /trending response. Volume and liquidity are in USD via the Pyth SOL/USD oracle.",
         "properties": {
           "mint":          { "type": "string" },
-          "change_pct":    { "type": "number", "description": "Price change percent over the trending `window`." },
-          "liquidity_usd": { "type": "number" },
+          "change_pct":    { "type": ["number", "null"], "description": "Price change percent over the trending `window`. `null` when the window contains only one swap or the start price was zero." },
+          "liquidity_usd": { "type": ["number", "null"] },
           "price_usd":     { "type": "number" },
           "volume_usd":    { "type": "number" },
           "trending_score": {
@@ -178,14 +178,21 @@
           },
           "formula_breakdown": {
             "type": "object",
-            "description": "Per-component contribution to `trending_score`. Only present when `include_score=true`.",
+            "description": "Per-component contribution to `trending_score`. Only present when `include_score=true`. All components sum to `trending_score`.",
             "properties": {
-              "vol_velocity":      { "type": "number" },
-              "unique_buyers":     { "type": "number" },
-              "dev_sell_penalty":  { "type": "number" },
-              "holder_growth":     { "type": ["number", "null"] },
-              "top10_penalty":     { "type": ["number", "null"] }
+              "vol_velocity":       { "type": "number", "description": "`ln(volume_sol) * 1.5` — log-scaled raw volume." },
+              "unique_buyers":      { "type": "number", "description": "`sqrt(unique_buyers) * 1.2` — keeps small coins competitive." },
+              "vol_acceleration":   { "type": "number", "description": "`ln(vol_now / vol_prior) * 4`, clamped to `[-8, 12]`. Brand-new mints with no prior-window activity get a fixed `+4` boost so first-window tokens can surface. This is the dominant momentum term." },
+              "buyer_acceleration": { "type": "number", "description": "`((buyers_now - buyers_prior) / max(buyers_prior, 1)) * 2`, clamped to `[-2, 6]`. Percent-change in unique buyers vs the prior window." },
+              "dev_sell_penalty":   { "type": "number", "description": "Negative. `-min(dev_sell_sol * 0.5, 20)` — capped subtraction per SOL sold by the token's creator." },
+              "holder_growth":      { "type": ["number", "null"], "description": "Reserved for future use. Always `null` today." },
+              "top10_penalty":      { "type": ["number", "null"], "description": "Reserved for future use. Always `null` today." }
             }
+          },
+          "change_pct_by_window": {
+            "type": "object",
+            "description": "Populated only when `extra_windows=...` was set on the request. Keys are the window strings you asked for (e.g. `\"5m\"`, `\"24h\"`); values are the price change percent for that window, or `null` if no price reference at window start.",
+            "additionalProperties": { "type": ["number", "null"] }
           }
         }
       },
@@ -619,15 +626,17 @@
     "/trending": {
       "get": {
         "summary": "Trending tokens",
-        "description": "Tokens with the highest momentum over the requested window. Pricing/liquidity are USD via the Pyth SOL/USD oracle. Pass `include_score=true` to get a composite `trending_score` plus its `formula_breakdown` (volume velocity, unique buyers, dev-sell penalty, etc.) — useful for sorting your own dashboards.",
+        "description": "Tokens with the highest momentum over the requested window. The score compares the current window to the prior equal-length window, so a token that suddenly accelerates ranks above a steady high-volume token. Brand-new mints with no prior-window activity get a fast-riser boost. Pass `include_score=true` to expose the per-component `formula_breakdown` so you can re-sort client-side.\n\n**Rug filter:** tokens whose price collapsed by 90% or more inside the window are excluded by default — their activity is rug-watchers piling in, not organic demand. Set `include_rugged=true` to opt in.\n\n**Pagination:** use `offset` + `limit` to page through the scored list. The response carries `total` (how many candidates were scored before slicing), `offset`, and `limit` so you can detect end-of-list. Pricing/liquidity are USD via the Pyth SOL/USD oracle.",
         "operationId": "listTrending",
         "tags": ["Stats & trends"],
         "parameters": [
-          { "name": "window",        "in": "query", "required": false, "schema": { "type": "string", "enum": ["5m", "30m", "1h", "6h", "24h"], "default": "1h" }, "description": "Trend window." },
-          { "name": "limit",         "in": "query", "required": false, "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 200 } },
-          { "name": "sector",        "in": "query", "required": false, "schema": { "type": "string" }, "description": "Restrict to one sector tag (e.g. `meme`, `defi`)." },
-          { "name": "include_score", "in": "query", "required": false, "schema": { "type": "boolean", "default": false }, "description": "Add `trending_score` and `formula_breakdown` to each result." },
-          { "name": "extra_windows", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated list (max 3) of additional windows to include for cross-window comparison." }
+          { "name": "window",         "in": "query", "required": false, "schema": { "type": "string", "enum": ["1m", "5m", "15m", "1h", "4h", "6h", "24h"], "default": "1h" }, "description": "Trend window." },
+          { "name": "limit",          "in": "query", "required": false, "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 200 }, "description": "Page size — number of results to return." },
+          { "name": "offset",         "in": "query", "required": false, "schema": { "type": "integer", "default": 0, "minimum": 0, "maximum": 200 }, "description": "Page offset — skip the first N scored results. Combined with `limit` for stable-cache-window pagination." },
+          { "name": "sector",         "in": "query", "required": false, "schema": { "type": "string" }, "description": "Restrict to one sector tag (e.g. `meme`, `defi`)." },
+          { "name": "include_score",  "in": "query", "required": false, "schema": { "type": "boolean", "default": false }, "description": "Add `trending_score` and `formula_breakdown` to each result." },
+          { "name": "include_rugged", "in": "query", "required": false, "schema": { "type": "boolean", "default": false }, "description": "Include tokens whose price dropped by 90% or more inside the window. Default `false`." },
+          { "name": "extra_windows",  "in": "query", "required": false, "schema": { "type": "string" }, "description": "Comma-separated list (max 3) of additional windows to populate `change_pct_by_window` on each result (e.g. `5m,24h`). Each extra window is one parallel ClickHouse query, so don't ask for more than you'll use." }
         ],
         "responses": {
           "200": {
@@ -639,7 +648,41 @@
                   "properties": {
                     "window":  { "type": "string" },
                     "sector":  { "type": ["string", "null"] },
-                    "results": { "type": "array", "items": { "$ref": "#/components/schemas/TrendingResult" } }
+                    "results": { "type": "array", "items": { "$ref": "#/components/schemas/TrendingResult" } },
+                    "total":   { "type": "integer", "description": "Scored candidates before pagination slicing. When `offset + limit >= total`, you've reached the end." },
+                    "offset":  { "type": "integer", "description": "Echo of the effective `offset` (0 if unset)." },
+                    "limit":   { "type": "integer", "description": "Echo of the effective `limit`." }
+                  }
+                },
+                "examples": {
+                  "default": {
+                    "summary": "1-hour trending, first page",
+                    "value": {
+                      "window": "1h",
+                      "sector": null,
+                      "results": [
+                        {
+                          "mint": "DMcu8numYJ9eExLoG3MUvhByPwSMLttUy2S53auk7MfE",
+                          "change_pct": 1054.85,
+                          "liquidity_usd": 250.1,
+                          "price_usd": 0.001552,
+                          "volume_usd": 7288.25,
+                          "trending_score": 77.51,
+                          "formula_breakdown": {
+                            "vol_velocity": 13.34,
+                            "unique_buyers": 46.16,
+                            "vol_acceleration": 12.0,
+                            "buyer_acceleration": 6.0,
+                            "dev_sell_penalty": 0.0,
+                            "holder_growth": null,
+                            "top10_penalty": null
+                          }
+                        }
+                      ],
+                      "total": 96,
+                      "offset": 0,
+                      "limit": 20
+                    }
                   }
                 }
               }
