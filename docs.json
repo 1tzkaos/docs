@@ -57,6 +57,7 @@
               "streaming/ohlcv",
               "streaming/pump-lifecycle",
               "streaming/grpc",
+              "streaming/grpc-swaps",
               "streaming/reconnect-backpressure"
             ]
           },
