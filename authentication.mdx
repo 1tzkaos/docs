@@ -1,6 +1,6 @@
 ---
 title: "Authentication"
-description: "API keys, request headers, and tier-based quotas."
+description: "API keys, request headers, and per-tier RPS caps. Phase 1.2a: no monthly cap."
 ---
 
 Every request needs an API key. Generate one from your [dashboard](https://www.dexploit.dev/dashboard).
@@ -30,24 +30,51 @@ Keys look like `ohlcv_<env>_sk_<48_random_chars>` where `<env>` is `live`, `dev`
 
 Keys are hashed (SHA-256) at rest. You see the full key once at generation. Lost a key? **Rotate** to issue a new one — there's no way to retrieve the original. Rotation issues a fresh key and grants the old one a 7-day grace period before it stops working.
 
-## Tiers and quotas
+## Tiers and RPS caps
 
-| Tier | Price | Daily quota | Monthly quota | Rate limit |
-| --- | --- | --- | --- | --- |
-| Free | $0 | 1,000 | 10,000 | Yes |
-| Developer | $50/mo | 20,000 | 200,000 | None |
-| Pro | $199/mo | 200,000 | 2,000,000 | None |
-| Enterprise | Custom | Unlimited | Unlimited | None |
+Pricing is capped requests-per-second with unlimited monthly volume — pick a tier that matches your sustained throughput.
 
-Quota counts include all REST endpoints. Streaming connections are billed on connection time, not per message — see your dashboard for current usage.
+| Tier | Price | Sustained RPS | 60-second burst window |
+| --- | --- | --- | --- |
+| Free | $0 | 20 | 1,200 reqs |
+| Developer | $50/mo | 100 | 6,000 reqs |
+| Pro | $199/mo | 500 | 30,000 reqs |
+| Enterprise | Custom | unlimited | unlimited |
 
-## Quota response headers
+Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
+
+## Inspecting your usage
+
+Call `GET /credits` at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
+
+```bash
+curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
+```
+
+```json
+{
+  "tier": "free",
+  "rps_cap": 20,
+  "rps_window_secs": 60,
+  "current_window_used": 7,
+  "current_window_remaining": 1193,
+  "current_window_reset_secs": 23,
+  "monthly_used": 4321,
+  "monthly_used_note": "informational; no monthly cap on Dexploit",
+  "tier_features": {
+    "smart_money_access": false,
+    "whales_access": false
+  }
+}
+```
+
+## Rate-limit response headers
 
 Every successful response includes:
 
-- `X-RateLimit-Limit` — your monthly cap.
-- `X-RateLimit-Remaining` — calls left this period.
-- `X-RateLimit-Reset` — Unix timestamp when the counter resets.
+- `X-RateLimit-Limit` — total cap for the current 60-second window (= `rps_cap × 60`).
+- `X-RateLimit-Remaining` — requests left.
+- `X-RateLimit-Reset` — seconds until the window rolls over.
 
 ## Error responses
 
@@ -64,5 +91,6 @@ Every successful response includes:
 | Status | Code | Meaning |
 | --- | --- | --- |
 | 401 | `UNAUTHORIZED` | Key missing, malformed, or revoked. |
-| 429 | `RATE_LIMITED` | Free-tier rate limit exceeded. Back off and retry. |
-| 429 | `QUOTA_EXCEEDED` | Monthly quota hit. [Upgrade](https://www.dexploit.dev/pricing) or wait for reset. |
+| 429 | `RATE_LIMIT_EXCEEDED` | RPS cap exceeded in current window. Retry after `X-RateLimit-Reset` seconds. |
+
+Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).

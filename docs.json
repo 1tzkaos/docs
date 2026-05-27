@@ -126,7 +126,27 @@
               "GET /tokens/{mint}/insiders",
               "GET /tokens/{mint}/smart-money",
               "GET /tokens/{mint}/whales",
-              "GET /tokens/{mint}/risk"
+              "GET /tokens/{mint}/risk",
+              "GET /tokens/latest",
+              "GET /tokens/multi/all",
+              "GET /tokens/multi/graduating",
+              "GET /tokens/multi/graduated",
+              "POST /tokens/multi"
+            ]
+          },
+          {
+            "group": "Price",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /price/multi"
+            ]
+          },
+          {
+            "group": "Account",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /credits",
+              "GET /subscription"
             ]
           },
           {
