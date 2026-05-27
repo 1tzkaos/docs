@@ -1,0 +1,112 @@
+---
+title: "Risk Score algorithm"
+description: "How Dexploit computes the 0–10 token risk score from on-chain signals — every signal, every weight, every threshold."
+---
+
+The Risk Score is a number between 0.0 and 10.0 that summarizes how rug-pull-y a token looks based on on-chain evidence. It's glass-box: the full list of signals that fired, with their weights and individual contributions, is in the API response. You can re-compute the score yourself.
+
+## Formula
+
+```
+score = min(10.0, sum(signal.contribution for signal in fired_signals) * 10 / 5000)
+```
+
+The divisor `5000` is the calibration target — a raw contribution sum of 5,000 normalizes to 10.0. Real-world rug setups often reach raw sums of 20,000+; they all clip to 10.0.
+
+## Level bands
+
+The `level` field bands the numeric score into four categories for UI:
+
+| `level` | Score range |
+|---|---|
+| `safe` | 0.0 ≤ score &lt; 2.5 |
+| `caution` | 2.5 ≤ score &lt; 5.0 |
+| `warning` | 5.0 ≤ score &lt; 7.5 |
+| `danger` | 7.5 ≤ score ≤ 10.0 |
+
+## Status
+
+| `status` | Meaning |
+|---|---|
+| `ready` | All 12 signal inputs available; score is fully computed. |
+| `partial_data` | At least one signal couldn't be evaluated (the underlying data isn't onboarded yet). The score still reflects the signals that *were* available; `missing_signals[]` lists which weren't ready. |
+| `no_data` | None of the signal inputs are available — typically because the mint isn't yet in `tracked_mints`. `score` is `null`. |
+
+A `partial_data` score is a true lower bound — every signal in `missing_signals[]` is one that *could* have added to the score had its input been available.
+
+## Signals
+
+Twelve signals across six categories. "Graded" signals scale their contribution with the magnitude of the underlying value (e.g. `dev_held_high` contributes more when the creator holds 30% vs 6%).
+
+### Holder concentration (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `single_holder_50pct` | top holder owns &gt; 50% of supply | 7000 | Graded across 50–100%. Pool wallets are excluded from the "top holder" calculation. |
+| `top10_high` | top-10 sum &gt; 50% of supply | 5000 | Graded across 50–70%. Pool-excluded. |
+| `top10_very_high` | top-10 sum &gt; 70% of supply | 2500 | Graded across 70–100%. **Stacks** on top of `top10_high`. |
+
+### LP + authority (boolean)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `lp_not_burnt` | LP tokens not burnt | 4000 | Returns `None` (signal sits in `missing_signals`) when the LP-burnt cron hasn't checked this mint yet — avoids a false-positive during the warm-up window. |
+| `mint_authority_active` | mint authority not revoked | 2500 | Empty or `null` authority counts as revoked. |
+| `freeze_authority_active` | freeze authority not revoked | 7500 | The heaviest single signal in the catalog — token holders can be frozen out of their positions. |
+
+### Sniper concentration (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `snipers_count_high` | ≥ 10 wallets bought within first 30 slots | 3500 | Graded by count (10 → 0.1, 50+ → 1.0). A fire never yields 0 contribution. |
+| `snipers_pct_high` | snipers hold &gt; 30% of supply | 7500 | Graded across 30–50%. |
+
+### Insider concentration (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `insiders_pct_high` | insiders hold &gt; 30% of supply | 5000 | Graded across 30–50%. An insider is a holder who never appears as a swapper on-DEX. |
+
+### Creator behavior (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `dev_held_high` | creator holds &gt; 5% of supply | 3000 | Graded across 5–30%. Only fires when `creator_source` is non-empty — i.e. we know who the creator is. |
+| `dev_held_very_high` | creator holds &gt; 30% of supply | 5000 | Graded across 30–100%. **Stacks** on top of `dev_held_high`. |
+
+### Metadata (boolean)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `no_socials` | no twitter / telegram / website | 2000 | All three fields must be empty or null. |
+
+**Total maximum raw contribution**: 53,500 (every signal triggered at full strength).
+
+## Why this design
+
+**Glass-box** so you can audit our judgment. If you disagree with a weight or threshold, you can subtract that signal's `contribution` from the raw score and renormalize. The `value` field on each signal is the concrete measurement, not an opaque score — verifiable against the underlying on-chain data.
+
+**Stacking thresholds** (e.g. `top10_high` + `top10_very_high`) compound penalties for severe concentration without making any single threshold a cliff.
+
+**Graded contribution** keeps small differences in the underlying data from causing large score jumps. A token at 51% top-10 concentration doesn't suddenly leap past one at 49%.
+
+**Phase 0 strict precedence** for `dev_held_*`: we only fire these when `tokens.creator_source` is populated. We never fall back to "largest holder is probably the creator" — that produced false positives in pre-Phase-0 testing on tokens where the largest holder was a CEX hot wallet or the AMM pool itself.
+
+## Re-computing the score
+
+The response is glass-box on purpose. If you want to weight signals differently:
+
+```python
+# Subtract signals you don't care about
+penalty = sum(s["contribution"] for s in signals if s["code"] != "no_socials")
+# Renormalize against your own divisor
+my_score = min(10.0, penalty * 10 / 5000)
+```
+
+Or if you want a fully custom model: walk `signals[*].value`, ignore the `weight`/`contribution`, and feed the raw values into whatever you'd prefer.
+
+## See also
+
+- `GET /tokens/{mint}/risk` — the dedicated risk endpoint
+- `GET /tokens/{mint}/intel` — slim risk summary embedded in the dashboard payload
+- [Quotas & errors](/concepts/quotas-errors) — `/risk` is Free-tier rate-limited; no per-endpoint cap

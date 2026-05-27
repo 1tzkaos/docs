@@ -295,22 +295,109 @@
       },
       "TokenIntel": {
         "type": "object",
-        "description": "Aggregated intelligence for one token mint: actor classification, holders, price/volume trend, dev concentration. Cached server-side ~60s.",
+        "description": "Aggregated intelligence for one token mint: actor aggregates, holders, price/volume trend, dev concentration, and an embedded Risk Score summary. Cached server-side ~60s.\n\nFull per-actor lists live at dedicated endpoints (e.g. `/tokens/{mint}/snipers`); the `actors` object here carries counts + concentration percentages with `fetch_url` deep-links.",
         "properties": {
           "mint":                 { "type": "string" },
-          "snipers":              { "type": "array", "items": { "$ref": "#/components/schemas/TokenIntelEntry" } },
-          "insiders":             { "type": "array", "items": { "$ref": "#/components/schemas/TokenIntelEntry" } },
-          "top_70":               { "type": "array", "items": { "$ref": "#/components/schemas/TokenIntelEntry" }, "description": "Top 70 holders (excluding the pool LP account)." },
-          "dev":                  { "type": ["object", "null"], "description": "Creator wallet's current position, or null if unknown." },
+          "computed_at":          { "type": "integer", "description": "Unix epoch milliseconds." },
+          "holders_count":        { "type": ["integer", "null"], "description": "Distinct wallets currently holding non-zero balance." },
+          "creator_held_pct":     { "type": ["number", "null"], "description": "Percent of supply still held by the creator wallet (0–100)." },
+          "bonding_pct":          { "type": ["number", "null"], "description": "Pump.fun bonding-curve progress (0–100); null for graduated/non-pump tokens." },
+          "top10_pct":            { "$ref": "#/components/schemas/Top10Pct" },
+          "actors":               { "$ref": "#/components/schemas/ActorAggregates" },
+          "dev":                  { "type": ["object", "null"], "description": "Creator wallet, source provenance, and recent launches. `null` when the creator is unknown (Phase 0 strict precedence — never falls back to largest holder)." },
           "change_pct":           { "type": "object", "description": "Price change percent across canonical windows.", "properties": { "5m": { "type": "number" }, "1h": { "type": "number" }, "6h": { "type": "number" }, "24h": { "type": "number" } } },
-          "bonding_pct":          { "type": ["number", "null"], "description": "Pump.fun bonding-curve progress (0–1); null for graduated/non-pump tokens." },
-          "liquidity_usd":        { "type": "number" },
-          "volume_24h_usd":       { "type": "number" },
-          "volume_pct_change_24h":{ "type": "number" },
-          "creator_held_pct":     { "type": "number", "description": "Percent of supply still held by the creator wallet." },
+          "liquidity_usd":        { "type": ["number", "null"] },
+          "volume_24h_usd":       { "type": ["number", "null"] },
+          "volume_pct_change_24h":{ "type": ["number", "null"] },
           "dev_held_lp_pct":      { "type": ["number", "null"], "description": "Percent of LP tokens still held by the creator (when LP is not burnt)." },
-          "holders":              { "type": "integer" },
-          "computed_at":          { "type": "integer", "description": "Unix epoch milliseconds." }
+          "risk":                 { "$ref": "#/components/schemas/RiskSummary" }
+        }
+      },
+      "Top10Pct": {
+        "type": "object",
+        "description": "Top 10 holders' share of supply, with explicit status. Always present (even when the value isn't computable yet).",
+        "properties": {
+          "value":       { "type": ["number", "null"], "description": "Top-10 (pool-excluded) sum divided by total supply. `null` when `status` is not `ready`." },
+          "status":      { "type": "string", "enum": ["ready", "no_holder_data", "computing"] },
+          "computed_at": { "type": "integer", "description": "Unix epoch milliseconds." }
+        }
+      },
+      "ActorAggregates": {
+        "type": "object",
+        "description": "Per-tag count + concentration of wallets currently holding the mint. Keys are tag names (`sniper`, `insider`, `smart_money`, `whale`, `kol`, `fresh`, `dev`, `bot`) — only tags with at least one matching holder appear. Use `fetch_url` to deep-link to the full list endpoint.",
+        "additionalProperties": { "$ref": "#/components/schemas/ActorAggregate" }
+      },
+      "ActorAggregate": {
+        "type": "object",
+        "properties": {
+          "count":              { "type": "integer" },
+          "pct_of_circulating": { "type": "number", "description": "Sum of these wallets' balances divided by total supply (0.0–1.0)." },
+          "fetch_url":          { "type": "string", "description": "Path to the full list endpoint. Present only for actor types that have a dedicated endpoint (sniper, insider, smart_money, whale)." }
+        }
+      },
+      "RiskSummary": {
+        "type": "object",
+        "description": "Slim Risk Score summary embedded in `/intel`. Full per-signal breakdown at `/tokens/{mint}/risk`.",
+        "properties": {
+          "score":            { "type": ["number", "null"], "description": "0.0–10.0; null when no input data is available yet." },
+          "level":            { "type": ["string", "null"], "enum": ["safe", "caution", "warning", "danger", null] },
+          "signals_summary":  { "type": "array", "items": { "type": "string" }, "description": "Up to 5 codes of the highest-weighted signals that fired." },
+          "fetch_url":        { "type": "string" }
+        }
+      },
+      "HoldersResponse": {
+        "type": "object",
+        "properties": {
+          "mint":        { "type": "string" },
+          "results":     { "type": "array", "items": { "$ref": "#/components/schemas/HolderRow" } },
+          "next_cursor": { "type": ["string", "null"], "description": "Opaque base64 cursor. Pass back as `?cursor=...`; `null` means end-of-results." },
+          "computed_at": { "type": "integer" }
+        }
+      },
+      "HolderRow": {
+        "type": "object",
+        "properties": {
+          "wallet":              { "type": "string" },
+          "balance_atomic":      { "type": "string", "description": "u64 as decimal string for JSON safety." },
+          "balance_ui":          { "type": "number", "description": "balance_atomic / 10^decimals." },
+          "pct_of_circulating":  { "type": "number", "description": "0.0–1.0." },
+          "tags":                { "type": "array", "items": { "type": "string" }, "description": "Empty unless `?enrich=identity` is requested." },
+          "rank":                { "type": "integer", "description": "1-based position in this page (resumed across pages by cursor)." }
+        }
+      },
+      "ActorsResponse": {
+        "type": "object",
+        "properties": {
+          "mint":        { "type": "string" },
+          "results":     { "type": "array", "items": { "$ref": "#/components/schemas/HolderRow" } },
+          "next_cursor": { "type": ["string", "null"] },
+          "computed_at": { "type": "integer" }
+        }
+      },
+      "RiskResponse": {
+        "type": "object",
+        "description": "Glass-box token risk: a 0–10 score plus the per-signal breakdown that produced it. See [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
+        "properties": {
+          "mint":             { "type": "string" },
+          "score":            { "type": ["number", "null"], "description": "0.0–10.0; `null` when status is `no_data`." },
+          "level":            { "type": ["string", "null"], "enum": ["safe", "caution", "warning", "danger", null] },
+          "status":           { "type": "string", "enum": ["ready", "partial_data", "no_data"] },
+          "signals":          { "type": "array", "items": { "$ref": "#/components/schemas/RiskSignal" }, "description": "Only signals that triggered are included. To re-compute the score: `min(10, sum(signal.contribution) * 10 / 5000)`." },
+          "raw_score":        { "type": "integer" },
+          "max_raw":          { "type": "integer", "description": "53500 — the sum of every signal's weight." },
+          "computed_at":      { "type": "integer" },
+          "missing_signals":  { "type": "array", "items": { "type": "string" }, "description": "Codes of signals whose input data wasn't available yet (mint not fully onboarded)." }
+        }
+      },
+      "RiskSignal": {
+        "type": "object",
+        "properties": {
+          "code":         { "type": "string", "description": "Stable identifier — see /concepts/risk-score." },
+          "weight":       { "type": "integer" },
+          "value":        { "description": "Concrete measurement; shape varies per signal." },
+          "triggered":    { "type": "boolean" },
+          "contribution": { "type": "integer", "description": "weight × graded_strength; equals `weight` for boolean signals, scaled for graded ones." },
+          "label":        { "type": "string", "description": "Human-readable description of what this signal observed." }
         }
       },
       "WalletTags": {
@@ -958,8 +1045,8 @@
     },
     "/tokens/{mint}/intel": {
       "get": {
-        "summary": "Token intelligence (snipers, insiders, top holders, dev)",
-        "description": "Aggregated actor classification and price/liquidity context for a single token. Useful for a 'token detail' panel. Server-side cached ~60s.\n\nClassifications come from wallet tagging — see [`/wallets/{wallet}/tags`](#tag/wallet-intel/get/wallets/{wallet}/tags) for the per-wallet view.",
+        "summary": "Token intel — dashboard summary",
+        "description": "Per-mint dashboard payload: actor aggregates, top-10 holder concentration, dev info, price/liquidity context, and an embedded Risk Score summary. Server-side cached ~60s.\n\nFor the full holder list use [`/tokens/{mint}/holders`](#tag/tokens/get/tokens/{mint}/holders); for actor lists deep-link via the `fetch_url` in each `actors[*]` entry; for the full per-signal Risk breakdown call [`/tokens/{mint}/risk`](#tag/tokens/get/tokens/{mint}/risk).",
         "operationId": "getTokenIntel",
         "tags": ["Tokens"],
         "parameters": [
@@ -967,6 +1054,122 @@
         ],
         "responses": {
           "200": { "description": "Token intel", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenIntel" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/holders": {
+      "get": {
+        "summary": "Token holders (paginated)",
+        "description": "Wallets currently holding non-zero balance of `{mint}`, sorted by balance descending. Cursor-paginated (default 100, max 200).\n\nPass `?enrich=identity` to populate the `tags[]` field on each row from `wallet_tags` (e.g. `sniper`, `insider`, `smart_money`, `whale`). Enrichment adds a JOIN; expect ~30% higher cold-path latency.",
+        "operationId": "listTokenHolders",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true,  "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 100, "minimum": 1, "maximum": 200 } },
+          { "name": "enrich", "in": "query", "required": false, "schema": { "type": "string", "example": "identity" }, "description": "Comma-separated enrichment tokens. Currently only `identity` is recognized." }
+        ],
+        "responses": {
+          "200": { "description": "Page of holders", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HoldersResponse" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/holders/top": {
+      "get": {
+        "summary": "Top 20 holders",
+        "description": "Same shape as `/tokens/{mint}/holders` but fixed at 20 rows and no cursor — ideal for a 'top holders' panel.",
+        "operationId": "listTokenHoldersTop",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true,  "schema": { "type": "string" } },
+          { "name": "enrich", "in": "query", "required": false, "schema": { "type": "string", "example": "identity" } }
+        ],
+        "responses": {
+          "200": { "description": "Top 20 holders", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HoldersResponse" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/snipers": {
+      "get": {
+        "summary": "Snipers holding this mint",
+        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).",
+        "operationId": "listTokenSnipers",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true,  "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 200 } },
+          { "name": "enrich", "in": "query", "required": false, "schema": { "type": "string", "example": "identity" } }
+        ],
+        "responses": {
+          "200": { "description": "Snipers", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActorsResponse" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/insiders": {
+      "get": {
+        "summary": "Insiders holding this mint",
+        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).",
+        "operationId": "listTokenInsiders",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true,  "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 200 } },
+          { "name": "enrich", "in": "query", "required": false, "schema": { "type": "string", "example": "identity" } }
+        ],
+        "responses": {
+          "200": { "description": "Insiders", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActorsResponse" } } } }
+        }
+      }
+    },
+    "/tokens/{mint}/smart-money": {
+      "get": {
+        "summary": "Smart-money wallets holding this mint",
+        "description": "Wallets globally tagged `smart_money` (high historical PnL across many mints) who currently hold non-zero balance of `{mint}`.\n\n**Tier-gated**: Free tier is capped at 100 results per UTC day per endpoint. Paid tiers bypass the cap.\n\nCursor-paginated (default 50, max 200).",
+        "operationId": "listTokenSmartMoney",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true,  "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 200 } },
+          { "name": "enrich", "in": "query", "required": false, "schema": { "type": "string", "example": "identity" } }
+        ],
+        "responses": {
+          "200": { "description": "Smart-money holders", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActorsResponse" } } } },
+          "429": { "description": "Daily cap exceeded (Free tier only)." }
+        }
+      }
+    },
+    "/tokens/{mint}/whales": {
+      "get": {
+        "summary": "Whale wallets holding this mint",
+        "description": "Wallets globally tagged `whale` who currently hold non-zero balance of `{mint}`.\n\n**Tier-gated**: Free tier is capped at 100 results per UTC day per endpoint. Paid tiers bypass the cap.\n\nCursor-paginated (default 50, max 200).",
+        "operationId": "listTokenWhales",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint",   "in": "path",  "required": true,  "schema": { "type": "string" } },
+          { "name": "cursor", "in": "query", "required": false, "schema": { "type": "string" } },
+          { "name": "limit",  "in": "query", "required": false, "schema": { "type": "integer", "default": 50, "minimum": 1, "maximum": 200 } },
+          { "name": "enrich", "in": "query", "required": false, "schema": { "type": "string", "example": "identity" } }
+        ],
+        "responses": {
+          "200": { "description": "Whale holders", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ActorsResponse" } } } },
+          "429": { "description": "Daily cap exceeded (Free tier only)." }
+        }
+      }
+    },
+    "/tokens/{mint}/risk": {
+      "get": {
+        "summary": "Token risk score (glass-box)",
+        "description": "0.0–10.0 rug-pull risk score with the full per-signal breakdown that produced it. Glass-box — every signal that fired is in `signals[]` with its `code`, `weight`, `value`, and `contribution`. You can re-compute the score yourself: `min(10, sum(s.contribution for s in signals) * 10 / 5000)`.\n\nSee [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
+        "operationId": "getTokenRisk",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "mint", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Risk score", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RiskResponse" } } } }
         }
       }
     },

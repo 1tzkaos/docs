@@ -46,7 +46,8 @@
               "concepts/pairs-vs-tokens",
               "concepts/swap-event-ohlcv",
               "concepts/timeframes-resolution",
-              "concepts/quotas-errors"
+              "concepts/quotas-errors",
+              "concepts/risk-score"
             ]
           },
           {
@@ -118,7 +119,14 @@
               "GET /tokens",
               "GET /tokens/{mint}",
               "GET /tokens/{mint}/audit",
-              "GET /tokens/{mint}/intel"
+              "GET /tokens/{mint}/intel",
+              "GET /tokens/{mint}/holders",
+              "GET /tokens/{mint}/holders/top",
+              "GET /tokens/{mint}/snipers",
+              "GET /tokens/{mint}/insiders",
+              "GET /tokens/{mint}/smart-money",
+              "GET /tokens/{mint}/whales",
+              "GET /tokens/{mint}/risk"
             ]
           },
           {
