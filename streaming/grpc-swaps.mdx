@@ -1,0 +1,102 @@
+---
+title: "gRPC: SwapStream"
+description: "Typed, streaming swap feed at grpc.dexploit.dev. Real-time UnifiedSwap events with rich server-side filtering."
+---
+
+The `dexploit.v1.SwapStream` gRPC service delivers Solana DEX swaps in real time, filtered server-side. Use it when you want typed clients + flow control without parsing raw transactions.
+
+## Endpoint
+
+- Host: `grpc.dexploit.dev:443` (TLS)
+- Service: `dexploit.v1.SwapStream`
+- Auth: `x-api-key` metadata header (or `authorization: Bearer …`)
+- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Swaps/blob/main/crates/swaps-streamer/proto/swap_stream.proto)
+
+## RPCs
+
+### `StreamLive(StreamLiveRequest) → stream UnifiedSwap`
+
+Live tail. Streams every new swap that matches your filter until the connection closes.
+
+```typescript
+import { credentials, Metadata } from "@grpc/grpc-js";
+// ... (see the full example at https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/swap-stream)
+
+const stream = client.StreamLive(
+  { filter: { dexes: ["pumpfun"], minSol: "1000000" } },
+  metadata,
+);
+stream.on("data", (swap) => console.log(swap));
+```
+
+### `StreamFromCursor(StreamFromCursorRequest) → stream UnifiedSwap`
+
+**Reserved for v1.1.** Currently returns `UNIMPLEMENTED`. Will replay history from a Solana slot cursor + transition to live.
+
+## Filter shape
+
+| Field | Type | Notes |
+|---|---|---|
+| `tokens` | `repeated string` | Mint addresses (base58). Empty list = all. |
+| `traders` | `repeated string` | Wallet addresses. |
+| `pools` | `repeated string` | Pool/curve addresses. |
+| `dexes` | `repeated string` | `"pumpfun"|"pumpswap"|"raydium_clmm"|...` |
+| `min_sol` / `max_sol` | `optional uint64` | Lamports. |
+| `min_token_amount` / `max_token_amount` | `optional uint64` | Raw token units. |
+| `is_buy` | `optional bool` | `true` = buys only; `false` = sells only. |
+| `signature` | `optional string` | Exact-match (debugging). |
+| `wallet_tags` | `repeated string` | **Pro+ only**: `"smart_money"|"sniper"|"whale"|"insider"`. On lower tiers this filter is silently ignored (see below). |
+
+## Tier caps
+
+| Tier | Max concurrent SwapStream connections | `wallet_tags` filter |
+|---|---|---|
+| Free | 1 | ignored (see below) |
+| Developer | 10 | ignored |
+| Pro | 50 | allowed |
+| Enterprise | unlimited | allowed |
+
+Exceeding the cap returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`.
+
+### `wallet_tags` tier gating
+
+If a Free/Developer caller passes a non-empty `wallet_tags` filter, the server **silently drops the tag filter** and proceeds with the rest of the filter. The response carries an initial metadata header:
+
+```
+x-dexploit-tier-locked-filter: wallet_tags
+```
+
+This matches the REST [tier-locked features](/concepts/quotas-errors#tier-locked-features) posture — same response shape for paid + locked, with a clear upgrade signal.
+
+## Backpressure
+
+Each open stream gets a 1024-event server-side buffer. If a client falls behind by more than 1024 events, the server cancels the stream with:
+
+```
+code: RESOURCE_EXHAUSTED
+message: "client too slow; buffer overflow"
+```
+
+Clients are expected to reconnect. The current scenario where this happens in practice is browser tabs that background for >5 seconds during a busy market window.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `UNAUTHENTICATED` | Missing/invalid api_key in metadata. |
+| `RESOURCE_EXHAUSTED` | Stream cap exceeded, OR slow client buffer overflow. |
+| `UNIMPLEMENTED` | `StreamFromCursor` (reserved for v1.1). |
+| `INTERNAL` | Server-side bug. Retry; report if persistent. |
+
+## Compared to WebSocket `/ws/swaps`
+
+| Aspect | WebSocket | gRPC SwapStream |
+|---|---|---|
+| Transport | WSS over HTTPS | HTTP/2 (TLS) |
+| Schema | JSON | Protobuf (typed) |
+| Filter set | 7 fields | 11 fields (incl. `signature` + `wallet_tags`) |
+| Backpressure | client-driven (browser-friendly) | server-bounded queue (1024 events) |
+| Flow control | none | HTTP/2 native |
+| Tier-gated filters | n/a | `wallet_tags` (Pro+) |
+
+Use WebSocket for browser clients. Use gRPC for indexers, backend services, and anywhere typed clients + flow control matter.

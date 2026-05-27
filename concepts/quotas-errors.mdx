@@ -82,6 +82,19 @@ This keeps client code simple — same response shape, an extra flag — and let
 
 Currently tier-locked endpoints: `/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`.
 
+## gRPC stream caps
+
+The `dexploit.v1.SwapStream` service caps concurrent connections per tier:
+
+| Tier | Max concurrent SwapStream connections |
+|---|---|
+| Free | 1 |
+| Developer | 10 |
+| Pro | 50 |
+| Enterprise | unlimited |
+
+Exceeding the cap returns `RESOURCE_EXHAUSTED`. The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
+
 ## Error codes
 
 | Code | Status | Meaning | Remedy |

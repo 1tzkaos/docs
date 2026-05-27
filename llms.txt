@@ -66,6 +66,7 @@
 - [WebSocket: OHLCV](https://docs.dexploit.dev/streaming/ohlcv): live candle updates
 - [WebSocket: pump lifecycle](https://docs.dexploit.dev/streaming/pump-lifecycle): mint/graduation events
 - [gRPC: PriceStream](https://docs.dexploit.dev/streaming/grpc): protocol price feed
+- [gRPC: SwapStream](https://docs.dexploit.dev/streaming/grpc-swaps): streaming swap feed with server-side filtering
 
 ## Optional
 - [GraphQL playground](https://docs.dexploit.dev/api-reference/graphql)
