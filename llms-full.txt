@@ -1,0 +1,1353 @@
+# Dexploit
+
+
+
+
+---
+
+# index
+
+
+Dexploit gives you two things: a live stream of every swap on the Solana DEXs we track, and accurate OHLCV candles built from those swaps as they happen. No account-state polling, no carry-forward bars, no separate price oracle.
+
+## Get started
+
+<Columns cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Find a pool and fetch your first candle in 5 minutes.
+  </Card>
+  <Card title="Concepts: Pairs vs tokens" icon="graduation-cap" href="/concepts/pairs-vs-tokens">
+    The one thing to internalize before you write any code.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    API keys, headers, and tier limits.
+  </Card>
+</Columns>
+
+## Plans
+
+| Plan | Price | Suited for |
+| --- | --- | --- |
+| Free | $0 | Hobby projects, evaluation. Rate-limited. |
+| Developer | $50/mo | Solo devs and prototypes. No rate limit. |
+| Pro | $199/mo | Production apps. Higher quotas. |
+| Enterprise | Custom | High-volume + custom SLAs. |
+
+See the full quota and rate-limit table on the [Authentication page](/authentication).
+
+## What's next
+
+<Columns cols={2}>
+  <Card title="Streaming" icon="bolt" href="/streaming/websocket">
+    WebSocket and gRPC for real-time swap events.
+  </Card>
+  <Card title="GitHub Examples" icon="github" href="https://github.com/DexploitV1/Dexploit-Examples">
+    Working sample apps for the most common integration patterns.
+  </Card>
+</Columns>
+
+
+---
+
+# quickstart
+
+
+You'll need an [API key](https://www.dexploit.dev/dashboard) before you start. Free tier is fine for this walkthrough.
+
+## 1. Find pools for your token
+
+Dexploit indexes swap data per **pool** (pair), not per **token**. A token like BONK has separate pools on Pump.fun, PumpSwap, Raydium, and Meteora — each with its own price and volume. Read [Pairs vs tokens](/concepts/pairs-vs-tokens) for the full picture.
+
+Start by listing pools for your token:
+
+<CodeGroup>
+```bash curl
+curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+  'https://api.dexploit.dev/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&limit=3'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  'https://api.dexploit.dev/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&limit=3',
+  { headers: { 'X-API-Key': 'ohlcv_live_sk_<your_key>' } }
+);
+const { data } = await res.json();
+console.log(data);
+```
+</CodeGroup>
+
+You'll get back something like:
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "pair_address": "<pool_address>",
+      "protocol": "pumpswap",
+      "recent_volume_sol": 1234.56
+    }
+  ]
+}
+```
+
+Pick the `pair_address` of the pool you want — usually the one with the highest `recent_volume_sol`.
+
+## 2. Pull the latest candles for that pool
+
+<CodeGroup>
+```bash curl
+curl -H 'Authorization: Bearer ohlcv_live_sk_<your_key>' \
+  'https://api.dexploit.dev/api/v1/candles/latest?pair_address=<from_step_1>&timeframe=1m&limit=10'
+```
+
+```typescript TypeScript
+const res = await fetch(
+  `https://api.dexploit.dev/api/v1/candles/latest?pair_address=${pair}&timeframe=1m&limit=10`,
+  { headers: { 'Authorization': 'Bearer ohlcv_live_sk_<your_key>' } }
+);
+const { data: candles } = await res.json();
+// volume_sol is in **lamports** — divide by 1e9 to get SOL.
+candles.forEach(c =>
+  console.log(c.timestamp, c.close, `vol ${(c.volume_sol / 1e9).toFixed(2)} SOL`)
+);
+```
+</CodeGroup>
+
+Each candle is built from real trade events — `volume_sol`, `volume_token`, `trade_count`, `buy_count`, `sell_count`, and `unique_traders` are exact, not approximations. See [Swap-event OHLCV](/concepts/swap-event-ohlcv) for why this matters.
+
+## What's next
+
+<Columns cols={2}>
+  <Card title="Pairs vs tokens" icon="map" href="/concepts/pairs-vs-tokens">
+    Why every OHLCV endpoint takes `pair_address`, not the token mint.
+  </Card>
+  <Card title="Stream live swaps" icon="bolt" href="/streaming/websocket">
+    Replace polling with a WebSocket subscription.
+  </Card>
+  <Card title="GitHub Examples" icon="github" href="https://github.com/DexploitV1/Dexploit-Examples">
+    Working sample apps for chart, dashboard, and backfill workflows.
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    API keys, headers, and tier limits.
+  </Card>
+</Columns>
+
+
+---
+
+# authentication
+
+
+Every request needs an API key. Generate one from your [dashboard](https://www.dexploit.dev/dashboard).
+
+## Sending the key
+
+Pass your key in the `X-API-Key` header on every request:
+
+<CodeGroup>
+```bash curl
+curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+  https://api.dexploit.dev/api/v1/pairs?token_address=...
+```
+
+```typescript TypeScript
+const res = await fetch('https://api.dexploit.dev/api/v1/pairs?token_address=...', {
+  headers: { 'X-API-Key': 'ohlcv_live_sk_<your_key>' }
+});
+```
+</CodeGroup>
+
+For browser-side WebSocket connections where headers aren't easy, you can pass the key as a `?api_key=` query string instead. See [Streaming: WebSocket](/streaming/websocket).
+
+## Key format and security
+
+Keys look like `ohlcv_<env>_sk_<48_random_chars>` where `<env>` is `live`, `dev`, or `test`.
+
+Keys are hashed (SHA-256) at rest. You see the full key once at generation. Lost a key? **Rotate** to issue a new one — there's no way to retrieve the original. Rotation issues a fresh key and grants the old one a 7-day grace period before it stops working.
+
+## Tiers and RPS caps
+
+Pricing is capped requests-per-second with unlimited monthly volume — pick a tier that matches your sustained throughput.
+
+| Tier | Price | Sustained RPS | 60-second burst window |
+| --- | --- | --- | --- |
+| Free | $0 | 20 | 1,200 reqs |
+| Developer | $50/mo | 100 | 6,000 reqs |
+| Pro | $199/mo | 500 | 30,000 reqs |
+| Enterprise | Custom | unlimited | unlimited |
+
+Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
+
+## Inspecting your usage
+
+Call [`GET /credits`](/api-reference/openapi/get/credits) at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
+
+```bash
+curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
+```
+
+```json
+{
+  "tier": "free",
+  "rps_cap": 20,
+  "rps_window_secs": 60,
+  "current_window_used": 7,
+  "current_window_remaining": 1193,
+  "current_window_reset_secs": 23,
+  "monthly_used": 4321,
+  "monthly_used_note": "informational; no monthly cap on Dexploit",
+  "tier_features": {
+    "smart_money_access": false,
+    "whales_access": false
+  }
+}
+```
+
+## Rate-limit response headers
+
+Every successful response includes:
+
+- `X-RateLimit-Limit` — total cap for the current 60-second window (= `rps_cap × 60`).
+- `X-RateLimit-Remaining` — requests left.
+- `X-RateLimit-Reset` — seconds until the window rolls over.
+
+## Error responses
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "UNAUTHORIZED",
+    "message": "Missing or invalid API key"
+  }
+}
+```
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 401 | `UNAUTHORIZED` | Key missing, malformed, or revoked. |
+| 429 | `RATE_LIMIT_EXCEEDED` | RPS cap exceeded in current window. Retry after `X-RateLimit-Reset` seconds. |
+
+Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
+
+
+---
+
+# concepts/pairs-vs-tokens
+
+
+If you've used other Solana data APIs, you probably ask for OHLCV by token mint. Dexploit doesn't work that way, and here's why.
+
+## One token, many pools
+
+A token like BONK trades on multiple DEX pools simultaneously. Each pool has its own liquidity, price, and volume. Asking "what's the price of BONK?" is ambiguous — it depends which pool.
+
+For example, BONK trades across pools like these (real shape — fetch the latest from `/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263`):
+
+| pair_address | protocol | recent_volume_sol |
+| --- | --- | --- |
+| `<pumpswap_pool_address>` | pumpswap | 1234.56 |
+| `<raydium_pool_address>` | raydium | 987.65 |
+| `<meteora_pool_address>` | meteora | 543.21 |
+
+These are different pools — different LP accounts on-chain. They'll have small price differences and different volume profiles.
+
+## What `pair_address` actually is
+
+`pair_address` is the on-chain address of the pool / LP account. Every swap that happens against that pool is captured under that address. When you ask Dexploit for OHLCV or swap history, you're asking about activity in that specific pool.
+
+## Discovery: find pairs for a token
+
+Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume.
+
+```bash
+curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+  'https://api.dexploit.dev/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&limit=10'
+```
+
+Pick the pool you want — usually the one with highest recent volume — and pass its `pair_address` to the OHLCV / swap endpoints.
+
+## What happens if you send `mint` or `pair`
+
+The API rejects it with a clear pointer:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "INVALID_PARAM",
+    "message": "use pair_address; see /api/v1/pairs?token_address=X to discover pools"
+  }
+}
+```
+
+This is intentional. Aggregating OHLCV across pools requires us to make tradeoffs about which pool is "the" pool, and we'd rather hand that decision to you.
+
+## When `mint` is the right input
+
+A few endpoints intentionally take a token mint, because they aggregate across all pools:
+
+- [`GET /swaps/token/{mint}`](/api-reference) — every swap of a token, across pools.
+- [`GET /stats/token/{mint}`](/api-reference) — aggregate token stats.
+
+If you're using one of those, mint is correct. Everywhere else, use `pair_address`.
+
+
+---
+
+# concepts/swap-event-ohlcv
+
+
+Most Solana OHLCV APIs poll pool *account state* every block or two and build a candle from those snapshots. The price comes from `reserves_a / reserves_b`, the volume comes from differencing reserves between snapshots.
+
+Dexploit doesn't do that. We process every swap event from the [Yellowstone gRPC stream](https://github.com/rpcpool/yellowstone-grpc) as it arrives, normalize it across protocols (Pump.fun, PumpSwap, Raydium, Meteora), and aggregate the events into bars.
+
+## Why this matters for you
+
+Building from events instead of state changes a few things you can rely on:
+
+- **Volume is exact.** `volume_sol` and `volume_token` on each candle are the sum of actual swap amounts within the bar.
+- **Trade counts are real.** `trade_count`, `buy_count`, `sell_count`, and `unique_traders` are direct counts. State-snapshot APIs can't produce these.
+- **No phantom bars.** When a pool has zero trades during a 1-minute interval, that interval has no bar. We don't carry-forward the previous close.
+- **Bar boundaries are clean.** 1-minute bars start at `:00`. RPC drops or block-time jitter don't shift them.
+
+## What's in a candle
+
+```json
+{
+  "timestamp": "2026-05-09T12:34:00Z",
+  "pair_address": "...",
+  "token_address": "...",
+  "base_mint": "So11111111111111111111111111111111111111112",
+  "timeframe": "1m",
+  "open": 0.0000178,
+  "high": 0.0000182,
+  "low":  0.0000176,
+  "close": 0.0000181,
+  "volume_sol": 12340000000,
+  "volume_token": 691234000000,
+  "trade_count": 47,
+  "buy_count": 25,
+  "sell_count": 22,
+  "unique_traders": 31
+}
+```
+
+`base_mint` is always wrapped SOL — prices are quoted in SOL.
+
+<Note>
+  Both `volume_sol` and `volume_token` are integers in **base units**, despite the names:
+
+  - `volume_sol` is **lamports** — divide by `1e9` to get SOL (`12340000000` → `12.34 SOL`).
+  - `volume_token` is the token's base units — divide by `10 ** quote_decimals` for the human-readable amount.
+</Note>
+
+## Comparison with the account-update model
+
+|  | Account-update model | Swap-event model (Dexploit) |
+| --- | --- | --- |
+| Source | Poll pool reserves | Yellowstone swap stream |
+| Volume accuracy | Approximate (delta of reserves) | Exact (sum of swap amounts) |
+| Empty bars | Carries forward last close | Skipped (no trades = no bar) |
+| Trade count | Not available | Per bar |
+| Late RPC blocks | Bars shift / duplicate | Bars stay aligned |
+
+## Getting the data
+
+[`GET /api/v1/candles`](/api-reference) for a time range, [`GET /api/v1/candles/latest`](/api-reference) for the most-recent N bars. Both require [`pair_address`](/concepts/pairs-vs-tokens), not token mint.
+
+For real-time bars and ticks, subscribe over [WebSocket](/streaming/websocket).
+
+
+---
+
+# concepts/timeframes-resolution
+
+
+## Supported timeframes
+
+Pass one of these strings as the `timeframe` query parameter on candle endpoints:
+
+| timeframe | Notes |
+| --- | --- |
+| `1s` | One second. Highest resolution. |
+| `30s` | |
+| `1m` | One minute. The most common chart resolution. |
+| `5m` | |
+| `15m` | |
+| `1h` | |
+| `4h` | |
+| `1d` | One day, UTC-aligned. |
+
+Each timeframe is its own [ClickHouse materialized view](https://clickhouse.com/docs/en/sql-reference/statements/create/view#materialized) — there's no on-the-fly resampling, so larger timeframes return as fast as `1m`.
+
+Anything else (`2m`, `30m`, etc.) returns 400.
+
+## Bar alignment
+
+Bars are aligned to UTC clock boundaries:
+
+- `1m` bars start at `HH:MM:00`.
+- `1h` bars start at `HH:00:00`.
+- `1d` bars start at `00:00:00` UTC.
+
+The `timestamp` field on a candle is the **start** of the bar.
+
+## Timestamps
+
+Every timestamp on the API is ISO-8601 UTC, e.g., `2026-05-09T12:34:00Z`. When you pass `start` and `end` to `/api/v1/candles`, send ISO-8601 strings.
+
+## Limits
+
+| Endpoint | Default `limit` | Max `limit` |
+| --- | --- | --- |
+| `/api/v1/candles` | 1,000 | 10,000 |
+| `/api/v1/candles/latest` | 100 | 10,000 |
+
+If `end` is omitted on `/api/v1/candles`, the server snaps to a 30-second-aligned "now" so consecutive live queries hit the cache. To pull a precise instantaneous range, set both `start` and `end` explicitly.
+
+
+---
+
+# concepts/quotas-errors
+
+
+## Response envelope
+
+Every JSON response is wrapped:
+
+```json
+// Success
+{ "success": true, "data": { /* payload */ } }
+
+// Error
+{ "success": false, "error": { "code": "...", "message": "..." } }
+```
+
+Streaming protocols (WebSocket, gRPC) use protocol-native error frames — see the [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) pages.
+
+## Quotas
+
+Quotas are enforced per API key:
+
+- **Daily** soft cap (resets at 00:00 UTC).
+- **Monthly** hard cap (resets on the calendar 1st).
+
+When you exceed a cap, requests return 429 with `code: "QUOTA_EXCEEDED"`. The response includes `X-RateLimit-Reset` indicating when you're back under.
+
+See [Authentication](/authentication) for tier-specific numbers.
+
+## Rate limits
+
+Free tier has a per-second rate limit. Paid tiers (Developer, Pro, Enterprise) do not — only quotas apply.
+
+## Error codes
+
+| Code | Status | Meaning | Remedy |
+| --- | --- | --- | --- |
+| `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
+| `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
+| `QUOTA_EXCEEDED` | 429 | Monthly quota hit. | Wait for reset or upgrade. |
+| `RATE_LIMITED` | 429 | Free-tier rate limit hit. | Back off and retry. |
+| `INVALID_PARAM` | 400 | One of your query params is wrong. The `message` says which. | Check the request. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
+| `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
+| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |
+| `UNAVAILABLE` | 503 | Backend dependency is down. | Retry with backoff. |
+| `GATEWAY_TIMEOUT` | 504 | Upstream took too long. | Retry; reduce `limit` if persistent. |
+| `INTERNAL` | 500 | Server-side error. | Retry. If it persists, [contact support](https://www.dexploit.dev/contact). |
+
+
+---
+
+# concepts/risk-score
+
+
+The Risk Score is a number between 0.0 and 10.0 that summarizes how rug-pull-y a token looks based on on-chain evidence. It's glass-box: the full list of signals that fired, with their weights and individual contributions, is in the API response. You can re-compute the score yourself.
+
+## Formula
+
+```
+score = min(10.0, sum(signal.contribution for signal in fired_signals) * 10 / 5000)
+```
+
+The divisor `5000` is the calibration target — a raw contribution sum of 5,000 normalizes to 10.0. Real-world rug setups often reach raw sums of 20,000+; they all clip to 10.0.
+
+## Level bands
+
+The `level` field bands the numeric score into four categories for UI:
+
+| `level` | Score range |
+|---|---|
+| `safe` | 0.0 ≤ score &lt; 2.5 |
+| `caution` | 2.5 ≤ score &lt; 5.0 |
+| `warning` | 5.0 ≤ score &lt; 7.5 |
+| `danger` | 7.5 ≤ score ≤ 10.0 |
+
+## Status
+
+| `status` | Meaning |
+|---|---|
+| `ready` | All 12 signal inputs available; score is fully computed. |
+| `partial_data` | At least one signal couldn't be evaluated (the underlying data isn't onboarded yet). The score still reflects the signals that *were* available; `missing_signals[]` lists which weren't ready. |
+| `no_data` | None of the signal inputs are available — typically because the mint isn't yet in `tracked_mints`. `score` is `null`. |
+
+A `partial_data` score is a true lower bound — every signal in `missing_signals[]` is one that *could* have added to the score had its input been available.
+
+## Signals
+
+Twelve signals across six categories. "Graded" signals scale their contribution with the magnitude of the underlying value (e.g. `dev_held_high` contributes more when the creator holds 30% vs 6%).
+
+### Holder concentration (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `single_holder_50pct` | top holder owns &gt; 50% of supply | 7000 | Graded across 50–100%. Pool wallets are excluded from the "top holder" calculation. |
+| `top10_high` | top-10 sum &gt; 50% of supply | 5000 | Graded across 50–70%. Pool-excluded. |
+| `top10_very_high` | top-10 sum &gt; 70% of supply | 2500 | Graded across 70–100%. **Stacks** on top of `top10_high`. |
+
+### LP + authority (boolean)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `lp_not_burnt` | LP tokens not burnt | 4000 | Returns `None` (signal sits in `missing_signals`) when the LP-burnt cron hasn't checked this mint yet — avoids a false-positive during the warm-up window. |
+| `mint_authority_active` | mint authority not revoked | 2500 | Empty or `null` authority counts as revoked. |
+| `freeze_authority_active` | freeze authority not revoked | 7500 | The heaviest single signal in the catalog — token holders can be frozen out of their positions. |
+
+### Sniper concentration (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `snipers_count_high` | ≥ 10 wallets bought within first 30 slots | 3500 | Graded by count (10 → 0.1, 50+ → 1.0). A fire never yields 0 contribution. |
+| `snipers_pct_high` | snipers hold &gt; 30% of supply | 7500 | Graded across 30–50%. |
+
+### Insider concentration (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `insiders_pct_high` | insiders hold &gt; 30% of supply | 5000 | Graded across 30–50%. An insider is a holder who never appears as a swapper on-DEX. |
+
+### Creator behavior (graded)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `dev_held_high` | creator holds &gt; 5% of supply | 3000 | Graded across 5–30%. Only fires when `creator_source` is non-empty — i.e. we know who the creator is. |
+| `dev_held_very_high` | creator holds &gt; 30% of supply | 5000 | Graded across 30–100%. **Stacks** on top of `dev_held_high`. |
+
+### Metadata (boolean)
+
+| `code` | Trigger | Weight | Notes |
+|---|---|---|---|
+| `no_socials` | no twitter / telegram / website | 2000 | All three fields must be empty or null. |
+
+**Total maximum raw contribution**: 53,500 (every signal triggered at full strength).
+
+## Why this design
+
+**Glass-box** so you can audit our judgment. If you disagree with a weight or threshold, you can subtract that signal's `contribution` from the raw score and renormalize. The `value` field on each signal is the concrete measurement, not an opaque score — verifiable against the underlying on-chain data.
+
+**Stacking thresholds** (e.g. `top10_high` + `top10_very_high`) compound penalties for severe concentration without making any single threshold a cliff.
+
+**Graded contribution** keeps small differences in the underlying data from causing large score jumps. A token at 51% top-10 concentration doesn't suddenly leap past one at 49%.
+
+**Phase 0 strict precedence** for `dev_held_*`: we only fire these when `tokens.creator_source` is populated. We never fall back to "largest holder is probably the creator" — that produced false positives in pre-Phase-0 testing on tokens where the largest holder was a CEX hot wallet or the AMM pool itself.
+
+## Re-computing the score
+
+The response is glass-box on purpose. If you want to weight signals differently:
+
+```python
+# Subtract signals you don't care about
+penalty = sum(s["contribution"] for s in signals if s["code"] != "no_socials")
+# Renormalize against your own divisor
+my_score = min(10.0, penalty * 10 / 5000)
+```
+
+Or if you want a fully custom model: walk `signals[*].value`, ignore the `weight`/`contribution`, and feed the raw values into whatever you'd prefer.
+
+## See also
+
+- `GET /tokens/{mint}/risk` — the dedicated risk endpoint
+- `GET /tokens/{mint}/intel` — slim risk summary embedded in the dashboard payload
+- [Quotas & errors](/concepts/quotas-errors) — `/risk` is Free-tier rate-limited; no per-endpoint cap
+
+
+---
+
+# streaming/websocket
+
+
+The swaps WebSocket is the easiest way to get real-time DEX trades into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc). For other streams: [OHLCV candles](/streaming/ohlcv) and [pump.fun lifecycle](/streaming/pump-lifecycle).
+
+## When to use WebSocket
+
+| Need | Use |
+| --- | --- |
+| Browser app, dashboard | WebSocket |
+| Low-to-mid throughput server | WebSocket |
+| Highest throughput, schema-typed clients | [gRPC](/streaming/grpc) |
+| Live OHLCV bars | [WebSocket: OHLCV](/streaming/ohlcv) |
+| Pump.fun mint / migration events | [WebSocket: pump lifecycle](/streaming/pump-lifecycle) |
+| One-shot historical data | [REST](/quickstart) |
+
+## Endpoint and auth
+
+```
+wss://ws.dexploit.dev/ws/swaps
+```
+
+Authenticate either via Bearer header (server) or query string (browser):
+
+```
+Authorization: Bearer ohlcv_live_sk_<your_key>
+
+# or, for browsers where setting headers is awkward:
+wss://ws.dexploit.dev/ws/swaps?api_key=ohlcv_live_sk_<your_key>
+```
+
+## Subscribe
+
+After the connection is up, send a `subscribe` message. Filters are optional — empty filters mean "every swap on every pool".
+
+```json
+{
+  "type": "subscribe",
+  "filters": {
+    "pools": ["<pool_address>"]
+  }
+}
+```
+
+You'll receive:
+
+```json
+{ "type": "subscribed", "message": "Subscribed: pools" }
+```
+
+Then `swap` messages flow as trades happen.
+
+### Supported filters
+
+All filters are optional and combine as AND. Set to `null` or omit to disable.
+
+| Key | Type | Notes |
+| --- | --- | --- |
+| `pools` | `string[]` | Filter by pool address (this is the most common filter — see [Pairs vs tokens](/concepts/pairs-vs-tokens)). |
+| `tokens` | `string[]` | Filter by token mint. |
+| `traders` | `string[]` | Filter by trader wallet. |
+| `dexes` | `string[]` | Values: `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm`, `orca`, `meteora_damm_v2`, `meteora_dbc`, `meteora_dlmm`, `meteora_pools`. |
+| `min_sol` | `number` (lamports) | Minimum SOL amount. 1 SOL = 1,000,000,000 lamports. |
+| `max_sol` | `number` (lamports) | Maximum SOL amount. |
+| `is_buy` | `boolean` | `true` for buys only, `false` for sells only. |
+
+## Wire format gotchas
+
+A `swap` frame looks like this (captured live from `meteora_damm_v2`):
+
+```json
+{
+  "type": "swap",
+  "signature": "3rjMq3C7Zp4eDDRtKwEBmVFXErFt4twvUVryNerBgkrxqs53XhAgL3LqDvfiZjDLNHEbwkbkQMTwfSjD1BvSboES",
+  "slot": 420984167,
+  "timestamp": 1779279483,
+  "dex": "meteora_damm_v2",
+  "swap_type": "sell",
+  "trader": "rk4jdi7srE6VKtxPeCKnqpEe7uJdZLLdpv1qAPK8LRd",
+  "token_mint": "8ZiqYN6rEm6PapbhCm5wWWzkRjsYyixgqW3K2384D1C3",
+  "pool_address": "DT75gs9fygQxi2Aq2ST1jz9C6FTNcbBjpgSpdDpMDdLX",
+  "amount_in": 350832255298,
+  "amount_out": 729873626,
+  "sol_amount": 729873626,
+  "token_amount": 350832255298,
+  "virtual_sol_reserves": null,
+  "virtual_token_reserves": null,
+  "real_sol_reserves": 91985332910,
+  "real_token_reserves": 44561454812398,
+  "lp_fee_bps": 1,
+  "protocol_fee_bps": 0,
+  "fee": null,
+  "creator_fee": null,
+  "creator_fee_bps": 0,
+  "price_impact_bps": null,
+  "base_decimals": 9,
+  "quote_decimals": 6,
+  "pool_price": 2.0642354092175554e-6,
+  "transfer_fee_in": 0,
+  "transfer_fee_out": 0,
+  "cashback": null,
+  "cashback_bps": 0,
+  "maker_tags": []
+}
+```
+
+A few things worth flagging:
+
+- **`swap_type`** is the string `"buy"` or `"sell"` (lowercase). Not `is_buy`. (`is_buy` is only a *filter* key, not a field on the event.) The REST `/swaps*` endpoints use `is_buy` (bool) instead — these two surfaces are intentionally different.
+- **`dex` is the string name** here. On the REST `/swaps*` endpoints `dex` is an integer ID. Same enum, different encoding.
+- **`timestamp` is epoch seconds.** On REST `/swaps*` it's epoch milliseconds; on REST candles it's ISO 8601.
+- **There is no `price` field.** Use `pool_price` (decimals-adjusted mid after the swap) or compute fill price client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
+- **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
+- **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account).
+- **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
+- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings.
+
+## Complete TypeScript client
+
+```typescript
+import WebSocket from 'ws'; // browser: use the global WebSocket
+
+const URL = 'wss://ws.dexploit.dev/ws/swaps';
+const API_KEY = 'ohlcv_live_sk_<your_key>';
+const POOL = '<pool_address>';
+
+let backoff = 1000;
+
+function connect() {
+  const ws = new WebSocket(URL, {
+    headers: { Authorization: `Bearer ${API_KEY}` }
+  });
+
+  ws.on('open', () => {
+    backoff = 1000; // reset on successful connect
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      filters: { pools: [POOL] }
+    }));
+  });
+
+  ws.on('message', (raw) => {
+    const msg = JSON.parse(raw.toString());
+    switch (msg.type) {
+      case 'subscribed':
+        console.log('subscribed:', msg.message);
+        break;
+      case 'swap': {
+        const sol = msg.sol_amount / 1e9;
+        const tok = msg.token_amount / Math.pow(10, msg.quote_decimals ?? 6);
+        const price = sol / tok;
+        console.log(
+          `${msg.swap_type.toUpperCase()} ${tok.toFixed(2)} @ ${price.toExponential(3)} SOL ` +
+          `(${msg.dex}, sig ${msg.signature.slice(0, 8)}…)`
+        );
+        break;
+      }
+      case 'error':
+        console.error('stream error:', msg.message);
+        break;
+    }
+  });
+
+  ws.on('close', () => {
+    console.warn(`disconnected, retrying in ${backoff}ms`);
+    setTimeout(connect, backoff);
+    backoff = Math.min(backoff * 2, 60_000);
+  });
+
+  ws.on('error', (err) => {
+    console.error('ws error:', err);
+    // 'close' fires next; reconnect happens there.
+  });
+}
+
+connect();
+```
+
+For production hardening (resubscribe state, gap-filling via REST, idle pings), see [Reconnect & backpressure](/streaming/reconnect-backpressure).
+
+## Server messages
+
+| `type` | When |
+| --- | --- |
+| `subscribed` | After your `subscribe`. |
+| `unsubscribed` | After your `unsubscribe`. |
+| `swap` | A trade matched your filters. |
+| `pong` | Reply to your `ping`. |
+| `error` | Subscribe rejected, auth failed, or server-side error. |
+
+## Programmatic spec
+
+If you're generating clients or feeding the contract into an LLM/codegen pipeline, every WebSocket channel — `/ws/swaps`, `/ws/ohlcv`, `/ws/pump-lifecycle` — is described as a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). All message schemas and live-captured example payloads are included.
+
+
+---
+
+# streaming/ohlcv
+
+
+The OHLCV WebSocket emits one frame per bar update for each `(pool, timeframe)` you subscribe to. You get mid-bar updates while a bar is open (`is_closed: false`) and a final update on close (`is_closed: true`).
+
+This is the right channel when you want to render a live chart or trigger logic on bar close. For one-shot history, use [`/api/v1/candles`](/api-reference) and [`/api/v1/candles/latest`](/api-reference). For raw per-swap data, use [WebSocket: swaps](/streaming/websocket).
+
+## Endpoint and auth
+
+```
+wss://ws.dexploit.dev/ws/ohlcv
+```
+
+Authenticate either via Bearer header (server) or query string (browser):
+
+```
+Authorization: Bearer ohlcv_live_sk_<your_key>
+
+# or, for browsers:
+wss://ws.dexploit.dev/ws/ohlcv?api_key=ohlcv_live_sk_<your_key>
+```
+
+## Subscribe
+
+After the connection is up the server sends a hello frame:
+
+```json
+{ "client_id": "8caba129-bdab-…", "data_inception": "2026-05-02T00:03:00Z", "status": "connected" }
+```
+
+Then send a `subscribe`. **Both `pair_addresses` and `timeframes` are required** — the server will reply with `{"error": "invalid subscribe: timeframes empty"}` (or similar) if either is missing.
+
+```json
+{
+  "type": "subscribe",
+  "pair_addresses": ["HdqYz5GVuWgNXbE6fBkgCYXUSPGoyco5yYLBaL5ZzKAR"],
+  "timeframes": ["1s", "1m"]
+}
+```
+
+Server ack:
+
+```json
+{ "status": "subscribed", "pairs": 1, "timeframes": ["1s", "1m"], "subjects": 2 }
+```
+
+Subsequent `subscribe` messages are **additive** — they widen the subscription set rather than replace it. (Different from the [swaps WebSocket](/streaming/websocket), where each `subscribe` replaces the prior filters.)
+
+## Frame shape
+
+```json
+{
+  "type": "ohlcv",
+  "pair_address": "HdqYz5GVuWgNXbE6fBkgCYXUSPGoyco5yYLBaL5ZzKAR",
+  "token_address": "BsZoKtYtP3V2xJnqonEaYXXaQdLv8kPM45aRbt23oPEJ",
+  "timeframe": "1m",
+  "timestamp": "2026-05-20T12:20:00+00:00",
+  "open":  7.553982e-7,
+  "high":  7.613724e-7,
+  "low":   7.553982e-7,
+  "close": 7.613724e-7,
+  "volume_sol":   2058053069,
+  "volume_token": 2713479778451,
+  "trade_count":   5,
+  "buy_count":     5,
+  "sell_count":    0,
+  "unique_traders": 5,
+  "is_closed": false
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `timestamp` | Bar **open** time, ISO 8601. The bar covers `[timestamp, timestamp + timeframe)`. |
+| `is_closed` | `false` for interim mid-bar pushes; `true` on the bar's final tick. A given `(pair, timeframe, timestamp)` may emit multiple `is_closed: false` frames followed by one `is_closed: true` — the latter is authoritative. |
+| `volume_sol` | **Lamports**, despite the name. Divide by `1e9` for SOL. |
+| `volume_token` | Token base units. Divide by `10 ** quote_decimals` for human-readable. |
+| `unique_traders` | Distinct wallets that traded in this bar so far. Grows monotonically across mid-bar frames. |
+
+## Minimal TypeScript client
+
+```typescript
+import WebSocket from 'ws'; // browser: use the global WebSocket
+
+const URL    = 'wss://ws.dexploit.dev/ws/ohlcv';
+const API    = 'ohlcv_live_sk_<your_key>';
+const PAIR   = '<pool_address>';
+const TFS    = ['1m'];
+
+let backoff = 1000;
+
+function connect() {
+  const ws = new WebSocket(URL, { headers: { Authorization: `Bearer ${API}` } });
+
+  ws.on('open', () => {
+    backoff = 1000;
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      pair_addresses: [PAIR],
+      timeframes: TFS,
+    }));
+  });
+
+  ws.on('message', (raw) => {
+    const f = JSON.parse(raw.toString());
+    if (f.type !== 'ohlcv') return; // skip hello + subscribe ack + errors
+    const tag = f.is_closed ? 'CLOSED' : 'open  ';
+    const volSol = f.volume_sol / 1e9;
+    console.log(
+      `${tag} ${f.timeframe}@${f.timestamp}  o=${f.open.toExponential(3)} c=${f.close.toExponential(3)} ` +
+      `vol=${volSol.toFixed(3)} SOL (${f.trade_count} trades)`,
+    );
+  });
+
+  ws.on('close', () => {
+    setTimeout(connect, backoff);
+    backoff = Math.min(backoff * 2, 60_000);
+  });
+
+  ws.on('error', () => { /* close fires next */ });
+}
+
+connect();
+```
+
+If you're rendering a live chart, key your local bar store by `(pair_address, timeframe, timestamp)` and *overwrite* the entry on every frame for that key — the latest frame is always the freshest snapshot of that bar. When `is_closed: true` arrives, that bar is final.
+
+For reconnect strategy, gap-filling against `/api/v1/candles`, and keepalive guidance, see [Reconnect & backpressure](/streaming/reconnect-backpressure).
+
+## Programmatic spec
+
+The full message contract for this channel — and the other two WebSocket streams — is published as an [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json) you can feed into client generators, validators, or an LLM.
+
+
+---
+
+# streaming/pump-lifecycle
+
+
+The pump-lifecycle stream pushes a token's entire pump.fun journey — from the `mint_created` event, through bonding-curve progress, to `graduated` (migration to a tradeable pumpswap pool).
+
+For one-shot history of the same events, use the REST endpoint `GET /pump-lifecycle` (under **Pump lifecycle** in the API reference).
+
+## When to use it
+
+- You want to surface fresh mints the second they appear.
+- You want to alert when a token crosses some bonding-curve threshold.
+- You want to react to graduations as the AMM pool comes alive.
+
+For all *post-graduation* trading activity (swaps), switch to the main [WebSocket: swaps](/streaming/websocket) feed once you see a `graduated` event — the pool only has swap volume after that point.
+
+## Endpoint and auth
+
+```
+wss://ws.dexploit.dev/ws/pump-lifecycle
+```
+
+Authenticate the same way as the main WebSocket:
+
+```
+Authorization: Bearer ohlcv_live_sk_<your_key>
+
+# or, for browsers:
+wss://ws.dexploit.dev/ws/pump-lifecycle?api_key=ohlcv_live_sk_<your_key>
+```
+
+There is **no subscribe step** — every connected client receives every lifecycle event. Filter client-side.
+
+## Event shapes
+
+Frames are typed by `type` (note: the REST `/pump-lifecycle` endpoint uses `event_type` for the same field — the streaming feed differs intentionally).
+
+**`mint_created`** — a new pump.fun token is minted; the bonding curve is at 0%.
+
+```json
+{
+  "type": "mint_created",
+  "mint": "AkK37QB3MSaEdz2e5LFt1JuFA1MjSckonnEjW6txpump",
+  "ts": 1779279502,
+  "creator": "FeFdCVhqVyLizLGWkNkgFm4UhZXgrjq6tkjXpVEKHqSk"
+}
+```
+
+**`completing`** — the bonding curve hit its threshold and migration is imminent. `bonding_pct` reads `1.0`.
+
+```json
+{
+  "type": "completing",
+  "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
+  "ts": 1779279513,
+  "bonding_pct": 1.0
+}
+```
+
+**`graduated`** — bonding curve done, AMM pool is live at `new_pool`. Use that pool address for candles and swap queries from now on.
+
+```json
+{
+  "type": "graduated",
+  "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
+  "ts": 1779279512,
+  "dex": "pumpswap",
+  "new_pool": "DyYPN3FsuUjbXspisF4HszHswsuVMV3BxWZ8ALmXAKiF"
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `type` | `mint_created` \| `completing` \| `graduated`. |
+| `ts` | Unix epoch **seconds** (not ms — different from the swaps feed). |
+| `dex` / `new_pool` | Only on `graduated`. |
+| `creator` | Only on `mint_created`. |
+| `bonding_pct` | Only on `completing` (always `1.0`). |
+
+## Minimal TypeScript client
+
+```typescript
+import WebSocket from 'ws'; // browser: use the global WebSocket
+
+const URL = 'wss://ws.dexploit.dev/ws/pump-lifecycle';
+const API_KEY = 'ohlcv_live_sk_<your_key>';
+
+let backoff = 1000;
+
+function connect() {
+  const ws = new WebSocket(URL, {
+    headers: { Authorization: `Bearer ${API_KEY}` },
+  });
+
+  ws.on('open', () => { backoff = 1000; });
+
+  ws.on('message', (raw) => {
+    const e = JSON.parse(raw.toString());
+    switch (e.type) {
+      case 'mint_created':
+        console.log(`NEW MINT   ${e.mint} by ${e.creator}`);
+        break;
+      case 'completing':
+        console.log(`COMPLETING ${e.mint} (curve at ${e.bonding_pct})`);
+        break;
+      case 'graduated':
+        console.log(`GRADUATED  ${e.mint} → pool ${e.new_pool} (${e.dex})`);
+        break;
+    }
+  });
+
+  ws.on('close', () => {
+    setTimeout(connect, backoff);
+    backoff = Math.min(backoff * 2, 60_000);
+  });
+
+  ws.on('error', () => { /* close will fire next */ });
+}
+
+connect();
+```
+
+For pings, idle timeouts, and gap-filling against the REST endpoint, see [Reconnect & backpressure](/streaming/reconnect-backpressure).
+
+## Programmatic spec
+
+All three WebSocket channels — including this one — are described in a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). Useful for client codegen or LLM context.
+
+
+---
+
+# streaming/grpc
+
+
+For high-volume pipelines or when you want a strongly-typed client across multiple languages, use gRPC.
+
+## When to use gRPC over WebSocket
+
+- You need binary efficiency at high message rates.
+- You want auto-generated clients for Go, Rust, Python, Kotlin, etc.
+- Your runtime supports HTTP/2 and bidirectional streaming.
+
+## Endpoint and auth
+
+```
+grpc.dexploit.dev:443
+```
+
+TLS is required. Authenticate via gRPC metadata:
+
+```
+authorization: Bearer ohlcv_live_sk_<your_key>
+```
+
+## Service definition
+
+The service is `swaps.SwapStream.Subscribe`. The full `.proto` is in [GitHub Examples](https://github.com/DexploitV1/Dexploit-Examples).
+
+```proto
+syntax = "proto3";
+
+package swaps;
+
+service SwapStream {
+  rpc Subscribe(SubscribeRequest) returns (stream SwapEvent);
+}
+
+message SubscribeRequest {
+  repeated string tokens   = 1;
+  repeated string traders  = 2;
+  repeated string pools    = 3;   // pool / pair addresses
+  repeated string dexes    = 4;
+  optional uint64 min_sol  = 5;   // lamports
+  optional uint64 max_sol  = 6;
+  optional bool   is_buy   = 7;
+}
+
+message SwapEvent {
+  string signature       = 1;
+  uint64 slot            = 2;
+  int64  timestamp       = 3;
+  string dex             = 4;
+  string swap_type       = 5;   // "buy" or "sell"
+  string trader          = 6;
+  string token_mint      = 7;
+  string token_decimals  = 8;
+  string sol_amount      = 9;   // string-encoded uint64 (lamports)
+  string token_amount    = 10;  // string-encoded uint64
+  string pool_address    = 11;
+}
+```
+
+`sol_amount`, `token_amount`, and `token_decimals` arrive as strings to dodge JS/TS `Number` precision issues — convert to `BigInt` or parse as needed.
+
+## Complete TypeScript client
+
+Install:
+
+```bash
+npm i @grpc/grpc-js @grpc/proto-loader
+```
+
+Save the proto above as `./proto/swaps.proto`, then:
+
+```typescript
+import * as grpc from '@grpc/grpc-js';
+import * as protoLoader from '@grpc/proto-loader';
+import path from 'path';
+
+const ENDPOINT = 'grpc.dexploit.dev:443';
+const API_KEY  = 'ohlcv_live_sk_<your_key>';
+const POOL     = '<pool_address>';
+
+const PROTO_PATH = path.join(__dirname, 'proto', 'swaps.proto');
+const def = protoLoader.loadSync(PROTO_PATH, {
+  keepCase: true,
+  longs: String,
+  enums: String,
+  defaults: true,
+  oneofs: true,
+});
+const proto = grpc.loadPackageDefinition(def) as any;
+
+const creds = grpc.credentials.combineChannelCredentials(
+  grpc.credentials.createSsl(),
+  grpc.credentials.createFromMetadataGenerator((_params, cb) => {
+    const md = new grpc.Metadata();
+    md.add('authorization', `Bearer ${API_KEY}`);
+    cb(null, md);
+  })
+);
+
+const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+  // Mandatory — without these, half-open TCP hangs look like a stalled stream.
+  'grpc.keepalive_time_ms': 30_000,
+  'grpc.keepalive_timeout_ms': 10_000,
+  'grpc.keepalive_permit_without_calls': 1,
+});
+
+const call = client.Subscribe({ pools: [POOL] });
+
+call.on('data', (e: any) => {
+  const sol = Number(BigInt(e.sol_amount)) / 1e9;
+  const decimals = Number(e.token_decimals) || 6;
+  const tok = Number(BigInt(e.token_amount)) / Math.pow(10, decimals);
+  const price = sol / tok;
+  console.log(
+    `${e.swap_type.toUpperCase()} ${tok.toFixed(2)} @ ${price.toExponential(3)} SOL ` +
+    `(${e.dex}, ${e.signature.slice(0, 8)}…)`
+  );
+});
+
+call.on('error', (err: Error) => console.error('stream error:', err.message));
+call.on('end',   ()           => console.warn('stream ended'));
+```
+
+The keepalive options are not optional — see [Reconnect & backpressure](/streaming/reconnect-backpressure) for why and what to do when the stream drops.
+
+## Other languages
+
+Run `protoc` against the proto to generate clients for any language gRPC supports. Idiomatic examples for Rust (`tonic`), Python (`grpcio`), and TypeScript live in [DexploitV1/Dexploit-Examples](https://github.com/DexploitV1/Dexploit-Examples).
+
+
+---
+
+# streaming/reconnect-backpressure
+
+
+Both [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) eventually drop. This page is the playbook for keeping a stream healthy in production.
+
+## Reconnect
+
+The pattern that works:
+
+1. **Detect the close.** WS: `'close'` event. gRPC: stream `'end'` or `'error'`.
+2. **Wait with exponential backoff.** Start at 1 second, double each retry, cap at 60 seconds.
+3. **Reconnect.** Reset the backoff to 1 second on a successful connect.
+4. **Re-send your subscriptions.** They are not persisted across reconnects.
+5. **Fill the gap with REST.** From the timestamp of your last good event, query [`/api/v1/candles?start=...`](/api-reference) or [`/swaps/range?start=...`](/api-reference) for the missing window. We do **not** replay missed events on the stream.
+
+## Backpressure
+
+If your client is slower than the message rate, the server's send buffer fills up. When it overflows, you get disconnected with an error indicating overflow.
+
+To stay under:
+
+- **Don't await heavy work in the receive loop.** Push events into an in-memory queue and process them on a separate worker.
+- **Coalesce.** If you're rendering a chart, you usually only need the latest event per pool per frame, not every event.
+- **Filter aggressively.** Subscribe with the narrowest filter you can — a `pools` filter is much cheaper than no filter.
+
+## Keepalive
+
+WebSocket: send `{ "type": "ping" }` every 30 seconds. The server replies with `{ "type": "pong" }`. If you don't see a pong within ~10 seconds, treat it like a disconnect.
+
+gRPC: configure HTTP/2 keepalive on the channel:
+
+```typescript
+const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+  'grpc.keepalive_time_ms': 30_000,
+  'grpc.keepalive_timeout_ms': 10_000,
+  'grpc.keepalive_permit_without_calls': 1,
+});
+```
+
+Without these, half-open TCP hangs (firewall idle-timeouts, NAT drops, ungraceful peer crashes) look like the stream stalled — your client thinks it's connected but no events arrive. The keepalive ping forces the OS to surface the dead connection so your reconnect logic can fire.
+
+## Common failure modes
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| Stream silently stalls, no events for minutes | Half-open TCP | Configure keepalive (above). |
+| Reconnect succeeds but no events | Forgot to re-subscribe | Re-send your subscribe message after every connect. |
+| Events stop after a key rotation | Using the old key | Update your client to the new key; old key works for 7 days during grace, then 401s mid-stream. |
+| Constant disconnects under load | Backpressure overflow | Move work off the receive loop or filter more narrowly. |
+| 429 immediately on connect | Free-tier rate limit on connections | Add backoff or upgrade. |
+
+
+---
+
+# examples
+
+
+Each card below points at a folder of [DexploitV1/Dexploit-Examples](https://github.com/DexploitV1/Dexploit-Examples) — clone the repo, follow the per-folder README.
+
+<Columns cols={2}>
+  <Card title="Stream all swap events (gRPC)" icon="bolt" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_all_swap_events">
+    Subscribe to every swap with no filter — useful for indexers and full-firehose pipelines.
+  </Card>
+  <Card title="Whale-trade alerter (gRPC)" icon="dollar-sign" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_whale_swap_alerts">
+    Filter on `min_sol` to surface large trades only.
+  </Card>
+  <Card title="Stream by token (gRPC)" icon="coins" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_swaps_by_token_mint">
+    Watch every pool of a specific token across DEXs.
+  </Card>
+  <Card title="Stream by trader wallet (gRPC)" icon="wallet" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_swaps_by_trader_wallet">
+    Follow specific traders in real time.
+  </Card>
+  <Card title="Custom filter combinations (gRPC)" icon="sliders" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/stream_swaps_with_custom_filters">
+    Compose filters for tokens / traders / dexes / amounts via env vars.
+  </Card>
+  <Card title="gRPC stream in Rust" icon="rust" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/rust/stream_all_swap_events">
+    Idiomatic `tonic` client.
+  </Card>
+</Columns>
+
+The repo also includes WebSocket and REST examples. If a particular pattern is missing, [open an issue](https://github.com/DexploitV1/Dexploit-Examples/issues) — request-driven additions are how the repo grows.
+
+
+---
+
+# api-reference/graphql
+
+
+The same data the REST endpoints expose is also available via GraphQL. Use REST for simple, cacheable queries; use GraphQL when you want to fetch a few related resources in one round-trip.
+
+## Endpoint
+
+```
+POST https://api.dexploit.dev/graphql
+Content-Type: application/json
+X-API-Key: ohlcv_live_sk_<your_key>
+```
+
+## Playground
+
+Open the same URL in a browser to load the GraphQL Playground (interactive query builder, schema browser, query history). Authenticate via the playground's HTTP-headers panel:
+
+```json
+{ "X-API-Key": "ohlcv_live_sk_<your_key>" }
+```
+
+## Sample queries
+
+The exact schema is exposed via introspection — these are illustrative. The Playground's "Docs" sidebar is the source of truth.
+
+### Recent swaps for a pool
+
+```graphql
+{
+  swaps(pair_address: "<pool>", limit: 20) {
+    signature
+    timestamp
+    swap_type
+    sol_amount
+    token_amount
+    trader
+  }
+}
+```
+
+### Candles + recent swaps in one round-trip
+
+```graphql
+query DashboardData($pair: String!) {
+  candles(pair_address: $pair, timeframe: "1m", limit: 60) {
+    timestamp
+    open
+    close
+    volume_sol
+    trade_count
+  }
+  swaps(pair_address: $pair, limit: 5) {
+    timestamp
+    swap_type
+    sol_amount
+  }
+}
+```
+
+### Trader stats + recent activity
+
+```graphql
+query TraderProfile($wallet: String!) {
+  traderStats(wallet: $wallet) {
+    total_volume_sol
+    swap_count
+  }
+  traderSwaps(wallet: $wallet, limit: 20) {
+    signature
+    timestamp
+    pool_address
+    swap_type
+    sol_amount
+  }
+}
+```
+
+## Schema introspection
+
+Standard GraphQL introspection works. From the command line:
+
+```bash
+curl -X POST -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
+  -H 'Content-Type: application/json' \
+  https://api.dexploit.dev/graphql \
+  -d '{"query":"{ __schema { types { name } } }"}'
+```
+
+## When to use GraphQL vs REST
+
+| Need | Use |
+| --- | --- |
+| One resource, paginate, possibly cache | REST |
+| Several related resources, one round-trip | GraphQL |
+| WebSocket-style subscriptions | [WebSocket](/streaming/websocket), not GraphQL subscriptions |

@@ -1,0 +1,72 @@
+# Dexploit
+
+> Solana DEX data API: swap streams, OHLCV candles, token intel, wallet
+> tagging, pump.fun lifecycle, and a glass-box rug-risk score. Built for
+> dApp teams, dashboards, and indexers who'd rather skip the parsing tax.
+
+## Getting started
+- [Quickstart](https://docs.dexploit.dev/quickstart): get an API key, first request
+- [Authentication](https://docs.dexploit.dev/authentication): pass `?api_key=` or `Authorization: Bearer`
+- [Quotas & errors](https://docs.dexploit.dev/concepts/quotas-errors): per-tier RPS, no monthly cap
+
+## Concepts
+- [Pairs vs tokens](https://docs.dexploit.dev/concepts/pairs-vs-tokens)
+- [Swap-event OHLCV](https://docs.dexploit.dev/concepts/swap-event-ohlcv)
+- [Timeframes & resolution](https://docs.dexploit.dev/concepts/timeframes-resolution)
+- [Risk score algorithm](https://docs.dexploit.dev/concepts/risk-score)
+
+## REST endpoints
+
+### OHLCV
+- [GET /api/v1/candles](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/candles): historical candles
+- [GET /api/v1/candles/latest](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/candles/latest): newest per timeframe
+- [GET /api/v1/pairs](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/pairs): liquidity pools
+- [GET /api/v1/protocols](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/protocols): supported DEXes
+- [GET /api/v1/stats](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/stats): aggregate platform stats
+- [GET /api/v1/top-movers](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/top-movers): top gainers/losers per timeframe
+
+### Tokens
+- [GET /tokens](https://docs.dexploit.dev/api-reference/openapi/get/tokens): paginated token directory
+- [GET /tokens/{mint}](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}): token metadata + audit
+- [GET /tokens/{mint}/audit](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/audit): rug-check audit only
+- [GET /tokens/{mint}/intel](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/intel): dashboard summary (actors + top10 + risk)
+- [GET /tokens/{mint}/risk](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/risk): glass-box 0-10 risk score
+- [GET /tokens/{mint}/holders](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/holders): paginated holders
+- [GET /tokens/{mint}/holders/top](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/holders/top): top 20 holders
+- [GET /tokens/{mint}/snipers](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/snipers): per-mint snipers
+- [GET /tokens/{mint}/insiders](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/insiders): per-mint insiders
+- [GET /tokens/{mint}/smart-money](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/smart-money): smart-money wallets holding (paid)
+- [GET /tokens/{mint}/whales](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/whales): whale wallets holding (paid)
+- [GET /tokens/latest](https://docs.dexploit.dev/api-reference/openapi/get/tokens/latest): newest tokens
+- [GET /tokens/multi/all](https://docs.dexploit.dev/api-reference/openapi/get/tokens/multi/all): newest tokens (alias)
+- [GET /tokens/multi/graduating](https://docs.dexploit.dev/api-reference/openapi/get/tokens/multi/graduating): pump.fun tokens near graduation
+- [GET /tokens/multi/graduated](https://docs.dexploit.dev/api-reference/openapi/get/tokens/multi/graduated): pump.fun tokens that graduated
+- [POST /tokens/multi](https://docs.dexploit.dev/api-reference/openapi/post/tokens/multi): batched lookup (≤20)
+
+### Price
+- [GET /price/multi](https://docs.dexploit.dev/api-reference/openapi/get/price/multi): batched price lookup (≤100)
+
+### Discovery
+- [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): filtered + scored token search
+- [GET /trending](https://docs.dexploit.dev/api-reference/openapi/get/trending): per-window trending ranking
+
+### Wallet intel
+- [GET /wallets/{wallet}/tags](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{wallet}/tags): wallet classification
+- [GET /tokens/{mint}/wallet-tag-counts](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/wallet-tag-counts): per-tag holder counts
+
+### Pump lifecycle
+- [GET /pump-lifecycle](https://docs.dexploit.dev/api-reference/openapi/get/pump-lifecycle): lifecycle event stream
+
+### Account
+- [GET /credits](https://docs.dexploit.dev/api-reference/openapi/get/credits): RPS-tier usage snapshot
+- [GET /subscription](https://docs.dexploit.dev/api-reference/openapi/get/subscription): subscription status (JWT)
+
+## Streaming
+- [WebSocket: swaps](https://docs.dexploit.dev/streaming/websocket): per-swap firehose
+- [WebSocket: OHLCV](https://docs.dexploit.dev/streaming/ohlcv): live candle updates
+- [WebSocket: pump lifecycle](https://docs.dexploit.dev/streaming/pump-lifecycle): mint/graduation events
+- [gRPC: PriceStream](https://docs.dexploit.dev/streaming/grpc): protocol price feed
+
+## Optional
+- [GraphQL playground](https://docs.dexploit.dev/api-reference/graphql)
+- [Examples repo](https://github.com/DexploitV1/Dexploit-Examples)

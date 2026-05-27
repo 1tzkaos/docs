@@ -408,6 +408,128 @@
           "computed_at": { "type": "integer", "description": "Unix epoch seconds; 0 if never computed." }
         }
       },
+      "TokenRow": {
+        "type": "object",
+        "properties": {
+          "mint":            { "type": "string" },
+          "name":            { "type": ["string", "null"] },
+          "symbol":          { "type": ["string", "null"] },
+          "decimals":        { "type": "integer" },
+          "supply_atomic":   { "type": "string", "description": "u64 as decimal string for JSON safety." },
+          "creator":         { "type": ["string", "null"], "description": "Phase 0 strict precedence — null when unknown." },
+          "creator_source":  { "type": ["string", "null"], "enum": ["pumpfun_event", "shyft_graphql", "lp_create_signer", "metaplex_update_authority", "first_swap_trader", null] },
+          "image_url":       { "type": ["string", "null"] },
+          "twitter":         { "type": ["string", "null"] },
+          "telegram":        { "type": ["string", "null"] },
+          "website":         { "type": ["string", "null"] },
+          "created_at":      { "type": "integer", "description": "Unix epoch seconds." }
+        }
+      },
+      "TokenListResponse": {
+        "type": "object",
+        "properties": {
+          "results":     { "type": "array", "items": { "$ref": "#/components/schemas/TokenRow" } },
+          "computed_at": { "type": "integer" }
+        }
+      },
+      "GraduatingEntry": {
+        "allOf": [
+          { "$ref": "#/components/schemas/TokenRow" },
+          {
+            "type": "object",
+            "properties": {
+              "bonding_pct": { "type": "number", "description": "0.0–100.0; pumpfun real_sol_reserves / 85 SOL × 100." }
+            }
+          }
+        ]
+      },
+      "GraduatingListResponse": {
+        "type": "object",
+        "properties": {
+          "results":     { "type": "array", "items": { "$ref": "#/components/schemas/GraduatingEntry" } },
+          "computed_at": { "type": "integer" }
+        }
+      },
+      "GraduatedEntry": {
+        "allOf": [
+          { "$ref": "#/components/schemas/TokenRow" },
+          {
+            "type": "object",
+            "properties": {
+              "graduated_at": { "type": "integer", "description": "Unix epoch seconds of the graduated lifecycle event." }
+            }
+          }
+        ]
+      },
+      "GraduatedListResponse": {
+        "type": "object",
+        "properties": {
+          "results":     { "type": "array", "items": { "$ref": "#/components/schemas/GraduatedEntry" } },
+          "computed_at": { "type": "integer" }
+        }
+      },
+      "TokensBatchResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/TokenRow", "nullable": true },
+            "description": "Keyed by mint. Value is null when the mint is not in the tokens table."
+          },
+          "computed_at": { "type": "integer" }
+        }
+      },
+      "PriceEntry": {
+        "type": "object",
+        "properties": {
+          "price_usd": { "type": "number" },
+          "price_sol": { "type": "number" },
+          "ts_ms":     { "type": "integer", "description": "Unix epoch ms of the source candle." }
+        }
+      },
+      "PriceMultiResponse": {
+        "type": "object",
+        "properties": {
+          "results": {
+            "type": "object",
+            "additionalProperties": { "$ref": "#/components/schemas/PriceEntry", "nullable": true },
+            "description": "Keyed by mint. Null when the mint has no recent (last-hour) candle."
+          },
+          "computed_at": { "type": "integer" }
+        }
+      },
+      "CreditsResponse": {
+        "type": "object",
+        "description": "RPS-tier usage snapshot for the authenticated API key.",
+        "properties": {
+          "tier":                       { "type": "string", "enum": ["free", "developer", "pro", "enterprise"] },
+          "rps_cap":                    { "type": "integer", "description": "Burst cap = `rps_cap × rps_window_secs` per window." },
+          "rps_window_secs":            { "type": "integer", "example": 60 },
+          "current_window_used":        { "type": "integer" },
+          "current_window_remaining":   { "type": "integer" },
+          "current_window_reset_secs":  { "type": "integer" },
+          "monthly_used":               { "type": "integer", "description": "Cumulative request count this calendar month. Informational only — no cap." },
+          "monthly_used_note":          { "type": "string", "example": "informational; no monthly cap on Dexploit" },
+          "tier_features": {
+            "type": "object",
+            "properties": {
+              "smart_money_access": { "type": "boolean" },
+              "whales_access":      { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "SubscriptionInfo": {
+        "type": "object",
+        "description": "Subscription status mirroring `/api/v1/billing/subscription`. JWT-authenticated.",
+        "properties": {
+          "subscription_id":       { "type": ["string", "null"] },
+          "status":                { "type": "string", "example": "active" },
+          "tier":                  { "type": "string", "enum": ["free", "developer", "pro", "enterprise"] },
+          "current_period_end":    { "type": ["integer", "null"], "description": "Unix epoch seconds." },
+          "cancel_at_period_end":  { "type": "boolean" }
+        }
+      },
       "WalletTagCounts": {
         "type": "object",
         "description": "Per-tag count of wallets currently holding a given token. Useful for surfacing 'sniper-heavy' or 'whale-heavy' tokens.",
@@ -1170,6 +1292,125 @@
         ],
         "responses": {
           "200": { "description": "Risk score", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RiskResponse" } } } }
+        }
+      }
+    },
+    "/tokens/latest": {
+      "get": {
+        "summary": "Newest tokens by creation time",
+        "description": "Tokens sorted by `tokens.created_at DESC`. Use this to surface fresh mints across all supported DEXes. For pump.fun-specific filters see `/tokens/multi/graduating` and `/tokens/multi/graduated`.",
+        "operationId": "listTokensLatest",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Newest tokens", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenListResponse" } } } }
+        }
+      }
+    },
+    "/tokens/multi/all": {
+      "get": {
+        "summary": "Newest tokens (Solana-Tracker alias)",
+        "description": "Identical to `/tokens/latest` — alias for API compatibility with Solana Tracker.",
+        "operationId": "listTokensMultiAll",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Newest tokens", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokenListResponse" } } } }
+        }
+      }
+    },
+    "/tokens/multi/graduating": {
+      "get": {
+        "summary": "Pump.fun tokens close to graduation",
+        "description": "Active pump.fun bonding curves with `bonding_pct >= 80` that have NOT yet emitted a `graduated` lifecycle event. Sorted by `bonding_pct DESC`. Useful for sniping the migration window.",
+        "operationId": "listTokensGraduating",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Graduating tokens", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GraduatingListResponse" } } } }
+        }
+      }
+    },
+    "/tokens/multi/graduated": {
+      "get": {
+        "summary": "Pump.fun tokens that graduated",
+        "description": "Pump.fun mints with a `graduated` event in `pump_lifecycle_events`, sorted by graduation timestamp DESC.",
+        "operationId": "listTokensGraduated",
+        "tags": ["Tokens"],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20, "minimum": 1, "maximum": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Graduated tokens", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/GraduatedListResponse" } } } }
+        }
+      }
+    },
+    "/tokens/multi": {
+      "post": {
+        "summary": "Batched token lookup",
+        "description": "Look up metadata for up to 20 mints in a single call. Response is keyed by mint; unknown mints map to `null` so the client can tell missing-from-DB from missing-in-request.",
+        "operationId": "batchTokens",
+        "tags": ["Tokens"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["mints"],
+                "properties": {
+                  "mints": { "type": "array", "items": { "type": "string" }, "maxItems": 20 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Batched lookup", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TokensBatchResponse" } } } },
+          "400": { "description": "More than 20 mints requested" }
+        }
+      }
+    },
+    "/price/multi": {
+      "get": {
+        "summary": "Batched price lookup",
+        "description": "Latest ohlcv_1m close × Pyth SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
+        "operationId": "getPriceMulti",
+        "tags": ["Price"],
+        "parameters": [
+          { "name": "tokens", "in": "query", "required": true, "schema": { "type": "string", "example": "MintA,MintB,MintC" }, "description": "Comma-separated mints, max 100." }
+        ],
+        "responses": {
+          "200": { "description": "Per-mint prices", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PriceMultiResponse" } } } },
+          "400": { "description": "More than 100 mints requested" }
+        }
+      }
+    },
+    "/credits": {
+      "get": {
+        "summary": "RPS-tier usage snapshot",
+        "description": "Returns your tier, RPS cap, current 60-second window usage, monthly_used (informational only — no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
+        "operationId": "getCredits",
+        "tags": ["Account"],
+        "responses": {
+          "200": { "description": "Usage snapshot", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreditsResponse" } } } }
+        }
+      }
+    },
+    "/subscription": {
+      "get": {
+        "summary": "Current subscription status",
+        "description": "Alias of `/api/v1/billing/subscription`. JWT-authenticated (dashboard session); not callable with an API key. Returns the active Stripe subscription tier + period info.",
+        "operationId": "getSubscription",
+        "tags": ["Account"],
+        "responses": {
+          "200": { "description": "Subscription status", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubscriptionInfo" } } } }
         }
       }
     },
