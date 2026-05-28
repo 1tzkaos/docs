@@ -49,7 +49,8 @@
               "concepts/quotas-errors",
               "concepts/risk-score",
               "concepts/coverage",
-              "concepts/actor-charts"
+              "concepts/actor-charts",
+              "concepts/wallet-portfolio"
             ]
           },
           {
@@ -165,6 +166,19 @@
               "GET /insiders/chart/{token}",
               "GET /bundlers/chart/{token}",
               "GET /tokens/{mint}/actor-chart"
+            ]
+          },
+          {
+            "group": "Wallet portfolio",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /wallets/{w}/holdings",
+              "GET /wallets/{w}/holdings/basic",
+              "GET /wallets/{w}/trades",
+              "GET /wallets/{w}/chart",
+              "GET /wallets/{w}/pnl/basic",
+              "GET /wallets/{w}/sol-balance",
+              "GET /wallets/{w}/stats"
             ]
           },
           {

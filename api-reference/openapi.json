@@ -1935,6 +1935,331 @@
             "description": "Present on empty results — no pre-launch backfill; charts grow forward from Phase 3 launch (2026-05-28)."
           }
         }
+      },
+      "Holding": {
+        "type": "object",
+        "description": "One token position in a wallet holdings response. `cost_basis_sol`, `unrealized_pnl_sol`, and `current_value_usd` are `null` when not computable (see `no_cost_basis` and `price_stale`).",
+        "required": [
+          "mint",
+          "qty",
+          "no_cost_basis",
+          "price_stale"
+        ],
+        "properties": {
+          "mint": {
+            "type": "string",
+            "description": "Token mint address (base58)."
+          },
+          "qty": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Current quantity in token base units."
+          },
+          "cost_basis_sol": {
+            "type": ["number", "null"],
+            "description": "FIFO average cost in SOL, scaled to the current on-chain qty. `null` when no swap history is available for this mint."
+          },
+          "no_cost_basis": {
+            "type": "boolean",
+            "description": "`true` when the mint has no swap history in Dexploit's index (airdrop, off-platform transfer, etc.)."
+          },
+          "current_value_sol": {
+            "type": ["number", "null"],
+            "description": "Current market value in SOL (latest candle price × qty). `null` when price is unavailable."
+          },
+          "current_value_usd": {
+            "type": ["number", "null"],
+            "description": "Current market value in USD via the Pyth SOL/USD oracle. `null` when price or oracle is unavailable."
+          },
+          "unrealized_pnl_sol": {
+            "type": ["number", "null"],
+            "description": "`current_value_sol − cost_basis_sol`. `null` when either value is unavailable."
+          },
+          "price_stale": {
+            "type": "boolean",
+            "description": "`true` when no recent candle price was found for this mint (no trade in the last hour)."
+          }
+        }
+      },
+      "HoldingsResponse": {
+        "type": "object",
+        "description": "Response from `/wallets/{w}/holdings`. `holdings_source` indicates whether the token list came from Shyft (authoritative) or fell back to FIFO-derived data.",
+        "required": ["wallet", "holdings_source", "holdings", "computed_at"],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "holdings_source": {
+            "type": "string",
+            "enum": ["shyft", "fifo_fallback"],
+            "description": "`shyft` = authoritative on-chain balances. `fifo_fallback` = Shyft was temporarily unavailable; list is derived from Dexploit's swap index only."
+          },
+          "holdings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Holding"
+            }
+          },
+          "computed_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix epoch milliseconds when this response was assembled."
+          }
+        }
+      },
+      "HoldingsBasicResponse": {
+        "type": "object",
+        "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index — no Shyft call, no USD values. Fast (~30 ms). Only covers tokens traded through indexed DEXes.",
+        "required": ["wallet", "holdings"],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "holdings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Holding"
+            }
+          }
+        }
+      },
+      "Trade": {
+        "type": "object",
+        "description": "One trade in a wallet's history. `pnl_delta_sol` is the FIFO realized gain/loss on sells; `null` on buys.",
+        "required": ["signature", "timestamp", "mint", "is_buy", "sol_amount", "token_amount", "dex"],
+        "properties": {
+          "signature": {
+            "type": "string",
+            "description": "Solana transaction signature."
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix epoch milliseconds."
+          },
+          "mint": {
+            "type": "string",
+            "description": "Token mint address."
+          },
+          "is_buy": {
+            "type": "boolean",
+            "description": "`true` if SOL → token; `false` if token → SOL."
+          },
+          "sol_amount": {
+            "type": "number",
+            "description": "SOL value of the swap (already divided by 1e9 from lamports)."
+          },
+          "token_amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Token base units."
+          },
+          "dex": {
+            "$ref": "#/components/schemas/DexId"
+          },
+          "pnl_delta_sol": {
+            "type": ["number", "null"],
+            "description": "FIFO realized PnL in SOL on this sell (`proceeds − matched_cost`). Always `null` on buys."
+          }
+        }
+      },
+      "TradesResponse": {
+        "type": "object",
+        "description": "Cursor-paginated trade history for a wallet, newest first.",
+        "required": ["wallet", "trades"],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "trades": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Trade"
+            }
+          },
+          "next_before": {
+            "type": ["integer", "null"],
+            "description": "Pass as `?before=` on the next request to get the next page. `null` when there are no more trades."
+          },
+          "coverage_note": {
+            "type": "string",
+            "description": "Always present in Phase 4. Explains that `hide_arb` and `parse_jupiter` are no-ops until Phase 5."
+          }
+        }
+      },
+      "PortfolioChartPoint": {
+        "type": "object",
+        "description": "One day in a wallet portfolio chart series.",
+        "required": ["day", "value_sol", "value_usd"],
+        "properties": {
+          "day": {
+            "type": "string",
+            "format": "date",
+            "description": "Calendar date in `YYYY-MM-DD` format (UTC).",
+            "example": "2026-05-01"
+          },
+          "value_sol": {
+            "type": "number",
+            "description": "Portfolio value in SOL on this day, computed from historical `ohlcv_1d` closes."
+          },
+          "value_usd": {
+            "type": "number",
+            "description": "Portfolio value in USD. Uses the **current** SOL/USD rate for all historical points — Dexploit does not store a daily SOL/USD history. Apply your own historical SOL/USD to `value_sol` for accurate historical USD."
+          },
+          "provisional": {
+            "type": "boolean",
+            "description": "Present and `true` only on `today` — the current day is computed live and has not been finalized."
+          }
+        }
+      },
+      "PortfolioChartResponse": {
+        "type": "object",
+        "description": "Daily portfolio value series for a wallet. Closed days are immutable and served from the store; today is always computed live.",
+        "required": ["wallet", "window", "series", "today", "computed_at"],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "window": {
+            "type": "string",
+            "example": "90d"
+          },
+          "series": {
+            "type": "array",
+            "description": "Closed days only. Each point is immutable once written.",
+            "items": {
+              "$ref": "#/components/schemas/PortfolioChartPoint"
+            }
+          },
+          "today": {
+            "allOf": [
+              {"$ref": "#/components/schemas/PortfolioChartPoint"}
+            ],
+            "description": "Today's portfolio value, always computed live. `provisional: true` is always set."
+          },
+          "computed_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix epoch milliseconds when this response was assembled."
+          }
+        }
+      },
+      "PnlBasicResponse": {
+        "type": "object",
+        "description": "FIFO realized + unrealized PnL for a wallet. Includes a `warning` pointing to Phase 8 for full multi-lot PnL.",
+        "required": ["wallet", "window", "realized_sol", "unrealized_sol", "total_volume_sol", "win_rate", "sell_count", "warning"],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "window": {
+            "type": "string",
+            "description": "The time window used (`all`, `30d`, `90d`, `1y`)."
+          },
+          "realized_sol": {
+            "type": "number",
+            "description": "Total FIFO realized PnL in SOL across all closed positions."
+          },
+          "unrealized_sol": {
+            "type": "number",
+            "description": "Unrealized PnL in SOL on remaining open lots."
+          },
+          "total_volume_sol": {
+            "type": "number",
+            "description": "Total SOL volume traded."
+          },
+          "win_rate": {
+            "type": "number",
+            "description": "Fraction of sells that were profitable (0.0–1.0)."
+          },
+          "sell_count": {
+            "type": "integer",
+            "description": "Number of sell transactions included."
+          },
+          "realized_usd": {
+            "type": ["number", "null"],
+            "description": "Realized PnL in USD via the Pyth oracle. `null` when oracle unavailable."
+          },
+          "unrealized_usd": {
+            "type": ["number", "null"],
+            "description": "Unrealized PnL in USD via the Pyth oracle. `null` when oracle unavailable."
+          },
+          "oracle": {
+            "type": ["object", "null"],
+            "description": "Pyth SOL/USD oracle snapshot used for USD conversion."
+          },
+          "warning": {
+            "type": "string",
+            "description": "Always present. Explains that this is basic FIFO PnL and that full cost-basis ships in Phase 8."
+          }
+        }
+      },
+      "SolBalanceResponse": {
+        "type": "object",
+        "description": "Native SOL balance for a wallet. `sol_balance` is `null` when Shyft's `getBalance` call fails; the response is still 200.",
+        "required": ["wallet", "computed_at"],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "sol_balance": {
+            "type": ["number", "null"],
+            "description": "Native SOL balance (not lamports). `null` on Shyft error."
+          },
+          "sol_balance_usd": {
+            "type": ["number", "null"],
+            "description": "SOL balance converted to USD via the Pyth oracle. `null` when balance or oracle is unavailable."
+          },
+          "computed_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix epoch milliseconds when this response was assembled."
+          }
+        }
+      },
+      "WalletStatsResponse": {
+        "type": "object",
+        "description": "Aggregate trading statistics for a wallet over a given window.",
+        "required": ["wallet", "window"],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "window": {
+            "type": "string"
+          },
+          "total_trades": {
+            "type": "integer"
+          },
+          "win_count": {
+            "type": "integer",
+            "description": "Number of sells that were profitable."
+          },
+          "win_rate": {
+            "type": "number",
+            "description": "Fraction of sells that were profitable (0.0–1.0)."
+          },
+          "total_volume_sol": {
+            "type": "number",
+            "description": "Cumulative SOL volume."
+          },
+          "best_trade_pnl_sol": {
+            "type": ["number", "null"],
+            "description": "Realized PnL of the single most profitable sell, in SOL."
+          },
+          "best_trade_mint": {
+            "type": ["string", "null"],
+            "description": "Mint of the best trade."
+          },
+          "worst_trade_pnl_sol": {
+            "type": ["number", "null"],
+            "description": "Realized PnL of the single worst sell, in SOL."
+          },
+          "worst_trade_mint": {
+            "type": ["string", "null"],
+            "description": "Mint of the worst trade."
+          }
+        }
       }
     }
   },
@@ -5448,6 +5773,581 @@
           },
           "400": {
             "description": "Wallet is not a valid base58 string",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{w}/holdings": {
+      "get": {
+        "summary": "On-chain holdings with cost-basis overlay",
+        "description": "Returns the wallet's current on-chain SPL token holdings sourced from Shyft's `all_tokens` API, with FIFO cost-basis and unrealized PnL overlaid where Dexploit has swap history.\n\nTokens acquired via airdrop or off-platform transfers will appear with `no_cost_basis: true` and `cost_basis_sol: null`.\n\nWhen Shyft is temporarily unavailable the endpoint degrades to FIFO-derived holdings and sets `holdings_source: \"fifo_fallback\"` — it never returns 5xx on a Shyft outage.\n\nResponse is cached 30 seconds per wallet. See [Wallet portfolio](/concepts/wallet-portfolio) for a full explanation of the two holdings sources.",
+        "operationId": "getWalletHoldings",
+        "tags": [
+          "Wallet portfolio"
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "dex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter FIFO cost-basis computation to a single DEX by integer ID. See `DexId` for the mapping. Has no effect on the Shyft on-chain token list."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Holdings with cost-basis",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoldingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Wallet address is not valid base58",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{w}/holdings/basic": {
+      "get": {
+        "summary": "Fast FIFO-derived holdings (no Shyft)",
+        "description": "Returns holdings derived entirely from Dexploit's own swap index using FIFO lot matching. No external Shyft call — typically ~30 ms.\n\nOnly covers tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Tokens acquired via airdrop or off-platform will not appear. No USD values.\n\nUse this endpoint when you need a quick snapshot and completeness is less important than latency. Uncached.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio) for the trade-off between this endpoint and `/holdings`.",
+        "operationId": "getWalletHoldingsBasic",
+        "tags": [
+          "Wallet portfolio"
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "dex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FIFO-derived holdings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HoldingsBasicResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Wallet address is not valid base58",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{w}/trades": {
+      "get": {
+        "summary": "Wallet trade history with per-trade PnL",
+        "description": "Cursor-paginated trade history for a wallet, newest first. Per-trade `pnl_delta_sol` is the FIFO realized gain/loss on sells; `null` on buys.\n\nFilter by `from_token` or `to_token` to scope to a specific mint. For Phase 4 both params filter against the swap's token mint (pump.fun is single-mint-vs-SOL). True two-leg Jupiter routing attribution ships in Phase 5.\n\n`hide_arb` and `parse_jupiter` are accepted but are **no-ops in Phase 4**. The response always includes a `coverage_note` pointing to Phase 5. Wire them into your UI now so they take effect without a contract change.\n\nResponse cached 30 seconds.",
+        "operationId": "getWalletTrades",
+        "tags": [
+          "Wallet portfolio"
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
+            }
+          },
+          {
+            "name": "before",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Cursor — Unix epoch milliseconds. Returns trades strictly older than this timestamp. Use `next_before` from the previous response."
+          },
+          {
+            "name": "from_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to trades involving this token mint."
+          },
+          {
+            "name": "to_token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to trades involving this token mint (alias of `from_token` in Phase 4; full two-leg routing in Phase 5)."
+          },
+          {
+            "name": "dex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+          },
+          {
+            "name": "hide_arb",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "**No-op in Phase 4.** Will filter arbitrage round-trips when the arb tagger ships in Phase 5."
+          },
+          {
+            "name": "parse_jupiter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "**No-op in Phase 4.** Will expand Jupiter aggregator hops and attribute trades to source/destination tokens in Phase 5."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trade history page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TradesResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{w}/chart": {
+      "get": {
+        "summary": "Daily portfolio value chart",
+        "description": "Returns a daily portfolio-value series for the wallet. The chart is assembled on-demand with a cron-free model:\n\n1. **Closed days** are read from the store and returned as-is — they are immutable once written.\n2. **Gaps** (days between the last stored point and yesterday) are filled lazily: the FIFO engine replays the wallet's swaps to reconstruct end-of-day holdings, prices them against `ohlcv_1d` closes, and persists the result before returning.\n3. **Today** is always computed live and returned as `today` with `provisional: true` — never persisted.\n\n`value_usd` uses the **current** SOL/USD rate from the Pyth oracle for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#cron-free-chart-freshness) for the full freshness model.",
+        "operationId": "getWalletChart",
+        "tags": [
+          "Wallet portfolio"
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["30d", "90d", "1y", "all"],
+              "default": "90d"
+            },
+            "description": "How far back to go. `all` returns every day since the wallet's first indexed trade."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Portfolio chart series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortfolioChartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{w}/pnl/basic": {
+      "get": {
+        "summary": "FIFO realized and unrealized PnL",
+        "description": "Returns FIFO realized + unrealized PnL for the wallet over the specified window. Lot-based matching: buy lots pushed in time order, each sell matches against the earliest open lots and realizes `proceeds − cost_matched`.\n\nThe response always includes a `warning` field:\n\n> `basic FIFO realized PnL; full cost-basis (cross-wallet, tax-lot, transfer-aware) ships in Phase 8`\n\nThis is intentional — FIFO is a good approximation for single-wallet trading but is not suitable for tax calculations or cross-wallet strategies. Full PnL ships in Phase 8.\n\nResponse cached 60 seconds.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#pnl-basic-fifo-realized-pnl).",
+        "operationId": "getWalletPnlBasic",
+        "tags": [
+          "Wallet portfolio"
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["30d", "90d", "1y", "all"],
+              "default": "all"
+            },
+            "description": "Time window to compute PnL over."
+          },
+          {
+            "name": "dex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FIFO PnL summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PnlBasicResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{w}/sol-balance": {
+      "get": {
+        "summary": "Native SOL balance",
+        "description": "Returns the wallet's current native SOL balance via Shyft's `getBalance` JSON-RPC call, plus USD conversion via the Pyth oracle.\n\nWhen Shyft is unavailable, `sol_balance` is `null` and the response still returns 200 — it never 500s on a Shyft blip. Response cached 30 seconds.",
+        "operationId": "getWalletSolBalance",
+        "tags": [
+          "Wallet portfolio"
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SOL balance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SolBalanceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Wallet address is not valid base58",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wallets/{w}/stats": {
+      "get": {
+        "summary": "Aggregate wallet trading statistics",
+        "description": "Returns aggregate trading statistics for the wallet over the specified window: best and worst trades by realized PnL, win rate, total trade count, and total SOL volume.\n\nAn empty wallet (no indexed swaps) returns 200 with zero values. Response cached 60 seconds.",
+        "operationId": "getWalletStats",
+        "tags": [
+          "Wallet portfolio"
+        ],
+        "parameters": [
+          {
+            "name": "w",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "window",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": ["30d", "90d", "1y", "all"],
+              "default": "all"
+            },
+            "description": "Time window to compute stats over."
+          },
+          {
+            "name": "dex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wallet stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WalletStatsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter",
             "content": {
               "application/json": {
                 "schema": {
