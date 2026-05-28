@@ -181,7 +181,7 @@ Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/wha
 
 ## Inspecting your usage
 
-Call [`GET /credits`](/api-reference/openapi/get/credits) at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
+Call `GET /credits` at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
 
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
@@ -407,6 +407,10 @@ Every timestamp on the API is ISO-8601 UTC, e.g., `2026-05-09T12:34:00Z`. When y
 
 If `end` is omitted on `/api/v1/candles`, the server snaps to a 30-second-aligned "now" so consecutive live queries hit the cache. To pull a precise instantaneous range, set both `start` and `end` explicitly.
 
+## Resolution support on Phase 2 endpoints
+
+`/price/history`, `/price/history/range`, and `/chart/{token}` all accept `?resolution=1m|5m|1h|1d`. `/price/history/timestamp` is always 1m (highest precision). `/tokens/{mint}/ath` reads from `ohlcv_1d` only — daily resolution is the canonical ATH grain.
+
 
 ---
 
@@ -427,20 +431,83 @@ Every JSON response is wrapped:
 
 Streaming protocols (WebSocket, gRPC) use protocol-native error frames — see the [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) pages.
 
-## Quotas
-
-Quotas are enforced per API key:
-
-- **Daily** soft cap (resets at 00:00 UTC).
-- **Monthly** hard cap (resets on the calendar 1st).
-
-When you exceed a cap, requests return 429 with `code: "QUOTA_EXCEEDED"`. The response includes `X-RateLimit-Reset` indicating when you're back under.
-
-See [Authentication](/authentication) for tier-specific numbers.
-
 ## Rate limits
 
-Free tier has a per-second rate limit. Paid tiers (Developer, Pro, Enterprise) do not — only quotas apply.
+Dexploit's pricing model is **capped requests-per-second, unlimited monthly usage.** Pick a tier that matches your sustained throughput; there is no monthly volume to budget against.
+
+| Tier | Sustained RPS | 60-second burst window |
+| --- | --- | --- |
+| Free | 20 | 1,200 reqs |
+| Developer | 100 | 6,000 reqs |
+| Pro | 500 | 30,000 reqs |
+| Enterprise | unlimited | unlimited |
+
+The burst window is the smoothing knob: a Free-tier client can issue up to 1,200 requests in a single second as long as the rolling 60-second sum stays under 1,200. Indexers and backfill jobs benefit from this; steady-state polling never sees the burst headroom.
+
+## Inspecting your usage
+
+Call `GET /credits` at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
+
+```json
+{
+  "tier": "free",
+  "rps_cap": 20,
+  "rps_window_secs": 60,
+  "current_window_used": 7,
+  "current_window_remaining": 1193,
+  "current_window_reset_secs": 23,
+  "monthly_used": 4321,
+  "monthly_used_note": "informational; no monthly cap on Dexploit",
+  "tier_features": {
+    "smart_money_access": false,
+    "whales_access": false
+  }
+}
+```
+
+`monthly_used` is informational. There is no monthly cap on Dexploit — the field shows your cumulative request count for the current calendar month so you can size up your typical load.
+
+## Rate-limit headers
+
+Every authenticated response carries:
+
+- `X-RateLimit-Limit` — the cap for the current window (= `rps_cap × rps_window_secs`).
+- `X-RateLimit-Remaining` — requests left.
+- `X-RateLimit-Reset` — seconds until the window rolls over.
+
+When you exceed the cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Retry after `X-RateLimit-Reset` seconds.
+
+## Tier-locked features
+
+Some endpoints are paid-tier-only. Free tier callers get **HTTP 200 with `tier_locked: true`** rather than a 429:
+
+```json
+{
+  "mint": "BoMb…",
+  "results": [],
+  "tier_locked": true,
+  "tier_required": "developer",
+  "upgrade_url": "https://dexploit.dev/pricing",
+  "computed_at": 1779852398772
+}
+```
+
+This keeps client code simple — same response shape, an extra flag — and lets your UI render an upsell where data would be without an error-handling branch.
+
+Currently tier-locked endpoints: `/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`.
+
+## gRPC stream caps
+
+The `dexploit.v1.SwapStream` service caps concurrent connections per tier:
+
+| Tier | Max concurrent SwapStream connections |
+|---|---|
+| Free | 1 |
+| Developer | 10 |
+| Pro | 50 |
+| Enterprise | unlimited |
+
+Exceeding the cap returns `RESOURCE_EXHAUSTED`. The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
 ## Error codes
 
@@ -448,11 +515,10 @@ Free tier has a per-second rate limit. Paid tiers (Developer, Pro, Enterprise) d
 | --- | --- | --- | --- |
 | `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
 | `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
-| `QUOTA_EXCEEDED` | 429 | Monthly quota hit. | Wait for reset or upgrade. |
-| `RATE_LIMITED` | 429 | Free-tier rate limit hit. | Back off and retry. |
-| `INVALID_PARAM` | 400 | One of your query params is wrong. The `message` says which. | Check the request. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
+| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in current window. | Retry after `X-RateLimit-Reset` seconds. |
+| `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
-| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |
+| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |
 | `UNAVAILABLE` | 503 | Backend dependency is down. | Retry with backoff. |
 | `GATEWAY_TIMEOUT` | 504 | Upstream took too long. | Retry; reduce `limit` if persistent. |
 | `INTERNAL` | 500 | Server-side error. | Retry. If it persists, [contact support](https://www.dexploit.dev/contact). |
@@ -570,6 +636,38 @@ Or if you want a fully custom model: walk `signals[*].value`, ignore the `weight
 - `GET /tokens/{mint}/risk` — the dedicated risk endpoint
 - `GET /tokens/{mint}/intel` — slim risk summary embedded in the dashboard payload
 - [Quotas & errors](/concepts/quotas-errors) — `/risk` is Free-tier rate-limited; no per-endpoint cap
+
+
+---
+
+# concepts/coverage
+
+
+Dexploit's index begins on **2026-05-26** — the day [Phase 0](/concepts/risk-score#phase-0)'s gRPC-firehose mint capture went live. Endpoints that depend on data captured by that pipeline will return a `coverage_note` field when results are empty.
+
+## Endpoints affected
+
+### `/deployer/{wallet}`
+
+Only ~5% of mints currently in our index have a non-empty `creator` field — older mints predate Phase 0. New mints (post-2026-05-26) all have `creator` captured.
+
+If you query `/deployer/{wallet}` for a wallet that deployed before Phase 0, you may see empty results. The response will include:
+
+```json
+{
+  "results": [],
+  "coverage_note": "creator data is captured from Phase 0 onwards (2026-05-26); older mints may be missing",
+  "computed_at": 1779912000000
+}
+```
+
+### `/tokens/{mint}/ath`
+
+Sources `ohlcv_1d`, which is populated from day 1 of the candle ingestion pipeline. No coverage gap.
+
+### `/price/history*`
+
+Sources `ohlcv_{1m,5m,1h,1d}`. Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
 
 
 ---
@@ -1167,6 +1265,110 @@ The keepalive options are not optional — see [Reconnect & backpressure](/strea
 ## Other languages
 
 Run `protoc` against the proto to generate clients for any language gRPC supports. Idiomatic examples for Rust (`tonic`), Python (`grpcio`), and TypeScript live in [DexploitV1/Dexploit-Examples](https://github.com/DexploitV1/Dexploit-Examples).
+
+
+---
+
+# streaming/grpc-swaps
+
+
+The `dexploit.v1.SwapStream` gRPC service delivers Solana DEX swaps in real time, filtered server-side. Use it when you want typed clients + flow control without parsing raw transactions.
+
+## Endpoint
+
+- Host: `grpc.dexploit.dev:443` (TLS)
+- Service: `dexploit.v1.SwapStream`
+- Auth: `x-api-key` metadata header (or `authorization: Bearer …`)
+- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Swaps/blob/main/crates/swaps-streamer/proto/swap_stream.proto)
+
+## RPCs
+
+### `StreamLive(StreamLiveRequest) → stream UnifiedSwap`
+
+Live tail. Streams every new swap that matches your filter until the connection closes.
+
+```typescript
+import { credentials, Metadata } from "@grpc/grpc-js";
+// ... (see the full example at https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/swap-stream)
+
+const stream = client.StreamLive(
+  { filter: { dexes: ["pumpfun"], minSol: "1000000" } },
+  metadata,
+);
+stream.on("data", (swap) => console.log(swap));
+```
+
+### `StreamFromCursor(StreamFromCursorRequest) → stream UnifiedSwap`
+
+**Reserved for v1.1.** Currently returns `UNIMPLEMENTED`. Will replay history from a Solana slot cursor + transition to live.
+
+## Filter shape
+
+| Field | Type | Notes |
+|---|---|---|
+| `tokens` | `repeated string` | Mint addresses (base58). Empty list = all. |
+| `traders` | `repeated string` | Wallet addresses. |
+| `pools` | `repeated string` | Pool/curve addresses. |
+| `dexes` | `repeated string` | `"pumpfun"|"pumpswap"|"raydium_clmm"|...` |
+| `min_sol` / `max_sol` | `optional uint64` | Lamports. |
+| `min_token_amount` / `max_token_amount` | `optional uint64` | Raw token units. |
+| `is_buy` | `optional bool` | `true` = buys only; `false` = sells only. |
+| `signature` | `optional string` | Exact-match (debugging). |
+| `wallet_tags` | `repeated string` | **Pro+ only**: `"smart_money"|"sniper"|"whale"|"insider"`. On lower tiers this filter is silently ignored (see below). |
+
+## Tier caps
+
+| Tier | Max concurrent SwapStream connections | `wallet_tags` filter |
+|---|---|---|
+| Free | 1 | ignored (see below) |
+| Developer | 10 | ignored |
+| Pro | 50 | allowed |
+| Enterprise | unlimited | allowed |
+
+Exceeding the cap returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`.
+
+### `wallet_tags` tier gating
+
+If a Free/Developer caller passes a non-empty `wallet_tags` filter, the server **silently drops the tag filter** and proceeds with the rest of the filter. The response carries an initial metadata header:
+
+```
+x-dexploit-tier-locked-filter: wallet_tags
+```
+
+This matches the REST [tier-locked features](/concepts/quotas-errors#tier-locked-features) posture — same response shape for paid + locked, with a clear upgrade signal.
+
+## Backpressure
+
+Each open stream gets a 1024-event server-side buffer. If a client falls behind by more than 1024 events, the server cancels the stream with:
+
+```
+code: RESOURCE_EXHAUSTED
+message: "client too slow; buffer overflow"
+```
+
+Clients are expected to reconnect. The current scenario where this happens in practice is browser tabs that background for >5 seconds during a busy market window.
+
+## Error codes
+
+| Code | When |
+|---|---|
+| `UNAUTHENTICATED` | Missing/invalid api_key in metadata. |
+| `RESOURCE_EXHAUSTED` | Stream cap exceeded, OR slow client buffer overflow. |
+| `UNIMPLEMENTED` | `StreamFromCursor` (reserved for v1.1). |
+| `INTERNAL` | Server-side bug. Retry; report if persistent. |
+
+## Compared to WebSocket `/ws/swaps`
+
+| Aspect | WebSocket | gRPC SwapStream |
+|---|---|---|
+| Transport | WSS over HTTPS | HTTP/2 (TLS) |
+| Schema | JSON | Protobuf (typed) |
+| Filter set | 7 fields | 11 fields (incl. `signature` + `wallet_tags`) |
+| Backpressure | client-driven (browser-friendly) | server-bounded queue (1024 events) |
+| Flow control | none | HTTP/2 native |
+| Tier-gated filters | n/a | `wallet_tags` (Pro+) |
+
+Use WebSocket for browser clients. Use gRPC for indexers, backend services, and anywhere typed clients + flow control matter.
 
 
 ---
