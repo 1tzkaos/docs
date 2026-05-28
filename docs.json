@@ -47,7 +47,8 @@
               "concepts/swap-event-ohlcv",
               "concepts/timeframes-resolution",
               "concepts/quotas-errors",
-              "concepts/risk-score"
+              "concepts/risk-score",
+              "concepts/coverage"
             ]
           },
           {
@@ -128,6 +129,8 @@
               "GET /tokens/{mint}/smart-money",
               "GET /tokens/{mint}/whales",
               "GET /tokens/{mint}/risk",
+              "GET /tokens/{mint}/ath",
+              "GET /tokens/{mint}/bundlers",
               "GET /tokens/latest",
               "GET /tokens/multi/all",
               "GET /tokens/multi/graduating",
@@ -143,6 +146,16 @@
             ]
           },
           {
+            "group": "Charts & price history",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /price/history",
+              "GET /price/history/timestamp",
+              "GET /price/history/range",
+              "GET /chart/{token}"
+            ]
+          },
+          {
             "group": "Account",
             "openapi": "api-reference/openapi.json",
             "pages": [
@@ -155,7 +168,8 @@
             "openapi": "api-reference/openapi.json",
             "pages": [
               "GET /wallets/{wallet}/tags",
-              "GET /tokens/{mint}/wallet-tag-counts"
+              "GET /tokens/{mint}/wallet-tag-counts",
+              "GET /deployer/{wallet}"
             ]
           },
           {

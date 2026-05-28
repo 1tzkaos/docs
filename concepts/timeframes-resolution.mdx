@@ -44,3 +44,7 @@ Every timestamp on the API is ISO-8601 UTC, e.g., `2026-05-09T12:34:00Z`. When y
 | `/api/v1/candles/latest` | 100 | 10,000 |
 
 If `end` is omitted on `/api/v1/candles`, the server snaps to a 30-second-aligned "now" so consecutive live queries hit the cache. To pull a precise instantaneous range, set both `start` and `end` explicitly.
+
+## Resolution support on Phase 2 endpoints
+
+`/price/history`, `/price/history/range`, and `/chart/{token}` all accept `?resolution=1m|5m|1h|1d`. `/price/history/timestamp` is always 1m (highest precision). `/tokens/{mint}/ath` reads from `ohlcv_1d` only — daily resolution is the canonical ATH grain.

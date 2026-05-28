@@ -14,6 +14,7 @@
 - [Swap-event OHLCV](https://docs.dexploit.dev/concepts/swap-event-ohlcv)
 - [Timeframes & resolution](https://docs.dexploit.dev/concepts/timeframes-resolution)
 - [Risk score algorithm](https://docs.dexploit.dev/concepts/risk-score)
+- [Data coverage](https://docs.dexploit.dev/concepts/coverage): when our index begins + which endpoints carry coverage notes
 
 ## REST endpoints
 
@@ -37,6 +38,8 @@
 - [GET /tokens/{mint}/insiders](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/insiders): per-mint insiders
 - [GET /tokens/{mint}/smart-money](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/smart-money): smart-money wallets holding (paid)
 - [GET /tokens/{mint}/whales](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/whales): whale wallets holding (paid)
+- [GET /tokens/{mint}/ath](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/ath): all-time-high price + ts + pair (SOL + USD)
+- [GET /tokens/{mint}/bundlers](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/bundlers): bundler wallets (stub; ships in Phase 5)
 - [GET /tokens/latest](https://docs.dexploit.dev/api-reference/openapi/get/tokens/latest): newest tokens
 - [GET /tokens/multi/all](https://docs.dexploit.dev/api-reference/openapi/get/tokens/multi/all): newest tokens (alias)
 - [GET /tokens/multi/graduating](https://docs.dexploit.dev/api-reference/openapi/get/tokens/multi/graduating): pump.fun tokens near graduation
@@ -46,6 +49,12 @@
 ### Price
 - [GET /price/multi](https://docs.dexploit.dev/api-reference/openapi/get/price/multi): batched price lookup (≤100)
 
+### Charts & price history
+- [GET /price/history](https://docs.dexploit.dev/api-reference/openapi/get/price/history): OHLCV candle series for a token (top pair, configurable resolution)
+- [GET /price/history/timestamp](https://docs.dexploit.dev/api-reference/openapi/get/price/history/timestamp): single 1m candle at-or-before a Unix-ms timestamp
+- [GET /price/history/range](https://docs.dexploit.dev/api-reference/openapi/get/price/history/range): aggregated OHLCV over [from, to]
+- [GET /chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/chart/{token}): chart-ready candles with optional per-row market_cap_sol
+
 ### Discovery
 - [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): filtered + scored token search
 - [GET /trending](https://docs.dexploit.dev/api-reference/openapi/get/trending): per-window trending ranking
@@ -53,6 +62,7 @@
 ### Wallet intel
 - [GET /wallets/{wallet}/tags](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{wallet}/tags): wallet classification
 - [GET /tokens/{mint}/wallet-tag-counts](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/wallet-tag-counts): per-tag holder counts
+- [GET /deployer/{wallet}](https://docs.dexploit.dev/api-reference/openapi/get/deployer/{wallet}): mints deployed by a wallet (newest first; carries coverage_note)
 
 ### Pump lifecycle
 - [GET /pump-lifecycle](https://docs.dexploit.dev/api-reference/openapi/get/pump-lifecycle): lifecycle event stream

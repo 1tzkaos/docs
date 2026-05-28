@@ -1,0 +1,30 @@
+---
+title: "Data coverage"
+description: "What's in our index, when it started, and where the gaps are."
+---
+
+Dexploit's index begins on **2026-05-26** — the day [Phase 0](/concepts/risk-score#phase-0)'s gRPC-firehose mint capture went live. Endpoints that depend on data captured by that pipeline will return a `coverage_note` field when results are empty.
+
+## Endpoints affected
+
+### `/deployer/{wallet}`
+
+Only ~5% of mints currently in our index have a non-empty `creator` field — older mints predate Phase 0. New mints (post-2026-05-26) all have `creator` captured.
+
+If you query `/deployer/{wallet}` for a wallet that deployed before Phase 0, you may see empty results. The response will include:
+
+```json
+{
+  "results": [],
+  "coverage_note": "creator data is captured from Phase 0 onwards (2026-05-26); older mints may be missing",
+  "computed_at": 1779912000000
+}
+```
+
+### `/tokens/{mint}/ath`
+
+Sources `ohlcv_1d`, which is populated from day 1 of the candle ingestion pipeline. No coverage gap.
+
+### `/price/history*`
+
+Sources `ohlcv_{1m,5m,1h,1d}`. Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
