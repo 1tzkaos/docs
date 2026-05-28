@@ -1832,6 +1832,109 @@
             "format": "int64"
           }
         }
+      },
+      "ActorChartSinglePoint": {
+        "type": "object",
+        "description": "One point in a single-series actor chart. `value` is an integer count for holders/snipers/insiders/bundlers.",
+        "required": [
+          "ts_ms",
+          "value"
+        ],
+        "properties": {
+          "ts_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bucket timestamp, Unix epoch milliseconds."
+          },
+          "value": {
+            "type": "number",
+            "description": "Point-in-time count for the requested series."
+          }
+        }
+      },
+      "ActorChartSingleResponse": {
+        "type": "object",
+        "description": "Response for a single-series actor chart endpoint (`/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`). Rows exist only for hours the mint traded — gaps are expected, not bugs. Forward-fill the last value for quiet hours. An empty `results` array carries a `coverage_note` explaining the no-backfill policy.",
+        "required": [
+          "results",
+          "computed_at"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActorChartSinglePoint"
+            }
+          },
+          "computed_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix ms when this response was assembled."
+          },
+          "coverage_note": {
+            "type": "string",
+            "description": "Present on empty results (no-backfill policy) or for the bundlers endpoint (Phase 5 placeholder)."
+          }
+        }
+      },
+      "ActorChartCombinedPoint": {
+        "type": "object",
+        "description": "One wide row from the combined actor-chart endpoint. Keys present depend on the `?series=` subset requested. `dev_held_pct` is a 0.0–1.0 fraction.",
+        "required": [
+          "ts_ms"
+        ],
+        "properties": {
+          "ts_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bucket timestamp, Unix epoch milliseconds."
+          },
+          "holders": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Distinct holder count at this timestamp. Present when `holders` is in the requested series."
+          },
+          "snipers": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Sniper wallet count. Present when `snipers` is in the requested series."
+          },
+          "insiders": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Insider wallet count. Present when `insiders` is in the requested series."
+          },
+          "dev_held_pct": {
+            "type": "number",
+            "format": "float",
+            "description": "Developer's share of supply (0.0–1.0 fraction). Present when `dev` is in the requested series."
+          }
+        }
+      },
+      "ActorChartCombinedResponse": {
+        "type": "object",
+        "description": "Response for the combined actor-chart endpoint (`/tokens/{mint}/actor-chart`). Wide rows — one object per timestamp with all requested series as keys. One call replaces up to four single-series requests.",
+        "required": [
+          "results",
+          "computed_at"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActorChartCombinedPoint"
+            }
+          },
+          "computed_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix ms when this response was assembled."
+          },
+          "coverage_note": {
+            "type": "string",
+            "description": "Present on empty results — no pre-launch backfill; charts grow forward from Phase 3 launch (2026-05-28)."
+          }
+        }
       }
     }
   },
@@ -4674,6 +4777,506 @@
           },
           "404": {
             "description": "No pair found for token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/holders/chart/{token}": {
+      "get": {
+        "summary": "Holder-count time series for a token",
+        "description": "Returns the distinct holder count for a token sampled once per hour (or per 6h/1d bucket). Data is event-driven — a row exists only for hours the mint traded. Quiet hours produce gaps, not zeros; frontends should forward-fill the last value.\n\nNo pre-launch backfill: history starts at Phase 3 launch (2026-05-28) and grows forward. Empty mints return `results: []` with a `coverage_note`.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** (point-in-time count, not a flow).\n\nData freshness is ~3–5 seconds after a trade.",
+        "operationId": "getHoldersChart",
+        "tags": [
+          "Time-series charts"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint (base58)."
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "1d"
+              ],
+              "default": "1h"
+            },
+            "description": "Bucket size. `6h`/`1d` downsample to last-value-in-bucket."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Start of range (Unix ms, inclusive). Default: 24h before `to`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "End of range (Unix ms, inclusive). Default: now."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Holder-count series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActorChartSingleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid token mint, unsupported resolution, or `from > to`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/snipers/chart/{token}": {
+      "get": {
+        "summary": "Sniper-count time series for a token",
+        "description": "Returns the sniper wallet count for a token over time. Snipers are wallets that bought within the first few blocks of a mint's launch, as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.",
+        "operationId": "getSnipersChart",
+        "tags": [
+          "Time-series charts"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint (base58)."
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "1d"
+              ],
+              "default": "1h"
+            },
+            "description": "Bucket size. `6h`/`1d` downsample to last-value-in-bucket."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Start of range (Unix ms, inclusive). Default: 24h before `to`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "End of range (Unix ms, inclusive). Default: now."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sniper-count series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActorChartSingleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid token mint, unsupported resolution, or `from > to`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/insiders/chart/{token}": {
+      "get": {
+        "summary": "Insider-count time series for a token",
+        "description": "Returns the insider wallet count for a token over time. Insiders are wallets with an informational edge at launch (pre-launch buys, team/dev-adjacent activity), as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.",
+        "operationId": "getInsidersChart",
+        "tags": [
+          "Time-series charts"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint (base58)."
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "1d"
+              ],
+              "default": "1h"
+            },
+            "description": "Bucket size. `6h`/`1d` downsample to last-value-in-bucket."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Start of range (Unix ms, inclusive). Default: 24h before `to`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "End of range (Unix ms, inclusive). Default: now."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Insider-count series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActorChartSingleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid token mint, unsupported resolution, or `from > to`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bundlers/chart/{token}": {
+      "get": {
+        "summary": "Bundler-count time series for a token (stub)",
+        "description": "Returns the bundler wallet count for a token over time. **All values are 0 until Phase 5** — the bundler tagger has not shipped yet. The response always includes a `coverage_note` explaining this.\n\nThe endpoint is available now so you can wire up your UI and swap in real data when Phase 5 ships without a contract change.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}). No pre-launch backfill.",
+        "operationId": "getBundlersChart",
+        "tags": [
+          "Time-series charts"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint (base58)."
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "1d"
+              ],
+              "default": "1h"
+            },
+            "description": "Bucket size."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Start of range (Unix ms, inclusive). Default: 24h before `to`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "End of range (Unix ms, inclusive). Default: now."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bundler-count series (all values 0 until Phase 5)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActorChartSingleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid token mint, unsupported resolution, or `from > to`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens/{mint}/actor-chart": {
+      "get": {
+        "summary": "Combined actor time series (holders, snipers, insiders, dev)",
+        "description": "Returns wide rows with up to four actor series in a single call — **one request instead of four**. Each row has `ts_ms` plus whatever series you requested as keys.\n\nUse `?series=holders,snipers,insiders,dev` (comma-separated) to request a subset. Default: all four. The `dev` series returns as `dev_held_pct` (a 0.0–1.0 fraction of supply held by the deployer).\n\nSame sparsity and freshness semantics as the single-series endpoints: rows exist only for hours the mint traded; forward-fill for display. No pre-launch backfill — history starts at Phase 3 launch (2026-05-28).\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** for each series.",
+        "operationId": "getActorChart",
+        "tags": [
+          "Time-series charts"
+        ],
+        "parameters": [
+          {
+            "name": "mint",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint (base58)."
+          },
+          {
+            "name": "series",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "holders,snipers,insiders,dev"
+            },
+            "description": "Comma-separated subset of series to include. Valid values: `holders`, `snipers`, `insiders`, `dev`. Default: all four."
+          },
+          {
+            "name": "resolution",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1h",
+                "6h",
+                "1d"
+              ],
+              "default": "1h"
+            },
+            "description": "Bucket size. `6h`/`1d` downsample to last-value-in-bucket."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Start of range (Unix ms, inclusive). Default: 24h before `to`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "End of range (Unix ms, inclusive). Default: now."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Combined actor series — wide rows",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActorChartCombinedResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid token mint, unknown series value, unsupported resolution, or `from > to`",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {

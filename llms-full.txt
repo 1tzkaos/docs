@@ -669,6 +669,63 @@ Sources `ohlcv_1d`, which is populated from day 1 of the candle ingestion pipeli
 
 Sources `ohlcv_{1m,5m,1h,1d}`. Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
 
+## Actor charts (Phase 3)
+
+`token_actor_history` snapshots begin at Phase 3 launch (2026-05-28). There is no pre-launch backfill — upstream holder balances aren't retained historically, so accurate reconstruction isn't possible. Charts fill forward as a mint trades.
+
+A mint that doesn't trade for several hours has gaps (not zeros) in its chart for those hours — holder counts don't change when nothing trades. Frontends should forward-fill the last known value.
+
+`bundler_count` / `bundler_pct` are 0 until the Phase 5 bundler tagger ships.
+
+
+---
+
+# concepts/actor-charts
+
+
+Actor charts show how a token's holder base and risk actors evolve over time. You can track whether the sniper count is climbing after launch, whether insiders have exited, or how concentrated the developer's position is hour by hour.
+
+## Combined endpoint (recommended)
+
+`GET /tokens/{mint}/actor-chart?series=holders,snipers,insiders,dev&resolution=1h` returns wide rows — one object per timestamp with all requested series as keys. One call replaces four separate chart requests.
+
+```json
+{
+  "results": [
+    {"ts_ms": 1779912000000, "holders": 1200, "snipers": 8, "insiders": 45, "dev_held_pct": 0.05},
+    {"ts_ms": 1779915600000, "holders": 1215, "snipers": 8, "insiders": 47, "dev_held_pct": 0.05}
+  ],
+  "computed_at": 1779916000000
+}
+```
+
+`?series=` is a comma-separated subset (default: all four). The `dev` series is returned as the key `dev_held_pct` — a 0.0–1.0 fraction of supply held by the deployer.
+
+## Single-series endpoints
+
+Use these when you only need one dimension or want to fan out to multiple chart widgets independently:
+
+- `GET /holders/chart/{token}` — distinct holder count
+- `GET /snipers/chart/{token}` — sniper wallet count
+- `GET /insiders/chart/{token}` — insider wallet count
+- `GET /bundlers/chart/{token}` — bundler wallet count (stub; all values 0 until Phase 5)
+
+Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": <ms> }`.
+
+## Resolution and downsampling
+
+`?resolution=1h|6h|1d` (default `1h`). At `6h` and `1d` the value for each bucket is the **last reading in that bucket** — these are point-in-time counts, not flows, so summing them would be meaningless.
+
+## Freshness and gaps
+
+Data updates within approximately 3–5 seconds of a trade. The underlying coalescing worker marks the mint dirty on each incoming swap event and recomputes all actor counts every 3 seconds.
+
+A mint that doesn't trade for several hours will have gaps in its chart for the quiet hours — holder counts and actor counts don't change when nothing trades. This is correct behavior, not a bug. **Forward-fill the last known value** for display purposes.
+
+## Coverage
+
+Charts start at Phase 3 launch (2026-05-28). There is no pre-launch backfill — upstream holder balances aren't retained historically. Empty results arrive with a `coverage_note` explaining this. See [Data coverage](/concepts/coverage#actor-charts-phase-3) for the full policy.
+
 
 ---
 
