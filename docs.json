@@ -48,7 +48,8 @@
               "concepts/timeframes-resolution",
               "concepts/quotas-errors",
               "concepts/risk-score",
-              "concepts/coverage"
+              "concepts/coverage",
+              "concepts/actor-charts"
             ]
           },
           {
@@ -153,6 +154,17 @@
               "GET /price/history/timestamp",
               "GET /price/history/range",
               "GET /chart/{token}"
+            ]
+          },
+          {
+            "group": "Time-series charts",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /holders/chart/{token}",
+              "GET /snipers/chart/{token}",
+              "GET /insiders/chart/{token}",
+              "GET /bundlers/chart/{token}",
+              "GET /tokens/{mint}/actor-chart"
             ]
           },
           {

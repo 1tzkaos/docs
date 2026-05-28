@@ -28,3 +28,11 @@ Sources `ohlcv_1d`, which is populated from day 1 of the candle ingestion pipeli
 ### `/price/history*`
 
 Sources `ohlcv_{1m,5m,1h,1d}`. Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
+
+## Actor charts (Phase 3)
+
+`token_actor_history` snapshots begin at Phase 3 launch (2026-05-28). There is no pre-launch backfill — upstream holder balances aren't retained historically, so accurate reconstruction isn't possible. Charts fill forward as a mint trades.
+
+A mint that doesn't trade for several hours has gaps (not zeros) in its chart for those hours — holder counts don't change when nothing trades. Frontends should forward-fill the last known value.
+
+`bundler_count` / `bundler_pct` are 0 until the Phase 5 bundler tagger ships.

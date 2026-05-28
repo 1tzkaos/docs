@@ -15,6 +15,7 @@
 - [Timeframes & resolution](https://docs.dexploit.dev/concepts/timeframes-resolution)
 - [Risk score algorithm](https://docs.dexploit.dev/concepts/risk-score)
 - [Data coverage](https://docs.dexploit.dev/concepts/coverage): when our index begins + which endpoints carry coverage notes
+- [Actor charts](https://docs.dexploit.dev/concepts/actor-charts): time-series of holder count, snipers, insiders, and dev holdings
 
 ## REST endpoints
 
@@ -54,6 +55,13 @@
 - [GET /price/history/timestamp](https://docs.dexploit.dev/api-reference/openapi/get/price/history/timestamp): single 1m candle at-or-before a Unix-ms timestamp
 - [GET /price/history/range](https://docs.dexploit.dev/api-reference/openapi/get/price/history/range): aggregated OHLCV over [from, to]
 - [GET /chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/chart/{token}): chart-ready candles with optional per-row market_cap_sol
+
+### Time-series charts
+- [GET /holders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/holders/chart/{token}): holder-count time series (1h/6h/1d, event-driven, ~3-5s freshness)
+- [GET /snipers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/snipers/chart/{token}): sniper wallet count over time
+- [GET /insiders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/insiders/chart/{token}): insider wallet count over time
+- [GET /bundlers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/bundlers/chart/{token}): bundler wallet count over time (stub; all values 0 until Phase 5)
+- [GET /tokens/{mint}/actor-chart](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/actor-chart): combined actor chart — holders, snipers, insiders, dev in one call
 
 ### Discovery
 - [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): filtered + scored token search
