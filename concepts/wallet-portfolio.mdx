@@ -1,0 +1,67 @@
+---
+title: "Wallet portfolio"
+description: "Holdings sources, the cron-free chart model, FIFO PnL basics, and Phase-5 feature flags — what each wallet endpoint does and why."
+---
+
+The wallet portfolio group gives you a complete picture of a single Solana wallet: what it holds right now, how it got there, and what it's worth. Seven endpoints cover on-chain holdings, trade history, a daily-value chart, realized/unrealized PnL, native SOL balance, and aggregate stats.
+
+## Two holdings sources
+
+The wallet group exposes two holdings endpoints with different accuracy/speed trade-offs.
+
+### `/wallets/{w}/holdings` — authoritative, slower
+
+This endpoint queries Shyft's `all_tokens` REST API to fetch the wallet's current on-chain token balances. Because it reads directly from chain state it captures every token the wallet holds — including airdrops, transfers, and tokens bought through platforms that Dexploit doesn't index. For each token it overlays:
+
+- **Current value** — latest-candle price from Dexploit's OHLCV index, converted to USD via the Pyth SOL/USD oracle.
+- **FIFO cost-basis** — if Dexploit has swap records for this wallet and mint, it reconstructs the average cost per token using the FIFO engine. Tokens with no swap history (airdrops, off-platform transfers) get `cost_basis_sol: null` and `no_cost_basis: true`.
+- **Unrealized PnL** — `current_value_sol − cost_basis_sol`, present only when both values are known.
+
+When Shyft is temporarily unavailable the endpoint degrades gracefully: it falls back to the FIFO-derived token list and returns `holdings_source: "fifo_fallback"` so callers can surface the appropriate caveat. It never returns 5xx on a Shyft blip.
+
+Response is cached 30 seconds per wallet (aligned to Shyft's roughly 10-request-per-second limit for `all_tokens`).
+
+### `/wallets/{w}/holdings/basic` — fast, our data only
+
+This endpoint runs the FIFO engine over the wallet's swap history in Dexploit's own index, with no external calls. It returns holdings with cost-basis and unrealized PnL but only for tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Airdrops and off-platform positions are invisible here.
+
+Use `/holdings/basic` when you need a quick snapshot and completeness is less important than latency (~30 ms cold, uncached).
+
+## Cron-free chart freshness
+
+`/wallets/{w}/chart` returns a daily portfolio-value series without relying on any background scheduler.
+
+When you request the chart:
+
+1. **Stored closed days are read first.** Days that have already been computed are immutable — the wallet's swap history for a past day can't change, so the value computed then is correct forever. These rows live in ClickHouse and are returned as-is.
+2. **Gaps are filled lazily.** If days are missing between the last stored point and yesterday (because the wallet hasn't been queried recently), those days are computed now. Each gap day replays the wallet's swaps up to end-of-day through the FIFO engine and prices the resulting holdings against that day's `ohlcv_1d` close. The results are written to the store before the response is returned, so the next request skips the gap.
+3. **Today is always computed live.** The current day is never persisted — it's too early to close. It appears in the response as `today` with `provisional: true`. Today's value uses current prices from the OHLCV index, not a fixed close.
+
+This means the chart is always maximally fresh: closed days never go stale (they're immutable), and today is recomputed on every request.
+
+**USD basis note.** `value_usd` in the series uses the **current** SOL/USD rate from the Pyth oracle for all points, including historical ones. Dexploit does not store a daily SOL/USD history. If you need historically accurate USD values, apply your own SOL/USD rate to `value_sol`, which is computed from actual historical prices.
+
+## PnL basic — FIFO realized PnL
+
+`/wallets/{w}/pnl/basic` runs a FIFO lot-matching engine over the wallet's swap history: buy lots are pushed in time order; each sell matches against the earliest open lots and realizes `proceeds − cost_matched`. The result includes realized PnL, unrealized PnL on remaining lots, win rate, and volume.
+
+The response always includes a `warning` field:
+
+```
+basic FIFO realized PnL; full cost-basis (cross-wallet, tax-lot, transfer-aware) ships in Phase 8
+```
+
+This is intentional — FIFO is a good approximation for single-wallet trading activity, but it misses cross-wallet position transfers and is not suitable for tax calculations. Full PnL with transfer-aware cost basis and tax-lot support ships in Phase 8.
+
+## Phase-5 feature flags (current no-ops)
+
+`/wallets/{w}/trades` accepts `hide_arb` and `parse_jupiter` query parameters. In Phase 4 these parameters are accepted without error but have no effect. The response always includes:
+
+```json
+"coverage_note": "hide_arb and parse_jupiter take effect in Phase 5 (arb tagger + Jupiter attribution); currently no-ops."
+```
+
+- **`hide_arb`** — will filter out arbitrage round-trips (same mint bought and sold in close time proximity for near-zero net). The arb tagger ships in Phase 5.
+- **`parse_jupiter`** — will expand Jupiter aggregator transactions into their constituent hops and attribute the trade to the source/destination token rather than the intermediate token. Jupiter attribution ships in Phase 5.
+
+Wire these parameters into your UI now if you want them to take effect automatically when Phase 5 ships.

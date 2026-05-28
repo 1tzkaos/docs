@@ -16,6 +16,7 @@
 - [Risk score algorithm](https://docs.dexploit.dev/concepts/risk-score)
 - [Data coverage](https://docs.dexploit.dev/concepts/coverage): when our index begins + which endpoints carry coverage notes
 - [Actor charts](https://docs.dexploit.dev/concepts/actor-charts): time-series of holder count, snipers, insiders, and dev holdings
+- [Wallet portfolio](https://docs.dexploit.dev/concepts/wallet-portfolio): holdings sources (Shyft vs basic), cron-free chart model, FIFO PnL, Phase-5 feature flags
 
 ## REST endpoints
 
@@ -71,6 +72,15 @@
 - [GET /wallets/{wallet}/tags](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{wallet}/tags): wallet classification
 - [GET /tokens/{mint}/wallet-tag-counts](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/wallet-tag-counts): per-tag holder counts
 - [GET /deployer/{wallet}](https://docs.dexploit.dev/api-reference/openapi/get/deployer/{wallet}): mints deployed by a wallet (newest first; carries coverage_note)
+
+### Wallet portfolio
+- [GET /wallets/{w}/holdings](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/holdings): on-chain holdings (Shyft) + USD + FIFO cost-basis overlay; degrades to fifo_fallback on Shyft error
+- [GET /wallets/{w}/holdings/basic](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/holdings/basic): fast FIFO-derived holdings from Dexploit's own swap index only (~30 ms, uncached)
+- [GET /wallets/{w}/trades](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/trades): cursor-paginated trade history, newest first, with per-trade pnl_delta_sol
+- [GET /wallets/{w}/chart](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/chart): daily portfolio value series; closed days immutable, today always live with provisional:true
+- [GET /wallets/{w}/pnl/basic](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/pnl/basic): FIFO realized + unrealized PnL; always includes warning pointing to Phase 8 for full PnL
+- [GET /wallets/{w}/sol-balance](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/sol-balance): native SOL balance + USD via Pyth; null on Shyft error, never 5xx
+- [GET /wallets/{w}/stats](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/stats): best/worst trade, win-rate, total volume over a configurable window
 
 ### Pump lifecycle
 - [GET /pump-lifecycle](https://docs.dexploit.dev/api-reference/openapi/get/pump-lifecycle): lifecycle event stream
