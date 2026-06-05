@@ -39,7 +39,7 @@
         "type": "apiKey",
         "in": "query",
         "name": "api_key",
-        "description": "Browser-friendly alternative to the Bearer header \u2014 accepted by every endpoint and required for WebSocket from the browser."
+        "description": "Browser-friendly alternative to the Bearer header — accepted by every endpoint and required for WebSocket from the browser."
       }
     },
     "schemas": {
@@ -114,7 +114,7 @@
           "base_mint": {
             "type": "string",
             "example": "So11111111111111111111111111111111111111112",
-            "description": "Base side of the pool \u2014 almost always wrapped SOL."
+            "description": "Base side of the pool — almost always wrapped SOL."
           },
           "timeframe": {
             "type": "string",
@@ -184,7 +184,7 @@
       },
       "Swap": {
         "type": "object",
-        "description": "A single swap event from the raw swaps index. Same shape across `/swaps`, `/swaps/range`, `/swaps/whale`, `/swaps/{signature}`, `/swaps/trader/{wallet}`, `/swaps/token/{mint}`.\n\nNote that the streaming feeds (WebSocket and gRPC) use a *different* shape \u2014 see [WebSocket wire format](/streaming/websocket) \u2014 most notably `swap_type` (string) vs `is_buy` (bool) here, and `dex` as the string name vs `dex` as the integer ID here.",
+        "description": "A single swap event from the raw swaps index. Same shape across `/swaps`, `/swaps/range`, `/swaps/whale`, `/swaps/{signature}`, `/swaps/trader/{wallet}`, `/swaps/token/{mint}`.\n\nNote that the streaming feeds (WebSocket and gRPC) use a *different* shape — see [WebSocket wire format](/streaming/websocket) — most notably `swap_type` (string) vs `is_buy` (bool) here, and `dex` as the string name vs `dex` as the integer ID here.",
         "properties": {
           "signature": {
             "type": "string",
@@ -213,7 +213,7 @@
           },
           "is_buy": {
             "type": "boolean",
-            "description": "`true` if SOL \u2192 token; `false` if token \u2192 SOL."
+            "description": "`true` if SOL → token; `false` if token → SOL."
           },
           "dex": {
             "$ref": "#/components/schemas/DexId"
@@ -259,7 +259,7 @@
           },
           "base_decimals": {
             "type": "integer",
-            "description": "Decimals of the *base* (SOL) side \u2014 typically 9."
+            "description": "Decimals of the *base* (SOL) side — typically 9."
           },
           "quote_decimals": {
             "type": "integer",
@@ -318,7 +318,7 @@
           },
           "has_more": {
             "type": "boolean",
-            "description": "True if more rows match \u2014 increment `offset` to page."
+            "description": "True if more rows match — increment `offset` to page."
           }
         }
       },
@@ -443,7 +443,7 @@
           },
           "volume_sol": {
             "type": "number",
-            "description": "SOL volume over `timeframe`. **Lamports** despite the name \u2014 divide by 1e9."
+            "description": "SOL volume over `timeframe`. **Lamports** despite the name — divide by 1e9."
           },
           "trade_count": {
             "type": "integer"
@@ -486,11 +486,11 @@
             "properties": {
               "vol_velocity": {
                 "type": "number",
-                "description": "`ln(volume_sol) * 1.5` \u2014 log-scaled raw volume."
+                "description": "`ln(volume_sol) * 1.5` — log-scaled raw volume."
               },
               "unique_buyers": {
                 "type": "number",
-                "description": "`sqrt(unique_buyers) * 1.2` \u2014 keeps small coins competitive."
+                "description": "`sqrt(unique_buyers) * 1.2` — keeps small coins competitive."
               },
               "vol_acceleration": {
                 "type": "number",
@@ -502,7 +502,7 @@
               },
               "dev_sell_penalty": {
                 "type": "number",
-                "description": "Negative. `-min(dev_sell_sol * 0.5, 20)` \u2014 capped subtraction per SOL sold by the token's creator."
+                "description": "Negative. `-min(dev_sell_sol * 0.5, 20)` — capped subtraction per SOL sold by the token's creator."
               },
               "holder_growth": {
                 "type": [
@@ -534,7 +534,7 @@
       },
       "PoolEvent": {
         "type": "object",
-        "description": "Liquidity-pool event other than a swap \u2014 LP deposit, LP withdraw, or token burn.",
+        "description": "Liquidity-pool event other than a swap — LP deposit, LP withdraw, or token burn.",
         "properties": {
           "signature": {
             "type": "string"
@@ -580,133 +580,7 @@
           "lp_token_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "DAMM v2 saturates this to u64::MAX \u2014 prefer `base_amount` + `quote_amount` for math."
-          }
-        }
-      },
-      "ScreenerFilters": {
-        "type": "object",
-        "description": "Body filters for POST /screener. All fields optional; combine as AND.",
-        "properties": {
-          "volume_sol": {
-            "type": "object",
-            "properties": {
-              "min": {
-                "type": "number"
-              },
-              "max": {
-                "type": "number"
-              }
-            },
-            "description": "SOL volume range."
-          },
-          "change_pct": {
-            "type": "object",
-            "properties": {
-              "min": {
-                "type": "number"
-              },
-              "max": {
-                "type": "number"
-              }
-            },
-            "description": "Price-change range over the screener window."
-          },
-          "liquidity_sol": {
-            "type": "object",
-            "properties": {
-              "min": {
-                "type": "number"
-              },
-              "max": {
-                "type": "number"
-              }
-            }
-          },
-          "trending_score": {
-            "type": "object",
-            "properties": {
-              "min": {
-                "type": "number"
-              },
-              "max": {
-                "type": "number"
-              }
-            }
-          },
-          "audit": {
-            "type": "object",
-            "description": "Require audit flags \u2014 e.g. `{ \"lp_burnt\": true, \"mint_revoked\": true }`.",
-            "properties": {
-              "lp_burnt": {
-                "type": "boolean"
-              },
-              "mint_revoked": {
-                "type": "boolean"
-              },
-              "freeze_revoked": {
-                "type": "boolean"
-              }
-            }
-          },
-          "sectors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Only return tokens in any of these sector tags."
-          }
-        }
-      },
-      "ScreenerSort": {
-        "type": "object",
-        "properties": {
-          "by": {
-            "type": "string",
-            "enum": [
-              "volume_sol",
-              "change_pct",
-              "liquidity_sol",
-              "trending_score",
-              "age_hours"
-            ]
-          },
-          "order": {
-            "type": "string",
-            "enum": [
-              "asc",
-              "desc"
-            ],
-            "default": "desc"
-          }
-        }
-      },
-      "ScreenerResult": {
-        "type": "object",
-        "properties": {
-          "mint": {
-            "type": "string"
-          },
-          "volume_sol": {
-            "type": "number"
-          },
-          "price_per_token": {
-            "type": "number",
-            "description": "Price in SOL per 1 token (decimals-adjusted)."
-          },
-          "last_ts": {
-            "type": "integer",
-            "description": "Epoch ms of most recent swap considered."
-          },
-          "first_ts": {
-            "type": "integer",
-            "description": "Epoch ms of first swap in the window."
-          },
-          "change_pct": {
-            "type": "number"
-          },
-          "age_hours": {
-            "type": "number"
+            "description": "DAMM v2 saturates this to u64::MAX — prefer `base_amount` + `quote_amount` for math."
           }
         }
       },
@@ -902,14 +776,14 @@
               "number",
               "null"
             ],
-            "description": "Percent of supply still held by the creator wallet (0\u2013100)."
+            "description": "Percent of supply still held by the creator wallet (0–100)."
           },
           "bonding_pct": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Pump.fun bonding-curve progress (0\u2013100); null for graduated/non-pump tokens."
+            "description": "Pump.fun bonding-curve progress (0–100); null for graduated/non-pump tokens."
           },
           "top10_pct": {
             "$ref": "#/components/schemas/Top10Pct"
@@ -922,7 +796,7 @@
               "object",
               "null"
             ],
-            "description": "Creator wallet, source provenance, and recent launches. `null` when the creator is unknown (Phase 0 strict precedence \u2014 never falls back to largest holder)."
+            "description": "Creator wallet, source provenance, and recent launches. `null` when the creator is unknown (Phase 0 strict precedence — never falls back to largest holder)."
           },
           "change_pct": {
             "type": "object",
@@ -999,7 +873,7 @@
       },
       "ActorAggregates": {
         "type": "object",
-        "description": "Per-tag count + concentration of wallets currently holding the mint. Keys are tag names (`sniper`, `insider`, `smart_money`, `whale`, `kol`, `fresh`, `dev`, `bot`) \u2014 only tags with at least one matching holder appear. Use `fetch_url` to deep-link to the full list endpoint.",
+        "description": "Per-tag count + concentration of wallets currently holding the mint. Keys are tag names (`sniper`, `insider`, `smart_money`, `whale`, `kol`, `fresh`, `dev`, `bot`) — only tags with at least one matching holder appear. Use `fetch_url` to deep-link to the full list endpoint.",
         "additionalProperties": {
           "$ref": "#/components/schemas/ActorAggregate"
         }
@@ -1012,7 +886,7 @@
           },
           "pct_of_circulating": {
             "type": "number",
-            "description": "Sum of these wallets' balances divided by total supply (0.0\u20131.0)."
+            "description": "Sum of these wallets' balances divided by total supply (0.0–1.0)."
           },
           "fetch_url": {
             "type": "string",
@@ -1029,7 +903,7 @@
               "number",
               "null"
             ],
-            "description": "0.0\u201310.0; null when no input data is available yet."
+            "description": "0.0–10.0; null when no input data is available yet."
           },
           "level": {
             "type": [
@@ -1096,7 +970,7 @@
           },
           "pct_of_circulating": {
             "type": "number",
-            "description": "0.0\u20131.0."
+            "description": "0.0–1.0."
           },
           "tags": {
             "type": "array",
@@ -1136,7 +1010,7 @@
       },
       "RiskResponse": {
         "type": "object",
-        "description": "Glass-box token risk: a 0\u201310 score plus the per-signal breakdown that produced it. See [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
+        "description": "Glass-box token risk: a 0–10 score plus the per-signal breakdown that produced it. See [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
         "properties": {
           "mint": {
             "type": "string"
@@ -1146,7 +1020,7 @@
               "number",
               "null"
             ],
-            "description": "0.0\u201310.0; `null` when status is `no_data`."
+            "description": "0.0–10.0; `null` when status is `no_data`."
           },
           "level": {
             "type": [
@@ -1181,7 +1055,7 @@
           },
           "max_raw": {
             "type": "integer",
-            "description": "53500 \u2014 the sum of every signal's weight."
+            "description": "53500 — the sum of every signal's weight."
           },
           "computed_at": {
             "type": "integer"
@@ -1200,7 +1074,7 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "Stable identifier \u2014 see /concepts/risk-score."
+            "description": "Stable identifier — see /concepts/risk-score."
           },
           "weight": {
             "type": "integer"
@@ -1213,7 +1087,7 @@
           },
           "contribution": {
             "type": "integer",
-            "description": "weight \u00d7 graded_strength; equals `weight` for boolean signals, scaled for graded ones."
+            "description": "weight × graded_strength; equals `weight` for boolean signals, scaled for graded ones."
           },
           "label": {
             "type": "string",
@@ -1278,7 +1152,7 @@
               "string",
               "null"
             ],
-            "description": "Phase 0 strict precedence \u2014 null when unknown."
+            "description": "Phase 0 strict precedence — null when unknown."
           },
           "creator_source": {
             "type": [
@@ -1348,7 +1222,7 @@
             "properties": {
               "bonding_pct": {
                 "type": "number",
-                "description": "0.0\u2013100.0; pumpfun real_sol_reserves / 85 SOL \u00d7 100."
+                "description": "0.0–100.0; pumpfun real_sol_reserves / 85 SOL × 100."
               }
             }
           }
@@ -1460,7 +1334,7 @@
           },
           "rps_cap": {
             "type": "integer",
-            "description": "Burst cap = `rps_cap \u00d7 rps_window_secs` per window."
+            "description": "Burst cap = `rps_cap × rps_window_secs` per window."
           },
           "rps_window_secs": {
             "type": "integer",
@@ -1477,7 +1351,7 @@
           },
           "monthly_used": {
             "type": "integer",
-            "description": "Cumulative request count this calendar month. Informational only \u2014 no cap."
+            "description": "Cumulative request count this calendar month. Informational only — no cap."
           },
           "monthly_used_note": {
             "type": "string",
@@ -1594,7 +1468,7 @@
           },
           "bonding_pct": {
             "type": "number",
-            "description": "0.0 at mint \u2192 1.0 at graduation."
+            "description": "0.0 at mint → 1.0 at graduation."
           },
           "dex": {
             "type": [
@@ -1617,7 +1491,7 @@
       },
       "AthResponse": {
         "type": "object",
-        "description": "Per-mint all-time high. All ATH fields are nullable \u2014 they're null when the mint has no daily candles in `ohlcv_1d` yet.",
+        "description": "Per-mint all-time high. All ATH fields are nullable — they're null when the mint has no daily candles in `ohlcv_1d` yet.",
         "properties": {
           "mint": {
             "type": "string"
@@ -1634,7 +1508,7 @@
               "number",
               "null"
             ],
-            "description": "`ath_price_sol \u00d7 current Pyth SOL/USD`. Today-equivalent USD value, not the USD price at the moment of the ATH."
+            "description": "`ath_price_sol × current Pyth SOL/USD`. Today-equivalent USD value, not the USD price at the moment of the ATH."
           },
           "ath_ts_ms": {
             "type": [
@@ -1788,7 +1662,7 @@
                         "number",
                         "null"
                       ],
-                      "description": "`close \u00d7 supply_atomic / 10^decimals`. Null when `marketCap=false` (default)."
+                      "description": "`close × supply_atomic / 10^decimals`. Null when `marketCap=false` (default)."
                     }
                   }
                 }
@@ -1956,7 +1830,10 @@
             "description": "Current quantity in token base units."
           },
           "cost_basis_sol": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "FIFO average cost in SOL, scaled to the current on-chain qty. `null` when no swap history is available for this mint."
           },
           "no_cost_basis": {
@@ -1964,15 +1841,24 @@
             "description": "`true` when the mint has no swap history in Dexploit's index (airdrop, off-platform transfer, etc.)."
           },
           "current_value_sol": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Current market value in SOL (latest candle price × qty). `null` when price is unavailable."
           },
           "current_value_usd": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Current market value in USD via the Pyth SOL/USD oracle. `null` when price or oracle is unavailable."
           },
           "unrealized_pnl_sol": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "`current_value_sol − cost_basis_sol`. `null` when either value is unavailable."
           },
           "price_stale": {
@@ -1984,14 +1870,22 @@
       "HoldingsResponse": {
         "type": "object",
         "description": "Response from `/wallets/{w}/holdings`. `holdings_source` indicates whether the token list came from Shyft (authoritative) or fell back to FIFO-derived data.",
-        "required": ["wallet", "holdings_source", "holdings", "computed_at"],
+        "required": [
+          "wallet",
+          "holdings_source",
+          "holdings",
+          "computed_at"
+        ],
         "properties": {
           "wallet": {
             "type": "string"
           },
           "holdings_source": {
             "type": "string",
-            "enum": ["shyft", "fifo_fallback"],
+            "enum": [
+              "shyft",
+              "fifo_fallback"
+            ],
             "description": "`shyft` = authoritative on-chain balances. `fifo_fallback` = Shyft was temporarily unavailable; list is derived from Dexploit's swap index only."
           },
           "holdings": {
@@ -2010,7 +1904,10 @@
       "HoldingsBasicResponse": {
         "type": "object",
         "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index — no Shyft call, no USD values. Fast (~30 ms). Only covers tokens traded through indexed DEXes.",
-        "required": ["wallet", "holdings"],
+        "required": [
+          "wallet",
+          "holdings"
+        ],
         "properties": {
           "wallet": {
             "type": "string"
@@ -2026,7 +1923,15 @@
       "Trade": {
         "type": "object",
         "description": "One trade in a wallet's history. `pnl_delta_sol` is the FIFO realized gain/loss on sells; `null` on buys.",
-        "required": ["signature", "timestamp", "mint", "is_buy", "sol_amount", "token_amount", "dex"],
+        "required": [
+          "signature",
+          "timestamp",
+          "mint",
+          "is_buy",
+          "sol_amount",
+          "token_amount",
+          "dex"
+        ],
         "properties": {
           "signature": {
             "type": "string",
@@ -2058,7 +1963,10 @@
             "$ref": "#/components/schemas/DexId"
           },
           "pnl_delta_sol": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "FIFO realized PnL in SOL on this sell (`proceeds − matched_cost`). Always `null` on buys."
           }
         }
@@ -2066,7 +1974,10 @@
       "TradesResponse": {
         "type": "object",
         "description": "Cursor-paginated trade history for a wallet, newest first.",
-        "required": ["wallet", "trades"],
+        "required": [
+          "wallet",
+          "trades"
+        ],
         "properties": {
           "wallet": {
             "type": "string"
@@ -2078,7 +1989,10 @@
             }
           },
           "next_before": {
-            "type": ["integer", "null"],
+            "type": [
+              "integer",
+              "null"
+            ],
             "description": "Pass as `?before=` on the next request to get the next page. `null` when there are no more trades."
           },
           "coverage_note": {
@@ -2090,7 +2004,11 @@
       "PortfolioChartPoint": {
         "type": "object",
         "description": "One day in a wallet portfolio chart series.",
-        "required": ["day", "value_sol", "value_usd"],
+        "required": [
+          "day",
+          "value_sol",
+          "value_usd"
+        ],
         "properties": {
           "day": {
             "type": "string",
@@ -2115,7 +2033,13 @@
       "PortfolioChartResponse": {
         "type": "object",
         "description": "Daily portfolio value series for a wallet. Closed days are immutable and served from the store; today is always computed live.",
-        "required": ["wallet", "window", "series", "today", "computed_at"],
+        "required": [
+          "wallet",
+          "window",
+          "series",
+          "today",
+          "computed_at"
+        ],
         "properties": {
           "wallet": {
             "type": "string"
@@ -2133,7 +2057,9 @@
           },
           "today": {
             "allOf": [
-              {"$ref": "#/components/schemas/PortfolioChartPoint"}
+              {
+                "$ref": "#/components/schemas/PortfolioChartPoint"
+              }
             ],
             "description": "Today's portfolio value, always computed live. `provisional: true` is always set."
           },
@@ -2147,7 +2073,16 @@
       "PnlBasicResponse": {
         "type": "object",
         "description": "FIFO realized + unrealized PnL for a wallet. Includes a `warning` pointing to Phase 8 for full multi-lot PnL.",
-        "required": ["wallet", "window", "realized_sol", "unrealized_sol", "total_volume_sol", "win_rate", "sell_count", "warning"],
+        "required": [
+          "wallet",
+          "window",
+          "realized_sol",
+          "unrealized_sol",
+          "total_volume_sol",
+          "win_rate",
+          "sell_count",
+          "warning"
+        ],
         "properties": {
           "wallet": {
             "type": "string"
@@ -2177,15 +2112,24 @@
             "description": "Number of sell transactions included."
           },
           "realized_usd": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Realized PnL in USD via the Pyth oracle. `null` when oracle unavailable."
           },
           "unrealized_usd": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Unrealized PnL in USD via the Pyth oracle. `null` when oracle unavailable."
           },
           "oracle": {
-            "type": ["object", "null"],
+            "type": [
+              "object",
+              "null"
+            ],
             "description": "Pyth SOL/USD oracle snapshot used for USD conversion."
           },
           "warning": {
@@ -2197,17 +2141,26 @@
       "SolBalanceResponse": {
         "type": "object",
         "description": "Native SOL balance for a wallet. `sol_balance` is `null` when Shyft's `getBalance` call fails; the response is still 200.",
-        "required": ["wallet", "computed_at"],
+        "required": [
+          "wallet",
+          "computed_at"
+        ],
         "properties": {
           "wallet": {
             "type": "string"
           },
           "sol_balance": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Native SOL balance (not lamports). `null` on Shyft error."
           },
           "sol_balance_usd": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "SOL balance converted to USD via the Pyth oracle. `null` when balance or oracle is unavailable."
           },
           "computed_at": {
@@ -2220,7 +2173,10 @@
       "WalletStatsResponse": {
         "type": "object",
         "description": "Aggregate trading statistics for a wallet over a given window.",
-        "required": ["wallet", "window"],
+        "required": [
+          "wallet",
+          "window"
+        ],
         "properties": {
           "wallet": {
             "type": "string"
@@ -2244,20 +2200,1077 @@
             "description": "Cumulative SOL volume."
           },
           "best_trade_pnl_sol": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Realized PnL of the single most profitable sell, in SOL."
           },
           "best_trade_mint": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Mint of the best trade."
           },
           "worst_trade_pnl_sol": {
-            "type": ["number", "null"],
+            "type": [
+              "number",
+              "null"
+            ],
             "description": "Realized PnL of the single worst sell, in SOL."
           },
           "worst_trade_mint": {
-            "type": ["string", "null"],
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Mint of the worst trade."
+          }
+        }
+      },
+      "OracleSnapshot": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "Pyth SOL/USD oracle snapshot used for USD conversion. `null` when the oracle is unavailable.",
+        "properties": {
+          "price": {
+            "type": "number",
+            "description": "SOL/USD price."
+          },
+          "confidence": {
+            "type": "number",
+            "description": "Pyth confidence interval around `price`."
+          },
+          "published_at": {
+            "type": "integer",
+            "description": "Oracle publish time (Unix epoch seconds)."
+          },
+          "source": {
+            "type": "string",
+            "description": "Oracle source identifier (e.g. `pyth`)."
+          }
+        }
+      },
+      "RealizedBreakdown": {
+        "type": "object",
+        "description": "Realized PnL (SOL) under each accounting mode. Present on glass-box responses or when `breakdown=1`.",
+        "properties": {
+          "raw": {
+            "type": "number"
+          },
+          "strict": {
+            "type": "number"
+          },
+          "adjusted": {
+            "type": "number"
+          }
+        }
+      },
+      "PnlPosition": {
+        "type": "object",
+        "description": "A single (wallet, mint) cost-basis position. All `*_sol` fields are already SOL (lamports/1e9). `avg_cost_per_token` and any spot price are lamports per **atomic** token unit. `first_trade_ts`/`last_trade_ts` are epoch **milliseconds**.",
+        "properties": {
+          "mint": {
+            "type": "string",
+            "description": "Token mint (omitted on token-keyed variants where `wallet` is present instead)."
+          },
+          "balance_atomic": {
+            "type": "integer",
+            "description": "Current open balance in atomic token units (int64)."
+          },
+          "avg_cost_per_token": {
+            "type": "number",
+            "description": "Average cost in lamports per atomic token unit."
+          },
+          "cost_basis_sol": {
+            "type": "number"
+          },
+          "realized_sol": {
+            "type": "number",
+            "description": "Realized PnL in SOL for the selected `pnl_mode`."
+          },
+          "unrealized_sol": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Read-time spot unrealized PnL in SOL. `null` for null-priced mints."
+          },
+          "current_value_sol": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Read-time spot value of the open balance, in SOL. `null` when unpriced."
+          },
+          "total_buys_sol": {
+            "type": "number"
+          },
+          "total_sells_sol": {
+            "type": "number"
+          },
+          "total_buy_count": {
+            "type": "integer"
+          },
+          "total_sell_count": {
+            "type": "integer"
+          },
+          "largest_buy_sol": {
+            "type": "number"
+          },
+          "largest_sell_sol": {
+            "type": "number"
+          },
+          "fastest_flip_seconds": {
+            "type": "integer",
+            "description": "Shortest buy→sell round-trip in seconds (sentinel 0 = no flip)."
+          },
+          "longest_hold_seconds": {
+            "type": "integer"
+          },
+          "first_trade_ts": {
+            "type": "integer",
+            "description": "Epoch milliseconds of the first trade in this position."
+          },
+          "last_trade_ts": {
+            "type": "integer",
+            "description": "Epoch milliseconds of the most recent trade."
+          },
+          "is_arbitrageur": {
+            "type": "boolean",
+            "description": "Whether this (wallet, mint) was tagged as habitual cross-venue arbitrage."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Inline per-(wallet, mint) wallet-intel tags."
+          },
+          "realized_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Realized PnL in USD via the Pyth oracle."
+          },
+          "unrealized_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "current_value_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cost_basis_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "realized_breakdown": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RealizedBreakdown"
+              }
+            ],
+            "description": "Only present on glass-box endpoints (single-token, batch, traders) or when `breakdown=1`."
+          }
+        }
+      },
+      "PnlPositionByWallet": {
+        "type": "object",
+        "description": "Same shape as `PnlPosition` but keyed on `wallet` (the `mint` key is removed and `wallet` inserted). Returned by token-scoped endpoints.",
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "balance_atomic": {
+            "type": "integer"
+          },
+          "avg_cost_per_token": {
+            "type": "number"
+          },
+          "cost_basis_sol": {
+            "type": "number"
+          },
+          "realized_sol": {
+            "type": "number"
+          },
+          "unrealized_sol": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "current_value_sol": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "total_buys_sol": {
+            "type": "number"
+          },
+          "total_sells_sol": {
+            "type": "number"
+          },
+          "total_buy_count": {
+            "type": "integer"
+          },
+          "total_sell_count": {
+            "type": "integer"
+          },
+          "largest_buy_sol": {
+            "type": "number"
+          },
+          "largest_sell_sol": {
+            "type": "number"
+          },
+          "fastest_flip_seconds": {
+            "type": "integer"
+          },
+          "longest_hold_seconds": {
+            "type": "integer"
+          },
+          "first_trade_ts": {
+            "type": "integer",
+            "description": "Epoch milliseconds."
+          },
+          "last_trade_ts": {
+            "type": "integer",
+            "description": "Epoch milliseconds."
+          },
+          "is_arbitrageur": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "realized_breakdown": {
+            "$ref": "#/components/schemas/RealizedBreakdown"
+          },
+          "realized_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unrealized_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "current_value_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "cost_basis_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        }
+      },
+      "PnlV2Summary": {
+        "type": "object",
+        "description": "Cost-basis PnL summary for a wallet (Phase 8 engine). All `*_sol` fields are SOL. `unrealized_sol` is read-time spot Σ(price−avg_cost)*balance; null-priced mints contribute 0. Wallets with no positions return zeros and an empty `positions` array.",
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "pnl_mode": {
+            "type": "string"
+          },
+          "realized_sol": {
+            "type": "number"
+          },
+          "unrealized_sol": {
+            "type": "number",
+            "description": "Read-time spot unrealized PnL (null-priced mints contribute 0)."
+          },
+          "cost_basis_sol": {
+            "type": "number"
+          },
+          "open_positions": {
+            "type": "integer",
+            "description": "Count of positions with balance > 0 and not a quote mint."
+          },
+          "closed_positions": {
+            "type": "integer",
+            "description": "Count of positions with balance == 0."
+          },
+          "realized_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "unrealized_usd": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "oracle": {
+            "$ref": "#/components/schemas/OracleSnapshot"
+          },
+          "positions": {
+            "type": "array",
+            "description": "Compact per-position rows.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "mint": {
+                  "type": "string"
+                },
+                "balance_atomic": {
+                  "type": "integer"
+                },
+                "realized_sol": {
+                  "type": "number"
+                },
+                "unrealized_sol": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "is_arbitrageur": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "LeaderboardRow": {
+        "type": "object",
+        "description": "One ranked wallet on a realized-PnL leaderboard.",
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "description": "Offset-aware, 1-based."
+          },
+          "wallet": {
+            "type": "string"
+          },
+          "realized_sol": {
+            "type": "number"
+          },
+          "win_rate": {
+            "type": "number",
+            "description": "Winning sells / total sells (0.0–1.0)."
+          },
+          "trade_count": {
+            "type": "integer",
+            "description": "Σ total_sell_count."
+          },
+          "is_kol": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "KolLeaderboardRow": {
+        "type": "object",
+        "description": "One ranked KOL wallet (adds Twitter/display metadata).",
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "description": "Offset-aware, 1-based."
+          },
+          "wallet": {
+            "type": "string"
+          },
+          "realized_sol": {
+            "type": "number"
+          },
+          "win_rate": {
+            "type": "number"
+          },
+          "trade_count": {
+            "type": "integer"
+          },
+          "is_kol": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "twitter_handle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "KolCalendarRow": {
+        "type": "object",
+        "description": "One KOL row in the realized-only heatmap. `cells` is sparse — one cell per active day, carrying that day's realized DELTA.",
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "twitter_handle": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "is_kol": {
+            "type": "boolean"
+          },
+          "all_time_realized_sol": {
+            "type": "number"
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "day": {
+                  "type": "string",
+                  "description": "YYYY-MM-DD."
+                },
+                "realized_sol": {
+                  "type": "number",
+                  "description": "Per-day realized delta."
+                }
+              }
+            }
+          }
+        }
+      },
+      "TokenTraderRow": {
+        "type": "object",
+        "description": "One trader of a token, with mode-selected realized PnL plus the full breakdown.",
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "realized_sol": {
+            "type": "number",
+            "description": "Mode-selected."
+          },
+          "realized_breakdown": {
+            "$ref": "#/components/schemas/RealizedBreakdown"
+          },
+          "unrealized_sol": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "current_value_sol": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "balance_atomic": {
+            "type": "integer"
+          },
+          "avg_cost_per_token": {
+            "type": "number"
+          },
+          "cost_basis_sol": {
+            "type": "number"
+          },
+          "total_buy_count": {
+            "type": "integer"
+          },
+          "total_sell_count": {
+            "type": "integer"
+          },
+          "is_arbitrageur": {
+            "type": "boolean"
+          },
+          "is_kol": {
+            "type": "boolean"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "FirstBuyerRow": {
+        "type": "object",
+        "description": "An early buyer of a token, ordered by (first_buy_ts, first_slot, first_sig).",
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "first_buy_ts": {
+            "type": "integer",
+            "description": "Epoch milliseconds."
+          },
+          "first_buy_slot": {
+            "type": "integer",
+            "description": "Solana slot (uint64)."
+          },
+          "first_buy_sol": {
+            "type": "number"
+          },
+          "first_buy_tokens_atomic": {
+            "type": "integer",
+            "description": "Atomic token units bought (uint64)."
+          },
+          "signature": {
+            "type": "string"
+          },
+          "pnl": {
+            "type": "object",
+            "description": "Present only when `enrich=1`. Zeroed (`{realized_sol:0, balance_atomic:0, unrealized_sol:null}`) for buyers with no tracked position.",
+            "properties": {
+              "realized_sol": {
+                "type": "number"
+              },
+              "balance_atomic": {
+                "type": "integer"
+              },
+              "unrealized_sol": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "PnlHighlight": {
+        "type": [
+          "object",
+          "null"
+        ],
+        "description": "A standout position. `null` when no qualifying row matched.",
+        "properties": {
+          "mint": {
+            "type": "string"
+          },
+          "realized_sol": {
+            "type": "number"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ScreenerResultV2": {
+        "type": "object",
+        "description": "Full Phase-7 V2 screener result row (`compact=false`).",
+        "properties": {
+          "mint": {
+            "type": "string"
+          },
+          "volume_sol": {
+            "type": "number"
+          },
+          "price_per_token": {
+            "type": "number",
+            "description": "Price in SOL per atomic token unit."
+          },
+          "last_ts": {
+            "type": "integer",
+            "description": "Epoch ms of most recent swap considered."
+          },
+          "first_ts": {
+            "type": "integer",
+            "description": "Epoch ms of first swap in the window."
+          },
+          "age_hours": {
+            "type": "number"
+          },
+          "change_pct": {
+            "type": "number"
+          },
+          "buys": {
+            "type": "integer",
+            "description": "uint64."
+          },
+          "sells": {
+            "type": "integer",
+            "description": "uint64."
+          },
+          "curve_pct": {
+            "type": "number",
+            "description": "Bonding-curve progress = real_sol_reserves / 85e9 * 100."
+          },
+          "liquidity_sol": {
+            "type": "number"
+          },
+          "market_cap": {
+            "type": "number"
+          },
+          "holder_count": {
+            "type": "integer",
+            "description": "uint64."
+          },
+          "top10_pct": {
+            "type": "number"
+          },
+          "dev_held_pct": {
+            "type": "number"
+          },
+          "insider_count": {
+            "type": "integer",
+            "description": "uint32."
+          },
+          "insider_pct": {
+            "type": "number"
+          },
+          "sniper_count": {
+            "type": "integer",
+            "description": "uint32."
+          },
+          "sniper_pct": {
+            "type": "number"
+          },
+          "bundler_count": {
+            "type": "integer",
+            "description": "uint32."
+          },
+          "bundler_pct": {
+            "type": "number"
+          },
+          "graduated_ts": {
+            "type": "integer",
+            "description": "Epoch ms (int64)."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "graduating",
+              "graduated",
+              "rugged"
+            ]
+          },
+          "trending_score": {
+            "type": "number"
+          }
+        }
+      },
+      "ScreenerResultV2Compact": {
+        "type": "object",
+        "description": "Compact Phase-7 V2 screener result row (`compact=true`).",
+        "properties": {
+          "mint": {
+            "type": "string"
+          },
+          "volume_sol": {
+            "type": "number"
+          },
+          "price_per_token": {
+            "type": "number"
+          },
+          "change_pct": {
+            "type": "number"
+          },
+          "market_cap": {
+            "type": "number"
+          },
+          "holder_count": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "ScreenerFiltersV2": {
+        "type": "object",
+        "description": "Phase-7 V2 screener filters (~40 fields, all optional, combined as AND). Replaces the legacy 6-field `ScreenerFilters`. Range filters take `{min, max}`. Volume/change windows default to `1h`.",
+        "properties": {
+          "liquidity_sol": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "volume_sol": {
+            "type": "object",
+            "properties": {
+              "window": {
+                "type": "string",
+                "enum": [
+                  "5m",
+                  "15m",
+                  "1h",
+                  "6h",
+                  "24h"
+                ],
+                "default": "1h"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "age_hours": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "change_pct": {
+            "type": "object",
+            "properties": {
+              "window": {
+                "type": "string",
+                "enum": [
+                  "5m",
+                  "15m",
+                  "1h",
+                  "6h",
+                  "24h"
+                ],
+                "default": "1h"
+              },
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "audit": {
+            "type": "object",
+            "properties": {
+              "mint_revoked": {
+                "type": "boolean"
+              },
+              "freeze_revoked": {
+                "type": "boolean"
+              },
+              "lp_burnt": {
+                "type": "boolean"
+              }
+            }
+          },
+          "trending_score": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "sectors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dexes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "query": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "mint": {
+            "type": "string"
+          },
+          "creator": {
+            "type": "string"
+          },
+          "has_image": {
+            "type": "boolean"
+          },
+          "has_socials": {
+            "type": "boolean"
+          },
+          "has_twitter": {
+            "type": "boolean"
+          },
+          "has_telegram": {
+            "type": "boolean"
+          },
+          "has_website": {
+            "type": "boolean"
+          },
+          "launchpad": {
+            "type": "string"
+          },
+          "market": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            },
+            "description": "Epoch (uint) range."
+          },
+          "market_cap": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "status": {
+            "type": "string"
+          },
+          "holders": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "top10": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "dev": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "insiders": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "insiders_pct": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "snipers": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "snipers_pct": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "bundlers": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "bundlers_pct": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "graduated_at": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "curve_pct": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "price": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "number"
+              },
+              "max": {
+                "type": "number"
+              }
+            }
+          },
+          "buys": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "sells": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": "integer"
+              },
+              "max": {
+                "type": "integer"
+              }
+            }
+          },
+          "rugged": {
+            "type": "boolean"
+          },
+          "risk_score": {
+            "type": "object",
+            "properties": {
+              "min": {
+                "type": null
+              },
+              "max": {
+                "type": null
+              }
+            },
+            "description": "Deferred — currently produces a warning rather than filtering."
+          }
+        }
+      },
+      "ScreenerSortV2": {
+        "type": "object",
+        "properties": {
+          "by": {
+            "type": "string",
+            "description": "Sort key (e.g. `volume_sol`, `market_cap`, `holders`, `change_pct`, `trending_score`, `age_hours`)."
+          },
+          "order": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "default": "desc"
           }
         }
       }
@@ -2267,7 +3280,7 @@
     "/api/v1/pairs": {
       "get": {
         "summary": "List pools (pairs)",
-        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings \u2014 the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol` and `recent_volume_sol`, sorted by recent SOL volume \u2014 the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
+        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings — the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol` and `recent_volume_sol`, sorted by recent SOL volume — the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
         "operationId": "listPairs",
         "tags": [
           "Pairs"
@@ -2387,7 +3400,7 @@
     "/api/v1/candles": {
       "get": {
         "summary": "Historical candles for a pool",
-        "description": "Returns OHLCV bars for `pair_address` between `start` and `end`. Bars are built from real swap events \u2014 see [Swap-event OHLCV](/concepts/swap-event-ohlcv).\n\n**Requires `pair_address`.** Sending `mint`, `pair`, or `protocol` returns 400 with a pointer to /api/v1/pairs.",
+        "description": "Returns OHLCV bars for `pair_address` between `start` and `end`. Bars are built from real swap events — see [Swap-event OHLCV](/concepts/swap-event-ohlcv).\n\n**Requires `pair_address`.** Sending `mint`, `pair`, or `protocol` returns 400 with a pointer to /api/v1/pairs.",
         "operationId": "listCandles",
         "tags": [
           "Candles (OHLCV)"
@@ -3014,7 +4027,7 @@
     "/swaps/trader/{wallet}": {
       "get": {
         "summary": "Swap history for a trader (with lifetime stats)",
-        "description": "All swaps a wallet has made, across pools and DEXs, plus the same `TraderStats` block returned by [/stats/trader/{wallet}](#tag/stats-trends/get/stats/trader/{wallet}) \u2014 saves a second round-trip when rendering a wallet page.",
+        "description": "All swaps a wallet has made, across pools and DEXs, plus the same `TraderStats` block returned by [/stats/trader/{wallet}](#tag/stats-trends/get/stats/trader/{wallet}) — saves a second round-trip when rendering a wallet page.",
         "operationId": "listTraderSwaps",
         "tags": [
           "Swaps"
@@ -3081,7 +4094,7 @@
     "/swaps/token/{mint}": {
       "get": {
         "summary": "Swap history for a token (with lifetime stats)",
-        "description": "Returns swaps for a token across **every** pool we index, plus a `TokenStats` block. This is one of the few endpoints where token mint (not `pair_address`) is the right input \u2014 it intentionally aggregates. See [Pairs vs tokens](/concepts/pairs-vs-tokens).",
+        "description": "Returns swaps for a token across **every** pool we index, plus a `TokenStats` block. This is one of the few endpoints where token mint (not `pair_address`) is the right input — it intentionally aggregates. See [Pairs vs tokens](/concepts/pairs-vs-tokens).",
         "operationId": "listTokenSwaps",
         "tags": [
           "Swaps"
@@ -3148,7 +4161,7 @@
     "/stats/global": {
       "get": {
         "summary": "Global lifetime stats",
-        "description": "Aggregate lifetime stats across the entire index. (Not a 24h window \u2014 these are cumulative since `data_inception` reported by [/api/v1/stats](#tag/stats-trends/get/api/v1/stats).)",
+        "description": "Aggregate lifetime stats across the entire index. (Not a 24h window — these are cumulative since `data_inception` reported by [/api/v1/stats](#tag/stats-trends/get/api/v1/stats).)",
         "operationId": "getGlobalStats",
         "tags": [
           "Stats & trends"
@@ -3234,7 +4247,7 @@
     "/trending": {
       "get": {
         "summary": "Trending tokens",
-        "description": "Tokens with the highest momentum over the requested window. The score compares the current window to the prior equal-length window, so a token that suddenly accelerates ranks above a steady high-volume token. Brand-new mints with no prior-window activity get a fast-riser boost. Pass `include_score=true` to expose the per-component `formula_breakdown` so you can re-sort client-side.\n\n**Rug filter:** tokens whose price collapsed by 90% or more inside the window are excluded by default \u2014 their activity is rug-watchers piling in, not organic demand. Set `include_rugged=true` to opt in.\n\n**Pagination:** use `offset` + `limit` to page through the scored list. The response carries `total` (how many candidates were scored before slicing), `offset`, and `limit` so you can detect end-of-list. Pricing/liquidity are USD via the Pyth SOL/USD oracle.",
+        "description": "Tokens with the highest momentum over the requested window. The score compares the current window to the prior equal-length window, so a token that suddenly accelerates ranks above a steady high-volume token. Brand-new mints with no prior-window activity get a fast-riser boost. Pass `include_score=true` to expose the per-component `formula_breakdown` so you can re-sort client-side.\n\n**Rug filter:** tokens whose price collapsed by 90% or more inside the window are excluded by default — their activity is rug-watchers piling in, not organic demand. Set `include_rugged=true` to opt in.\n\n**Pagination:** use `offset` + `limit` to page through the scored list. The response carries `total` (how many candidates were scored before slicing), `offset`, and `limit` so you can detect end-of-list. Pricing/liquidity are USD via the Pyth SOL/USD oracle.",
         "operationId": "listTrending",
         "tags": [
           "Stats & trends"
@@ -3269,7 +4282,7 @@
               "minimum": 1,
               "maximum": 200
             },
-            "description": "Page size \u2014 number of results to return."
+            "description": "Page size — number of results to return."
           },
           {
             "name": "offset",
@@ -3281,7 +4294,7 @@
               "minimum": 0,
               "maximum": 200
             },
-            "description": "Page offset \u2014 skip the first N scored results. Combined with `limit` for stable-cache-window pagination."
+            "description": "Page offset — skip the first N scored results. Combined with `limit` for stable-cache-window pagination."
           },
           {
             "name": "sector",
@@ -3440,7 +4453,7 @@
               "minimum": 1,
               "maximum": 500
             },
-            "description": "Per side \u2014 you get up to `limit` gainers AND up to `limit` losers."
+            "description": "Per side — you get up to `limit` gainers AND up to `limit` losers."
           }
         ],
         "responses": {
@@ -3564,7 +4577,7 @@
     "/api/v1/stats": {
       "get": {
         "summary": "Aggregate platform stats",
-        "description": "Roll-up of the OHLCV index \u2014 how many candles, pools, mints, and supported timeframes; plus when the index started.",
+        "description": "Roll-up of the OHLCV index — how many candles, pools, mints, and supported timeframes; plus when the index started.",
         "operationId": "getOhlcvStats",
         "tags": [
           "Stats & trends"
@@ -3661,7 +4674,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Map of mint \u2192 TokenStats",
+            "description": "Map of mint → TokenStats",
             "content": {
               "application/json": {
                 "schema": {
@@ -3727,7 +4740,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Cursor \u2014 epoch ms; returns events strictly older than this."
+            "description": "Cursor — epoch ms; returns events strictly older than this."
           }
         ],
         "responses": {
@@ -3770,8 +4783,8 @@
     },
     "/screener": {
       "post": {
-        "summary": "Filter tokens by volume / price-change / liquidity / audit / sector",
-        "description": "Server-side filtered + sorted token list. Filters combine as AND. The screener evaluates against a rolling 1h window.\n\nThe NL-style query bar on the Dexploit terminal screener is sugar over this endpoint \u2014 the chip bar serializes into the same JSON body.",
+        "summary": "Filter tokens (Phase-7 V2 screener)",
+        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).",
         "operationId": "runScreener",
         "tags": [
           "Screener"
@@ -3783,9 +4796,15 @@
               "schema": {
                 "type": "object",
                 "properties": {
+                  "filters": {
+                    "$ref": "#/components/schemas/ScreenerFiltersV2"
+                  },
+                  "sort": {
+                    "$ref": "#/components/schemas/ScreenerSortV2"
+                  },
                   "limit": {
                     "type": "integer",
-                    "default": 50,
+                    "default": 200,
                     "minimum": 1,
                     "maximum": 500
                   },
@@ -3794,11 +4813,10 @@
                     "default": 0,
                     "minimum": 0
                   },
-                  "filters": {
-                    "$ref": "#/components/schemas/ScreenerFilters"
-                  },
-                  "sort": {
-                    "$ref": "#/components/schemas/ScreenerSort"
+                  "compact": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "When `true`, rows use the compact variant."
                   }
                 }
               },
@@ -3806,12 +4824,17 @@
                 "limit": 25,
                 "filters": {
                   "volume_sol": {
+                    "window": "1h",
                     "min": 500
+                  },
+                  "holders": {
+                    "min": 100
                   },
                   "audit": {
                     "lp_burnt": true,
                     "mint_revoked": true
-                  }
+                  },
+                  "status": "graduated"
                 },
                 "sort": {
                   "by": "trending_score",
@@ -3823,7 +4846,29 @@
         },
         "responses": {
           "200": {
-            "description": "Filtered results",
+            "description": "Filtered results. Full rows unless `compact=true`.",
+            "headers": {
+              "x-cache": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "HIT",
+                    "MISS"
+                  ]
+                },
+                "description": "Cache hit/miss."
+              },
+              "x-total-matches-exact": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "true",
+                    "false"
+                  ]
+                },
+                "description": "When `false`, `total_matches` is a lower bound."
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -3832,18 +4877,31 @@
                     "results": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/ScreenerResult"
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/ScreenerResultV2"
+                          },
+                          {
+                            "$ref": "#/components/schemas/ScreenerResultV2Compact"
+                          }
+                        ]
                       }
                     },
                     "total_matches": {
                       "type": "integer",
-                      "description": "Total matching tokens before `limit`/`offset` paging."
+                      "description": "Total matching tokens before paging. See `x-total-matches-exact`."
                     },
                     "limit": {
                       "type": "integer"
                     },
                     "offset": {
                       "type": "integer"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -3866,7 +4924,7 @@
     "/tokens": {
       "get": {
         "summary": "Batch token metadata",
-        "description": "Resolve metadata + audit flags for up to 200 mints in one call. This is the right endpoint for hydrating a list view \u2014 don't loop over `/tokens/{mint}`.",
+        "description": "Resolve metadata + audit flags for up to 200 mints in one call. This is the right endpoint for hydrating a list view — don't loop over `/tokens/{mint}`.",
         "operationId": "listTokens",
         "tags": [
           "Tokens"
@@ -3980,7 +5038,7 @@
     },
     "/tokens/{mint}/intel": {
       "get": {
-        "summary": "Token intel \u2014 dashboard summary",
+        "summary": "Token intel — dashboard summary",
         "description": "Per-mint dashboard payload: actor aggregates, top-10 holder concentration, dev info, price/liquidity context, and an embedded Risk Score summary. Server-side cached ~60s.\n\nFor the full holder list use [`/tokens/{mint}/holders`](#tag/tokens/get/tokens/{mint}/holders); for actor lists deep-link via the `fetch_url` in each `actors[*]` entry; for the full per-signal Risk breakdown call [`/tokens/{mint}/risk`](#tag/tokens/get/tokens/{mint}/risk).",
         "operationId": "getTokenIntel",
         "tags": [
@@ -4074,7 +5132,7 @@
     "/tokens/{mint}/holders/top": {
       "get": {
         "summary": "Top 20 holders",
-        "description": "Same shape as `/tokens/{mint}/holders` but fixed at 20 rows and no cursor \u2014 ideal for a 'top holders' panel.",
+        "description": "Same shape as `/tokens/{mint}/holders` but fixed at 20 rows and no cursor — ideal for a 'top holders' panel.",
         "operationId": "listTokenHoldersTop",
         "tags": [
           "Tokens"
@@ -4361,7 +5419,7 @@
     "/tokens/{mint}/risk": {
       "get": {
         "summary": "Token risk score (glass-box)",
-        "description": "0.0\u201310.0 rug-pull risk score with the full per-signal breakdown that produced it. Glass-box \u2014 every signal that fired is in `signals[]` with its `code`, `weight`, `value`, and `contribution`. You can re-compute the score yourself: `min(10, sum(s.contribution for s in signals) * 10 / 5000)`.\n\nSee [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
+        "description": "0.0–10.0 rug-pull risk score with the full per-signal breakdown that produced it. Glass-box — every signal that fired is in `signals[]` with its `code`, `weight`, `value`, and `contribution`. You can re-compute the score yourself: `min(10, sum(s.contribution for s in signals) * 10 / 5000)`.\n\nSee [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
         "operationId": "getTokenRisk",
         "tags": [
           "Tokens"
@@ -4393,7 +5451,7 @@
     "/tokens/{mint}/ath": {
       "get": {
         "summary": "Token all-time-high price",
-        "description": "Per-mint all-time high across every pair the mint has traded in. Computed continuously via a `maxState(close) + argMaxState(timestamp, close) + argMaxState(pair_address, close)` Aggregating MV over `ohlcv_1d`. `ath_price_usd` is the SOL ATH multiplied by the current Pyth SOL/USD price \u2014 it's a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
+        "description": "Per-mint all-time high across every pair the mint has traded in. Computed continuously via a `maxState(close) + argMaxState(timestamp, close) + argMaxState(pair_address, close)` Aggregating MV over `ohlcv_1d`. `ath_price_usd` is the SOL ATH multiplied by the current Pyth SOL/USD price — it's a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
         "operationId": "getTokenAth",
         "tags": [
           "Tokens"
@@ -4455,7 +5513,7 @@
     "/tokens/{mint}/bundlers": {
       "get": {
         "summary": "Bundler wallets for a mint (stub)",
-        "description": "Phase 2 placeholder. Real bundler detection ships in Phase 5 \u2014 once the wallet-tagger pipeline backfills the `bundler` tag, this endpoint will return a count and list of bundler wallets. Today it always returns `count: 0` with `status: \"tagger_pending\"` and `available_in: \"phase_5\"`.",
+        "description": "Phase 2 placeholder. Real bundler detection ships in Phase 5 — once the wallet-tagger pipeline backfills the `bundler` tag, this endpoint will return a count and list of bundler wallets. Today it always returns `count: 0` with `status: \"tagger_pending\"` and `available_in: \"phase_5\"`.",
         "operationId": "getTokensBundlers",
         "tags": [
           "Tokens"
@@ -4531,7 +5589,7 @@
     "/tokens/multi/all": {
       "get": {
         "summary": "Newest tokens (Solana-Tracker alias)",
-        "description": "Identical to `/tokens/latest` \u2014 alias for API compatibility with Solana Tracker.",
+        "description": "Identical to `/tokens/latest` — alias for API compatibility with Solana Tracker.",
         "operationId": "listTokensMultiAll",
         "tags": [
           "Tokens"
@@ -4680,7 +5738,7 @@
     "/price/multi": {
       "get": {
         "summary": "Batched price lookup",
-        "description": "Latest ohlcv_1m close \u00d7 Pyth SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
+        "description": "Latest ohlcv_1m close × Pyth SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
         "operationId": "getPriceMulti",
         "tags": [
           "Price"
@@ -4717,7 +5775,7 @@
     "/price/history": {
       "get": {
         "summary": "Historical price series for a token",
-        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically \u2014 pass `?token={mint}` and the handler picks the busiest pool. For explicit pair-level access use [GET /api/v1/candles](/api-reference/openapi/get/api/v1/candles).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution \u2192 MV mapping.",
+        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically — pass `?token={mint}` and the handler picks the busiest pool. For explicit pair-level access use [GET /api/v1/candles](/api-reference/openapi/get/api/v1/candles).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution → MV mapping.",
         "operationId": "getPriceHistory",
         "tags": [
           "Price"
@@ -4816,7 +5874,7 @@
     "/price/history/timestamp": {
       "get": {
         "summary": "Price at-or-before a timestamp",
-        "description": "Returns the single most-recent 1m candle at or before `timestamp` (Unix ms) for the token's top-volume pair. Lookback window is 60 seconds \u2014 older queries return 404.\n\nResolution is fixed at `1m` (the highest-precision MV).",
+        "description": "Returns the single most-recent 1m candle at or before `timestamp` (Unix ms) for the token's top-volume pair. Lookback window is 60 seconds — older queries return 404.\n\nResolution is fixed at `1m` (the highest-precision MV).",
         "operationId": "getPriceHistoryTimestamp",
         "tags": [
           "Price"
@@ -4899,7 +5957,7 @@
     "/price/history/range": {
       "get": {
         "summary": "Aggregated OHLCV over an arbitrary range",
-        "description": "Single aggregated OHLCV row spanning `[from, to]` (Unix ms) for the token's top pair. Internally reads candles at the requested `resolution` (default `1m`) and rolls them up: `open` = first candle open, `close` = last candle close, `high`/`low` = max/min across the range, `volume_sol` = sum, `sample_count` = number of candles aggregated.\n\nReturns 400 if the window expands to more than 10,000 candles at the chosen resolution \u2014 bump to a coarser resolution or shrink the window.",
+        "description": "Single aggregated OHLCV row spanning `[from, to]` (Unix ms) for the token's top pair. Internally reads candles at the requested `resolution` (default `1m`) and rolls them up: `open` = first candle open, `close` = last candle close, `high`/`low` = max/min across the range, `volume_sol` = sum, `sample_count` = number of candles aggregated.\n\nReturns 400 if the window expands to more than 10,000 candles at the chosen resolution — bump to a coarser resolution or shrink the window.",
         "operationId": "getPriceHistoryRange",
         "tags": [
           "Price"
@@ -5007,7 +6065,7 @@
     "/chart/{token}": {
       "get": {
         "summary": "Chart-ready candle series with market cap",
-        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close \u00d7 current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply=true` is accepted but currently ignored \u2014 historical supply tracking from `tokens_supply_history` ships in Phase 5. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.",
+        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close × current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply=true` is accepted but currently ignored — historical supply tracking from `tokens_supply_history` ships in Phase 5. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.",
         "operationId": "getChart",
         "tags": [
           "Price"
@@ -5626,7 +6684,7 @@
     "/credits": {
       "get": {
         "summary": "RPS-tier usage snapshot",
-        "description": "Returns your tier, RPS cap, current 60-second window usage, monthly_used (informational only \u2014 no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
+        "description": "Returns your tier, RPS cap, current 60-second window usage, monthly_used (informational only — no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
         "operationId": "getCredits",
         "tags": [
           "Account"
@@ -5702,7 +6760,7 @@
     "/wallets/{wallet}/tags": {
       "get": {
         "summary": "Wallet classification tags",
-        "description": "Returns the set of tags Dexploit's wallet-intel pipeline has applied to a wallet (e.g. `sniper`, `insider`, `whale`, `smart_money`). Tags are computed asynchronously \u2014 `computed_at: 0` means we haven't profiled this wallet yet.",
+        "description": "Returns the set of tags Dexploit's wallet-intel pipeline has applied to a wallet (e.g. `sniper`, `insider`, `whale`, `smart_money`). Tags are computed asynchronously — `computed_at: 0` means we haven't profiled this wallet yet.",
         "operationId": "getWalletTags",
         "tags": [
           "Wallet intel"
@@ -5734,7 +6792,7 @@
     "/deployer/{wallet}": {
       "get": {
         "summary": "Tokens deployed by a wallet",
-        "description": "Lists mints the wallet has deployed, newest first. Reads from the `tokens_by_creator` ReplacingMergeTree (sourced from `tokens.creator`). Results are hydrated into the same `TokenRow` shape as [POST /tokens/multi](/api-reference/openapi/post/tokens/multi).\n\nWhen there are no results, the response includes `coverage_note` explaining that creator capture began on 2026-05-26 (Phase 0) \u2014 older mints may be missing. See [Data coverage](/concepts/coverage).",
+        "description": "Lists mints the wallet has deployed, newest first. Reads from the `tokens_by_creator` ReplacingMergeTree (sourced from `tokens.creator`). Results are hydrated into the same `TokenRow` shape as [POST /tokens/multi](/api-reference/openapi/post/tokens/multi).\n\nWhen there are no results, the response includes `coverage_note` explaining that creator capture began on 2026-05-26 (Phase 0) — older mints may be missing. See [Data coverage](/concepts/coverage).",
         "operationId": "getDeployer",
         "tags": [
           "Wallet intel"
@@ -6100,7 +7158,12 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["30d", "90d", "1y", "all"],
+              "enum": [
+                "30d",
+                "90d",
+                "1y",
+                "all"
+              ],
               "default": "90d"
             },
             "description": "How far back to go. `all` returns every day since the wallet's first indexed trade."
@@ -6174,7 +7237,12 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["30d", "90d", "1y", "all"],
+              "enum": [
+                "30d",
+                "90d",
+                "1y",
+                "all"
+              ],
               "default": "all"
             },
             "description": "Time window to compute PnL over."
@@ -6320,7 +7388,12 @@
             "required": false,
             "schema": {
               "type": "string",
-              "enum": ["30d", "90d", "1y", "all"],
+              "enum": [
+                "30d",
+                "90d",
+                "1y",
+                "all"
+              ],
               "default": "all"
             },
             "description": "Time window to compute stats over."
@@ -6421,7 +7494,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Cursor \u2014 epoch seconds; returns events strictly older than this."
+            "description": "Cursor — epoch seconds; returns events strictly older than this."
           }
         ],
         "responses": {
@@ -6513,6 +7586,3566 @@
           },
           "503": {
             "description": "Dependency unavailable"
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}": {
+      "get": {
+        "summary": "Wallet cost-basis PnL summary",
+        "description": "Phase 8 cost-basis PnL summary for a wallet: realized + read-time-spot unrealized SOL, open/closed position counts, USD via Pyth, and a compact per-position list. Empty wallets return zeros and an empty `positions` array.\n\nCached 5s when any position traded in the last 5 minutes, otherwise 30s.",
+        "operationId": "getPnlV2Wallet",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PnL summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PnlV2Summary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/positions": {
+      "get": {
+        "summary": "List a wallet's positions",
+        "description": "Paginated cost-basis positions for a wallet. `min_value_sol` is applied **after** read-time pricing on `current_value_sol`. `total` is the true total under the LIMIT (`count() OVER ()`).",
+        "operationId": "getPnlV2Positions",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "open",
+                "closed",
+                "all"
+              ],
+              "default": "open"
+            },
+            "description": "Which positions to include."
+          },
+          {
+            "name": "mint",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to a single mint."
+          },
+          {
+            "name": "min_value_sol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Minimum read-time `current_value_sol` (applied post-pricing)."
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "value",
+                "realized",
+                "unrealized"
+              ],
+              "default": "value"
+            },
+            "description": "Sort key."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 200
+            },
+            "description": "Page size."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page offset."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          },
+          {
+            "name": "breakdown",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ],
+              "default": 0
+            },
+            "description": "When `1`, forces `realized_breakdown` onto every row."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Positions page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "True total under LIMIT (count() OVER ())."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "positions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PnlPosition"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/tokens/{token}": {
+      "get": {
+        "summary": "Single (wallet, token) position",
+        "description": "The single (wallet, mint) position, always glass-box (`realized_breakdown` + inline tags present). When no position exists, returns `200` with `position: null` (uncached).",
+        "operationId": "getPnlV2WalletToken",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint address (base58)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Position (or null)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "mint": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "position": {
+                      "oneOf": [
+                        {
+                          "$ref": "#/components/schemas/PnlPosition"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Full position object (realized_breakdown always present), or `null`."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/history": {
+      "get": {
+        "summary": "Daily PnL history series",
+        "description": "Compute-on-read daily PnL series. `from`/`to` are inclusive UTC `YYYY-MM-DD`. Sparse — one point per active day. Malformed dates return `400`. Cached 30s.",
+        "operationId": "getPnlV2History",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive start date (UTC, `YYYY-MM-DD`)."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive end date (UTC, `YYYY-MM-DD`)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Daily series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "ts_day": {
+                            "type": "string",
+                            "description": "YYYY-MM-DD."
+                          },
+                          "realized_sol": {
+                            "type": "number"
+                          },
+                          "unrealized_sol": {
+                            "type": "number",
+                            "description": "That day's daily-close mark."
+                          },
+                          "total_value_sol": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/chart": {
+      "get": {
+        "summary": "PnL chart + summary header",
+        "description": "Same compute-on-read daily series as `/history`, chart-shaped (`t`/`realized`/`unrealized`/`value`) plus a summary header whose `unrealized_sol` is read-time spot (reconciles with `/v2/pnl/wallets/{wallet}`). Cached 30s.",
+        "operationId": "getPnlV2Chart",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive start date (UTC, `YYYY-MM-DD`)."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive end date (UTC, `YYYY-MM-DD`)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chart + summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "points": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "t": {
+                            "type": "string",
+                            "description": "YYYY-MM-DD."
+                          },
+                          "realized": {
+                            "type": "number",
+                            "description": "Cumulative, mode-selected."
+                          },
+                          "unrealized": {
+                            "type": "number",
+                            "description": "Day-close mark."
+                          },
+                          "value": {
+                            "type": "number"
+                          }
+                        }
+                      }
+                    },
+                    "summary": {
+                      "type": "object",
+                      "properties": {
+                        "realized_sol": {
+                          "type": "number",
+                          "description": "Latest cumulative checkpoint."
+                        },
+                        "unrealized_sol": {
+                          "type": "number",
+                          "description": "Read-time spot; reconciles with /v2."
+                        },
+                        "total_value_sol": {
+                          "type": "number",
+                          "description": "Spot."
+                        },
+                        "unrealized_usd": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "total_value_usd": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "win_rate": {
+                          "type": "number",
+                          "description": "Winning sells / total sells (mode-selected)."
+                        },
+                        "best_day": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "day": {
+                                  "type": "string"
+                                },
+                                "realized_sol": {
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "worst_day": {
+                          "oneOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "day": {
+                                  "type": "string"
+                                },
+                                "realized_sol": {
+                                  "type": "number"
+                                }
+                              }
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Per-day realized DELTA."
+                        },
+                        "open_positions": {
+                          "type": "integer"
+                        },
+                        "closed_positions": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/performance": {
+      "get": {
+        "summary": "Streaks, drawdown & best/worst day",
+        "description": "Compute-on-read streak / drawdown / best-worst-day analytics. Headline drawdown is peak-to-trough of cumulative realized PnL; a secondary close-based equity-curve drawdown is also returned. Cached 5s hot / 30s cold.",
+        "operationId": "getPnlV2Performance",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive start date (UTC, `YYYY-MM-DD`)."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive end date (UTC, `YYYY-MM-DD`)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Performance analytics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "to": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "best_day": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "string"
+                            },
+                            "realized_sol": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "worst_day": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "day": {
+                              "type": "string"
+                            },
+                            "realized_sol": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "current_streak": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "win",
+                            "loss",
+                            "none"
+                          ]
+                        },
+                        "length": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "longest_win_streak": {
+                      "type": "integer"
+                    },
+                    "longest_loss_streak": {
+                      "type": "integer"
+                    },
+                    "max_drawdown_realized_sol": {
+                      "type": "number",
+                      "description": "HEADLINE: peak-to-trough of cumulative realized."
+                    },
+                    "max_drawdown_realized_pct": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "description": "Null when running peak <= 0."
+                    },
+                    "max_drawdown_value_sol": {
+                      "type": "number",
+                      "description": "SECONDARY, close-based equity."
+                    },
+                    "max_drawdown_value_basis": {
+                      "type": "string",
+                      "description": "Always `close-based equity curve`."
+                    },
+                    "active_days": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/highlights": {
+      "get": {
+        "summary": "Standout positions",
+        "description": "Standout positions for a wallet from one `wallet_positions` aggregate: biggest winner/loser, fastest flip, longest hold, most traded, biggest single buy/sell. Each highlight is `null` when no qualifying row matched. Cached 5s hot / 30s cold.",
+        "operationId": "getPnlV2Highlights",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Highlights",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "biggest_winner": {
+                      "$ref": "#/components/schemas/PnlHighlight"
+                    },
+                    "biggest_loser": {
+                      "$ref": "#/components/schemas/PnlHighlight"
+                    },
+                    "fastest_flip": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mint": {
+                              "type": "string"
+                            },
+                            "seconds": {
+                              "type": "integer"
+                            },
+                            "tags": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "Sentinel 0 excluded."
+                    },
+                    "longest_hold": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mint": {
+                              "type": "string"
+                            },
+                            "seconds": {
+                              "type": "integer"
+                            },
+                            "tags": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "most_traded": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mint": {
+                              "type": "string"
+                            },
+                            "trade_count": {
+                              "type": "integer"
+                            },
+                            "tags": {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "biggest_single_buy": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mint": {
+                              "type": "string"
+                            },
+                            "sol": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "biggest_single_sell": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "mint": {
+                              "type": "string"
+                            },
+                            "sol": {
+                              "type": "number"
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "position_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/risk": {
+      "get": {
+        "summary": "Concentration & exposure risk",
+        "description": "Value-weighted concentration (top1/3/5 %, HHI) and exposure over PRICED open positions (read-time spot). Mode-independent (no `pnl_mode`). Concentration fields are `null` when total open value <= 0. Cached 5s hot / 30s cold.",
+        "operationId": "getPnlV2Risk",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Risk profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "concentration": {
+                      "type": "object",
+                      "properties": {
+                        "top1_pct": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "top3_pct": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "top5_pct": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "hhi": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "description": "Null fields when total open value <= 0."
+                    },
+                    "total_open_value_sol": {
+                      "type": "number"
+                    },
+                    "total_open_value_usd": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "exposure": {
+                      "type": "object",
+                      "properties": {
+                        "open_positions": {
+                          "type": "integer"
+                        },
+                        "closed_positions": {
+                          "type": "integer"
+                        },
+                        "quote_positions": {
+                          "type": "integer"
+                        },
+                        "arbitrageur_positions": {
+                          "type": "integer"
+                        },
+                        "pct_arbitrageur": {
+                          "type": "number",
+                          "description": "arb_open / open_count."
+                        },
+                        "quote_value_sol": {
+                          "type": "number"
+                        },
+                        "nonquote_value_sol": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "priced_position_count": {
+                      "type": "integer"
+                    },
+                    "open_count": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/tokens/{token}/first-buyers": {
+      "get": {
+        "summary": "Token first buyers",
+        "description": "Earliest buyers of a token, ordered by (first_buy_ts, first_slot, first_sig). With `enrich=1`, each buyer's current (wallet, mint) PnL is attached. Cached 60s.",
+        "operationId": "getPnlV2FirstBuyers",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint address (base58)."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Max buyers."
+          },
+          {
+            "name": "enrich",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "enum": [
+                0,
+                1
+              ],
+              "default": 0
+            },
+            "description": "When `1`, attaches each buyer's current (wallet, mint) PnL."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "First buyers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "enriched": {
+                      "type": "boolean"
+                    },
+                    "first_buyers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/FirstBuyerRow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/tokens/{token}/traders": {
+      "get": {
+        "summary": "Token traders by realized PnL",
+        "description": "Traders of a token ranked by realized PnL (mode-selected, full breakdown included). `total` is the true total under LIMIT. `platform` and `dex` are accepted but ignored — each adds an entry to `warnings`. Cached 30s.",
+        "operationId": "getPnlV2TokenTraders",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint address (base58)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          },
+          {
+            "name": "exclude_arbitrage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Exclude arbitrageur positions."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "description": "Page size."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page offset."
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Accepted but ignored (produces a warning)."
+          },
+          {
+            "name": "dex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Accepted but ignored (produces a warning)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Traders page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "True total under LIMIT (count() OVER ())."
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "traders": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TokenTraderRow"
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/positions/batch": {
+      "post": {
+        "summary": "Batch positions by (wallet, mint) pairs",
+        "description": "Fetch many (wallet, mint) positions in one call. De-dups internally but aligns output to the **original** input order (duplicates echo the same object). `realized_breakdown` always present. Uncached. 1–200 pairs; empty → 400, >200 → 400.",
+        "operationId": "postPnlV2PositionsBatch",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pairs": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "wallet": {
+                          "type": "string"
+                        },
+                        "mint": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "pairs"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch positions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Equals input pairs length."
+                    },
+                    "positions": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/PnlPosition"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "description": "Aligned to input order; `null` where no position exists."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/{wallet}/positions/batch": {
+      "post": {
+        "summary": "Batch positions for one wallet across mints",
+        "description": "Positions for one wallet across many mints (`WHERE wallet=? AND mint IN(...)`). Aligned to the input `mints` (`null` for missing). `realized_breakdown` always present. 1–100 mints; empty → 400, >100 → 400.",
+        "operationId": "postPnlV2WalletPositionsBatch",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "wallet",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Wallet address (base58, 32–44 characters)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mints": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "mints"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch positions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "wallet": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "positions": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/PnlPosition"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/tokens/{token}/positions/batch": {
+      "post": {
+        "summary": "Batch positions for one token across wallets",
+        "description": "Positions for one token across many wallets (`WHERE mint=? AND wallet IN(...)`). Each row mirrors the `/traders` per-row object (wallet-keyed). Aligned to input `wallets` (`null` for missing). 1–200 wallets; empty → 400, >200 → 400.",
+        "operationId": "postPnlV2TokenPositionsBatch",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint address (base58)."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "wallets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 200,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "wallets"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch positions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "positions": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/PnlPositionByWallet"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/wallets/batch": {
+      "post": {
+        "summary": "Batch wallet PnL summaries",
+        "description": "Per-wallet PnL summaries (`WHERE wallet IN(...)` grouped per wallet). Each `summaries` element is byte-identical to the single `GET /v2/pnl/wallets/{wallet}` body. Aligned to input `wallets` (`null` for a wallet with zero positions). 1–100 wallets; empty → 400, >100 → 400.",
+        "operationId": "postPnlV2WalletsBatch",
+        "tags": [
+          "Wallet PnL (v2)"
+        ],
+        "parameters": [
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "wallets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "required": [
+                  "wallets"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Batch summaries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "summaries": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/PnlV2Summary"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/leaderboard/top": {
+      "get": {
+        "summary": "Top wallets by realized PnL",
+        "description": "Wallets ranked by realized PnL over a trailing window (wallets with `last_trade_ts` in the window). Compute-on-read over `wallet_positions`. Cached 300s.\n\n> **Coming soon — not yet publicly available.** This board is being re-engineered onto an event-driven per-wallet rollup for sub-second response and currently returns 404 at `api.dexploit.dev`. All other `/v2/pnl/*` endpoints (per-wallet) and `/v2/pnl/leaderboard/kols*` are live.",
+        "operationId": "getLeaderboardTop",
+        "tags": [
+          "Leaderboards & KOLs"
+        ],
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1d",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "default": "7d"
+            },
+            "description": "Ranking window."
+          },
+          {
+            "name": "exclude_arbitrage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            },
+            "description": "Exclude arbitrageur wallets."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "description": "Page size."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page offset."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Leaderboard page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "period": {
+                      "type": "string"
+                    },
+                    "exclude_arbitrage": {
+                      "type": "boolean"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "leaderboard": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LeaderboardRow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/leaderboard/kols": {
+      "get": {
+        "summary": "All-time KOL leaderboard",
+        "description": "All-time KOL realized-PnL leaderboard (KOL set = DISTINCT wallet where tag=`kol`). Adds Twitter/display metadata. `exclude_arbitrage` defaults FALSE on KOL boards. Cached 300s.",
+        "operationId": "getLeaderboardKols",
+        "tags": [
+          "Leaderboards & KOLs"
+        ],
+        "parameters": [
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          },
+          {
+            "name": "exclude_arbitrage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Exclude arbitrageur wallets."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "description": "Page size."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page offset."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "KOL leaderboard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "kols"
+                      ]
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "exclude_arbitrage": {
+                      "type": "boolean"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "leaderboard": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KolLeaderboardRow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/leaderboard/kols/period": {
+      "get": {
+        "summary": "KOL leaderboard, window-filtered",
+        "description": "Same envelope as `/leaderboard/kols` plus a top-level `period`. Filters the KOL set to those active in the window, then ranks by ALL-TIME realized PnL. Cached 300s.",
+        "operationId": "getLeaderboardKolsPeriod",
+        "tags": [
+          "Leaderboards & KOLs"
+        ],
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "1d",
+                "7d",
+                "30d",
+                "90d"
+              ],
+              "default": "7d"
+            },
+            "description": "Activity window."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          },
+          {
+            "name": "exclude_arbitrage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false
+            },
+            "description": "Exclude arbitrageur wallets."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "description": "Page size."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page offset."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "KOL leaderboard",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "kols"
+                      ]
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "exclude_arbitrage": {
+                      "type": "boolean"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "period": {
+                      "type": "string"
+                    },
+                    "leaderboard": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KolLeaderboardRow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/leaderboard/kols/calendar": {
+      "get": {
+        "summary": "KOL realized-PnL heatmap calendar",
+        "description": "Realized-only heatmap (rows = top-N KOLs, cols = days). Range defaults to the last 30 days, hard-capped at 90 days. `from > to` or a span > 90 days returns `400`. Cached 300s, single-flighted.",
+        "operationId": "getLeaderboardKolsCalendar",
+        "tags": [
+          "Leaderboards & KOLs"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive start date (UTC, `YYYY-MM-DD`). Defaults to `to`−30d."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Inclusive end date (UTC, `YYYY-MM-DD`). Defaults to today UTC."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          },
+          {
+            "name": "top_n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 30
+            },
+            "description": "Number of KOL rows."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar heatmap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "kols"
+                      ]
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "from": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    },
+                    "top_n": {
+                      "type": "integer"
+                    },
+                    "days": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "description": "Full inclusive [from, to] day column header."
+                    },
+                    "rows": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KolCalendarRow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v2/pnl/leaderboard/kols/date": {
+      "get": {
+        "summary": "Top KOLs on a single day",
+        "description": "Top KOLs ranked by realized PnL on one UTC day. `win_rate`/`trade_count` are intentionally omitted (not per-day derivable). Malformed date → `400`. Cached 300s.",
+        "operationId": "getLeaderboardKolsDate",
+        "tags": [
+          "Leaderboards & KOLs"
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "UTC day (`YYYY-MM-DD`). Defaults to yesterday UTC."
+          },
+          {
+            "name": "pnl_mode",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "raw",
+                "strict",
+                "adjusted"
+              ],
+              "default": "adjusted"
+            },
+            "description": "Realized-PnL accounting mode. Unknown values fall back to `adjusted`."
+          },
+          {
+            "name": "top_n",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 20,
+              "minimum": 1,
+              "maximum": 30
+            },
+            "description": "Candidate pool size."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 1000
+            },
+            "description": "Page size."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "minimum": 0
+            },
+            "description": "Page offset."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Day ranking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "scope": {
+                      "type": "string",
+                      "enum": [
+                        "kols"
+                      ]
+                    },
+                    "date": {
+                      "type": "string"
+                    },
+                    "pnl_mode": {
+                      "type": "string"
+                    },
+                    "top_n": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "kols": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "wallet": {
+                            "type": "string"
+                          },
+                          "display_name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "twitter_handle": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "is_kol": {
+                            "type": "boolean"
+                          },
+                          "realized_sol": {
+                            "type": "number",
+                            "description": "That day's realized delta."
+                          },
+                          "rank": {
+                            "type": "integer",
+                            "description": "Offset-aware, 1-based."
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "summary": "Flat query-string screener alias",
+        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical body to `POST /screener` (and the same `x-cache` / `x-total-matches-exact` headers).",
+        "operationId": "getSearch",
+        "tags": [
+          "Screener"
+        ],
+        "parameters": [
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Free-text match (name/symbol/mint)."
+          },
+          {
+            "name": "symbol",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Symbol filter."
+          },
+          {
+            "name": "mint",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Mint filter."
+          },
+          {
+            "name": "creator",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Creator/deployer wallet (alias: `deployer`)."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Lifecycle status filter."
+          },
+          {
+            "name": "launchpad",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Launchpad filter."
+          },
+          {
+            "name": "market",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Market filter."
+          },
+          {
+            "name": "hasImage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Require metadata image."
+          },
+          {
+            "name": "hasSocials",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Require any social link."
+          },
+          {
+            "name": "hasTwitter",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Require Twitter link."
+          },
+          {
+            "name": "hasTelegram",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Require Telegram link."
+          },
+          {
+            "name": "hasWebsite",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Require website link."
+          },
+          {
+            "name": "rugged",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Filter rugged tokens."
+          },
+          {
+            "name": "minHolders",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min holder count."
+          },
+          {
+            "name": "maxHolders",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max holder count."
+          },
+          {
+            "name": "minTop10",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min top-10 %."
+          },
+          {
+            "name": "maxTop10",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max top-10 %."
+          },
+          {
+            "name": "minDev",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min dev-held %."
+          },
+          {
+            "name": "maxDev",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max dev-held %."
+          },
+          {
+            "name": "minInsiders",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min insider count."
+          },
+          {
+            "name": "maxInsiders",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max insider count."
+          },
+          {
+            "name": "minInsidersPct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min insider %."
+          },
+          {
+            "name": "maxInsidersPct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max insider %."
+          },
+          {
+            "name": "minSnipers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min sniper count."
+          },
+          {
+            "name": "maxSnipers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max sniper count."
+          },
+          {
+            "name": "minSnipersPct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min sniper %."
+          },
+          {
+            "name": "maxSnipersPct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max sniper %."
+          },
+          {
+            "name": "minBundlers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min bundler count."
+          },
+          {
+            "name": "maxBundlers",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max bundler count."
+          },
+          {
+            "name": "minBundlerPercentage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min bundler %."
+          },
+          {
+            "name": "maxBundlerPercentage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max bundler %."
+          },
+          {
+            "name": "minMarketCap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min market cap."
+          },
+          {
+            "name": "maxMarketCap",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max market cap."
+          },
+          {
+            "name": "minPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min price."
+          },
+          {
+            "name": "maxPrice",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max price."
+          },
+          {
+            "name": "minBuys",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min buy count."
+          },
+          {
+            "name": "maxBuys",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max buy count."
+          },
+          {
+            "name": "minSells",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min sell count."
+          },
+          {
+            "name": "maxSells",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max sell count."
+          },
+          {
+            "name": "minCurvePercentage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min curve %."
+          },
+          {
+            "name": "maxCurvePercentage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max curve %."
+          },
+          {
+            "name": "minLiquidity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min liquidity (SOL)."
+          },
+          {
+            "name": "maxLiquidity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max liquidity (SOL)."
+          },
+          {
+            "name": "minCreatedAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min created-at (epoch)."
+          },
+          {
+            "name": "maxCreatedAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max created-at (epoch)."
+          },
+          {
+            "name": "minGraduatedAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Min graduated-at (epoch)."
+          },
+          {
+            "name": "maxGraduatedAt",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Max graduated-at (epoch)."
+          },
+          {
+            "name": "minRiskScore",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min risk score (deferred → warning)."
+          },
+          {
+            "name": "maxRiskScore",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max risk score (deferred → warning)."
+          },
+          {
+            "name": "minVolume",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min volume (SOL)."
+          },
+          {
+            "name": "maxVolume",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max volume (SOL)."
+          },
+          {
+            "name": "volumeWindow",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "5m",
+                "15m",
+                "1h",
+                "6h",
+                "24h"
+              ]
+            },
+            "description": "Volume window."
+          },
+          {
+            "name": "minChangePct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Min change %."
+          },
+          {
+            "name": "maxChangePct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            },
+            "description": "Max change %."
+          },
+          {
+            "name": "changeWindow",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "5m",
+                "15m",
+                "1h",
+                "6h",
+                "24h"
+              ]
+            },
+            "description": "Change window."
+          },
+          {
+            "name": "sectors",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated sector tags."
+          },
+          {
+            "name": "dexes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Comma-separated DEX ids."
+          },
+          {
+            "name": "sortBy",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Sort key."
+          },
+          {
+            "name": "sortOrder",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            },
+            "description": "Sort order."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 200
+            },
+            "description": "Page size (clamped 1..500)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Page offset."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "compact"
+              ]
+            },
+            "description": "Set `compact` for the compact row variant."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Screener results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "results": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "$ref": "#/components/schemas/ScreenerResultV2"
+                          },
+                          {
+                            "$ref": "#/components/schemas/ScreenerResultV2Compact"
+                          }
+                        ]
+                      }
+                    },
+                    "total_matches": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "description": "Identical body to POST /screener."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter or malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/exchange-traders": {
+      "get": {
+        "summary": "Known CEX wallets",
+        "description": "Global list of known centralized-exchange wallets from the `exchange_wallets` snapshot, ordered by wallet. `count` is the full distinct-wallet total (`count() OVER ()`), independent of paging.",
+        "operationId": "getExchangeTraders",
+        "tags": [
+          "Screener"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500
+            },
+            "description": "Page size (clamped 1..2000)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Page offset."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CEX wallet list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "exchanges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "wallet": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string",
+                            "description": "Exchange name, e.g. `Bitfinex`."
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Full distinct-wallet total (count() OVER ())."
+                    },
+                    "computed_at": {
+                      "type": "integer",
+                      "description": "Epoch milliseconds."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bot-traders": {
+      "get": {
+        "summary": "Bot-tagged wallets",
+        "description": "Wallets the bot tagger flagged (high swap frequency / cross-mint breadth over a rolling 1h window), from the `bot_wallets` snapshot, ordered by `swaps_1h` desc then `wallet` asc. `count` is the full total (`count() OVER ()`).",
+        "operationId": "getBotTraders",
+        "tags": [
+          "Screener"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 500
+            },
+            "description": "Page size (clamped 1..2000)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Page offset."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bot wallet list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "bots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "wallet": {
+                            "type": "string"
+                          },
+                          "swaps_1h": {
+                            "type": "integer",
+                            "description": "Rolling 1h swap count (uint64)."
+                          },
+                          "mints_1h": {
+                            "type": "integer",
+                            "description": "Rolling 1h distinct-mint count (uint64)."
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Full total (count() OVER ())."
+                    },
+                    "computed_at": {
+                      "type": "integer",
+                      "description": "Epoch milliseconds."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
