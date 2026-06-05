@@ -202,7 +202,41 @@
             "group": "Screener",
             "openapi": "api-reference/openapi.json",
             "pages": [
-              "POST /screener"
+              "POST /screener",
+              "GET /search",
+              "GET /exchange-traders",
+              "GET /bot-traders"
+            ]
+          },
+          {
+            "group": "Wallet PnL (v2)",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /v2/pnl/wallets/{wallet}",
+              "GET /v2/pnl/wallets/{wallet}/positions",
+              "GET /v2/pnl/wallets/{wallet}/tokens/{token}",
+              "GET /v2/pnl/wallets/{wallet}/history",
+              "GET /v2/pnl/wallets/{wallet}/chart",
+              "GET /v2/pnl/wallets/{wallet}/performance",
+              "GET /v2/pnl/wallets/{wallet}/highlights",
+              "GET /v2/pnl/wallets/{wallet}/risk",
+              "GET /v2/pnl/tokens/{token}/first-buyers",
+              "GET /v2/pnl/tokens/{token}/traders",
+              "POST /v2/pnl/positions/batch",
+              "POST /v2/pnl/wallets/{wallet}/positions/batch",
+              "POST /v2/pnl/tokens/{token}/positions/batch",
+              "POST /v2/pnl/wallets/batch"
+            ]
+          },
+          {
+            "group": "Leaderboards & KOLs",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /v2/pnl/leaderboard/top",
+              "GET /v2/pnl/leaderboard/kols",
+              "GET /v2/pnl/leaderboard/kols/period",
+              "GET /v2/pnl/leaderboard/kols/calendar",
+              "GET /v2/pnl/leaderboard/kols/date"
             ]
           },
           {

@@ -65,7 +65,10 @@
 - [GET /tokens/{mint}/actor-chart](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/actor-chart): combined actor chart — holders, snipers, insiders, dev in one call
 
 ### Discovery
-- [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): filtered + scored token search
+- [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): Phase-7 V2 screener — ~40 filter fields, full/compact rows, warnings[], x-cache + x-total-matches-exact headers
+- [GET /search](https://docs.dexploit.dev/api-reference/openapi/get/search): flat query-string alias over POST /screener (edge ACL pending → currently 404 at edge)
+- [GET /exchange-traders](https://docs.dexploit.dev/api-reference/openapi/get/exchange-traders): known CEX wallets ({wallet,label}) + full count
+- [GET /bot-traders](https://docs.dexploit.dev/api-reference/openapi/get/bot-traders): bot-tagger wallets ({wallet,swaps_1h,mints_1h}) + full count
 - [GET /trending](https://docs.dexploit.dev/api-reference/openapi/get/trending): per-window trending ranking
 
 ### Wallet intel
@@ -81,6 +84,30 @@
 - [GET /wallets/{w}/pnl/basic](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/pnl/basic): FIFO realized + unrealized PnL; always includes warning pointing to Phase 8 for full PnL
 - [GET /wallets/{w}/sol-balance](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/sol-balance): native SOL balance + USD via Pyth; null on Shyft error, never 5xx
 - [GET /wallets/{w}/stats](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/stats): best/worst trade, win-rate, total volume over a configurable window
+
+### Wallet PnL (v2)
+Phase-8 cost-basis engine. `pnl_mode=raw|strict|adjusted` (default adjusted). All `*_sol` are SOL; `avg_cost_per_token`/spot price are lamports per atomic unit; PnL timestamps are epoch ms. Code-live on the wallet-pnl service; `/v2/pnl/*` needs the OVH HAProxy edge ACL to resolve on api.dexploit.dev.
+- [GET /v2/pnl/wallets/{wallet}](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}): cost-basis summary — realized + read-time-spot unrealized SOL, open/closed counts, USD, compact positions
+- [GET /v2/pnl/wallets/{wallet}/positions](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/positions): paginated positions (status/mint/min_value_sol/sort, breakdown=1)
+- [GET /v2/pnl/wallets/{wallet}/tokens/{token}](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/tokens/{token}): single position, always glass-box (breakdown + tags); position:null when none
+- [GET /v2/pnl/wallets/{wallet}/history](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/history): compute-on-read daily series (one point per active day)
+- [GET /v2/pnl/wallets/{wallet}/chart](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/chart): chart-shaped series + summary header (read-time-spot unrealized reconciles with /v2)
+- [GET /v2/pnl/wallets/{wallet}/performance](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/performance): streaks, headline realized drawdown + secondary equity drawdown, best/worst day
+- [GET /v2/pnl/wallets/{wallet}/highlights](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/highlights): biggest winner/loser, fastest flip, longest hold, most traded, biggest single buy/sell
+- [GET /v2/pnl/wallets/{wallet}/risk](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/risk): value-weighted concentration (top1/3/5, HHI) + exposure over priced open positions (mode-independent)
+- [GET /v2/pnl/tokens/{token}/first-buyers](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/tokens/{token}/first-buyers): earliest buyers; enrich=1 attaches each buyer's current PnL
+- [GET /v2/pnl/tokens/{token}/traders](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/tokens/{token}/traders): traders ranked by realized PnL (breakdown + is_kol; platform/dex accepted-but-ignored → warnings)
+- [POST /v2/pnl/positions/batch](https://docs.dexploit.dev/api-reference/openapi/post/v2/pnl/positions/batch): batch (wallet,mint) pairs (1..200, order-aligned, uncached)
+- [POST /v2/pnl/wallets/{wallet}/positions/batch](https://docs.dexploit.dev/api-reference/openapi/post/v2/pnl/wallets/{wallet}/positions/batch): one wallet across many mints (1..100, null for missing)
+- [POST /v2/pnl/tokens/{token}/positions/batch](https://docs.dexploit.dev/api-reference/openapi/post/v2/pnl/tokens/{token}/positions/batch): one token across many wallets (1..200, wallet-keyed rows)
+- [POST /v2/pnl/wallets/batch](https://docs.dexploit.dev/api-reference/openapi/post/v2/pnl/wallets/batch): per-wallet summaries byte-identical to GET /v2/pnl/wallets/{wallet} (1..100)
+
+### Leaderboards & KOLs
+- [GET /v2/pnl/leaderboard/top](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/leaderboard/top): top wallets by realized PnL over period=1d|7d|30d|90d (exclude_arbitrage default true)
+- [GET /v2/pnl/leaderboard/kols](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/leaderboard/kols): all-time KOL realized-PnL board (+ twitter_handle/display_name; exclude_arbitrage default false)
+- [GET /v2/pnl/leaderboard/kols/period](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/leaderboard/kols/period): KOL board filtered to a window, ranked by all-time realized
+- [GET /v2/pnl/leaderboard/kols/calendar](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/leaderboard/kols/calendar): realized-only heatmap (top-N KOL rows × days; range ≤90d)
+- [GET /v2/pnl/leaderboard/kols/date](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/leaderboard/kols/date): top KOLs by realized on one UTC day (win_rate/trade_count omitted)
 
 ### Pump lifecycle
 - [GET /pump-lifecycle](https://docs.dexploit.dev/api-reference/openapi/get/pump-lifecycle): lifecycle event stream
