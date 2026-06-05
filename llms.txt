@@ -66,7 +66,7 @@
 
 ### Discovery
 - [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): Phase-7 V2 screener — ~40 filter fields, full/compact rows, warnings[], x-cache + x-total-matches-exact headers
-- [GET /search](https://docs.dexploit.dev/api-reference/openapi/get/search): flat query-string alias over POST /screener (edge ACL pending → currently 404 at edge)
+- [GET /search](https://docs.dexploit.dev/api-reference/openapi/get/search): flat query-string alias over POST /screener
 - [GET /exchange-traders](https://docs.dexploit.dev/api-reference/openapi/get/exchange-traders): known CEX wallets ({wallet,label}) + full count
 - [GET /bot-traders](https://docs.dexploit.dev/api-reference/openapi/get/bot-traders): bot-tagger wallets ({wallet,swaps_1h,mints_1h}) + full count
 - [GET /trending](https://docs.dexploit.dev/api-reference/openapi/get/trending): per-window trending ranking
