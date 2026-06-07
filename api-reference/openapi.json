@@ -9587,7 +9587,7 @@
     "/v2/pnl/leaderboard/top": {
       "get": {
         "summary": "Top wallets by realized PnL",
-        "description": "Wallets ranked by realized PnL over a trailing window (wallets with `last_trade_ts` in the window). Compute-on-read over `wallet_positions`. Cached 300s.\n\n> **Coming soon — not yet publicly available.** This board is being re-engineered onto an event-driven per-wallet rollup for sub-second response and currently returns 404 at `api.dexploit.dev`. All other `/v2/pnl/*` endpoints (per-wallet) and `/v2/pnl/leaderboard/kols*` are live.",
+        "description": "Wallets ranked by realized PnL over a trailing window (wallets with `last_trade_ts` in the window). Served from an event-driven per-wallet rollup (`wallet_pnl_rollup`), cache-warmed for sub-second response (300s cache).",
         "operationId": "getLeaderboardTop",
         "tags": [
           "Leaderboards & KOLs"
