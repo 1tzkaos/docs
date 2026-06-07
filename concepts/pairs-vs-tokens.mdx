@@ -14,10 +14,12 @@ For example, BONK trades across pools like these (real shape — fetch the lates
 | pair_address | protocol | recent_volume_sol |
 | --- | --- | --- |
 | `<pumpswap_pool_address>` | pumpswap | 1234.56 |
-| `<raydium_pool_address>` | raydium | 987.65 |
-| `<meteora_pool_address>` | meteora | 543.21 |
+| `<raydium_pool_address>` | raydium_amm | 987.65 |
+| `<meteora_pool_address>` | meteora_pools | 543.21 |
 
 These are different pools — different LP accounts on-chain. They'll have small price differences and different volume profiles.
+
+`protocol` is one of the **granular** DEX names — `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm`, `orca`, `meteora_damm_v2`, `meteora_dbc`, `meteora_dlmm`, `meteora_pools`. The full list is `GET /api/v1/protocols`.
 
 ## What `pair_address` actually is
 

@@ -14,7 +14,7 @@ This is the right channel when you want to render a live chart or trigger logic 
 wss://ws.dexploit.dev/ws/ohlcv
 ```
 
-Authenticate either via Bearer header (server) or query string (browser):
+Authenticate either via Bearer header (server) or query string (browser) — `/ws/ohlcv` accepts **both**, same as [`/ws/swaps`](/streaming/websocket):
 
 ```
 Authorization: Bearer ohlcv_live_sk_<your_key>
@@ -74,6 +74,7 @@ Subsequent `subscribe` messages are **additive** — they widen the subscription
 
 | Field | Notes |
 | --- | --- |
+| `pair_address` | The on-chain pool/LP account. **Note the naming:** OHLCV frames key the pool as `pair_address`, but [swaps WebSocket](/streaming/websocket) frames key the *same* on-chain pool as `pool_address`. Same account, different field name across the two streams. |
 | `timestamp` | Bar **open** time, ISO 8601. The bar covers `[timestamp, timestamp + timeframe)`. |
 | `is_closed` | `false` for interim mid-bar pushes; `true` on the bar's final tick. A given `(pair, timeframe, timestamp)` may emit multiple `is_closed: false` frames followed by one `is_closed: true` — the latter is authoritative. |
 | `volume_sol` | **Lamports**, despite the name. Divide by `1e9` for SOL. |

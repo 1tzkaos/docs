@@ -83,13 +83,7 @@
             "description": "On-chain pool/LP account address"
           },
           "protocol": {
-            "type": "string",
-            "enum": [
-              "pumpfun",
-              "pumpswap",
-              "raydium",
-              "meteora"
-            ]
+            "$ref": "#/components/schemas/Protocol"
           },
           "recent_volume_sol": {
             "type": "number",
@@ -586,40 +580,49 @@
       },
       "TokenAudit": {
         "type": "object",
-        "description": "On-chain authority and LP-burn checks for a token.",
+        "description": "On-chain authority and LP-burn checks for a token, served by a dedicated service (CT106) at the **root** path `/tokens/{mint}/audit` (not under `/api/v1`).\n\nA valid base58 mint that has not been indexed yet still returns **HTTP 200** with `indexed: false` and every flag/value `null` (the unindexed sentinel) — it does not 404. A malformed (non-base58) mint returns **HTTP 400**.",
+        "required": [
+          "mint",
+          "indexed"
+        ],
         "properties": {
           "mint": {
             "type": "string"
+          },
+          "indexed": {
+            "type": "boolean",
+            "description": "`false` when the mint is valid but not yet indexed — in that case `mint_revoked`, `freeze_revoked`, `lp_burnt`, and `computed_at` are all `null` and `top10_pct.status` is `no_holder_data`. `true` once audit data has been computed."
           },
           "lp_burnt": {
             "type": [
               "boolean",
               "null"
             ],
-            "description": "True if the dominant LP token is burnt/locked."
+            "description": "True if the dominant LP token is burnt/locked. `null` when not indexed/computed."
           },
           "mint_revoked": {
             "type": [
               "boolean",
               "null"
-            ]
+            ],
+            "description": "`null` when not indexed/computed."
           },
           "freeze_revoked": {
             "type": [
               "boolean",
               "null"
-            ]
+            ],
+            "description": "`null` when not indexed/computed."
           },
           "top10_pct": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "description": "Share of supply held by top 10 wallets (excluding the pool)."
+            "$ref": "#/components/schemas/Top10Pct"
           },
           "computed_at": {
-            "type": "integer",
-            "description": "Unix epoch seconds."
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix epoch seconds. `null` when not indexed/computed."
           }
         }
       },
@@ -859,15 +862,20 @@
           },
           "status": {
             "type": "string",
+            "description": "Snake-case status of the top-10 computation. `value`/`computed_at` are non-null only when `ready`.",
             "enum": [
               "ready",
               "no_holder_data",
+              "no_pool_data",
               "computing"
             ]
           },
           "computed_at": {
-            "type": "integer",
-            "description": "Unix epoch milliseconds."
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix epoch milliseconds. `null` unless `status` is `ready`."
           }
         }
       },
@@ -2810,7 +2818,7 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Price in SOL per atomic token unit."
+            "description": "Price in **lamports per atomic token unit** (1 SOL = 1e9 lamports)."
           },
           "last_ts": {
             "type": "integer",
@@ -2839,17 +2847,41 @@
             "description": "Bonding-curve progress = real_sol_reserves / 85e9 * 100."
           },
           "liquidity_sol": {
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Pool/curve liquidity in SOL. A **number** when `liquidity_status` is `IN_CURVE`; **null** for `POOL_DEPTH` (graduated/AMM pools, where curve liquidity is not the relevant measure) and `DRAINED`."
+          },
+          "liquidity_status": {
+            "type": "string",
+            "enum": [
+              "IN_CURVE",
+              "POOL_DEPTH",
+              "DRAINED"
+            ],
+            "description": "Source/meaning of `liquidity_sol`. `IN_CURVE` = pre-graduation bonding-curve liquidity (numeric `liquidity_sol`); `POOL_DEPTH` = post-graduation AMM pool depth (`liquidity_sol` is null); `DRAINED` = liquidity removed/rugged."
           },
           "market_cap": {
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Market cap in SOL. **null** (not 0) when not yet computable."
           },
           "holder_count": {
-            "type": "integer",
-            "description": "uint64."
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "uint64. **null** (not 0) when holder data has not been computed for this mint yet."
           },
           "top10_pct": {
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Top-10 (pool-excluded) share of supply. **null** (not 0) when holder data is unavailable."
           },
           "dev_held_pct": {
             "type": "number"
@@ -2904,16 +2936,25 @@
             "type": "number"
           },
           "price_per_token": {
-            "type": "number"
+            "type": "number",
+            "description": "Price in lamports per atomic token unit (1 SOL = 1e9 lamports)."
           },
           "change_pct": {
             "type": "number"
           },
           "market_cap": {
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "**null** (not 0) when not yet computable."
           },
           "holder_count": {
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "**null** (not 0) when holder data is unavailable."
           },
           "status": {
             "type": "string"
@@ -3034,10 +3075,20 @@
             "type": "string"
           },
           "mint": {
-            "type": "string"
+            "type": "string",
+            "description": "Single mint address. Must be a valid base58 mint; a malformed value returns `400 invalid parameter: invalid_filter:mint` (see endpoint responses)."
+          },
+          "mints": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "description": "Batch filter — restrict results to this set of mints (cap 200). Use this to fetch screener rows for a known list of tokens in one call. Any malformed entry returns `400 invalid parameter: invalid_filter:mints`."
           },
           "creator": {
-            "type": "string"
+            "type": "string",
+            "description": "Creator/deployer wallet. A malformed (non-base58) value returns `400 invalid parameter: invalid_filter:creator`."
           },
           "has_image": {
             "type": "boolean"
@@ -3541,7 +3592,7 @@
     "/api/v1/candles/latest": {
       "get": {
         "summary": "Most recent candles for a pool",
-        "description": "Returns the most-recent N candles. Same `pair_address` requirement as /api/v1/candles.",
+        "description": "Returns the most-recent N candles for `pair_address`.\n\n**Requires `pair_address`.** The legacy `protocol=&pair=` form is no longer accepted — sending `protocol`/`pair` (or `mint`) returns **HTTP 400** `invalid parameter: use pair_address` (discover the pool via [`/api/v1/pairs?token_address=`](#tag/pairs/get/api/v1/pairs)).",
         "operationId": "listLatestCandles",
         "tags": [
           "Candles (OHLCV)"
@@ -3611,7 +3662,7 @@
             }
           },
           "400": {
-            "description": "Missing pair_address",
+            "description": "Missing `pair_address`, or sent the legacy `protocol`/`pair` form (→ `invalid parameter: use pair_address`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -4784,7 +4835,7 @@
     "/screener": {
       "post": {
         "summary": "Filter tokens (Phase-7 V2 screener)",
-        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).",
+        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
         "operationId": "runScreener",
         "tags": [
           "Screener"
@@ -4909,11 +4960,37 @@
             }
           },
           "400": {
-            "description": "Malformed filter body",
+            "description": "Malformed address filter (`mint`, `mints[]`, or `creator` not valid base58). Unsupported filters like `risk_score` do **not** 400 — they stay 200 with a `warnings[]` note.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "error"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Always of the form `invalid parameter: invalid_filter:<field>` where `<field>` is `mint`, `creator`, or `mints`.",
+                      "example": "invalid parameter: invalid_filter:mint"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "data": null,
+                  "error": "invalid parameter: invalid_filter:mint"
                 }
               }
             }
@@ -5007,7 +5084,7 @@
     "/tokens/{mint}/audit": {
       "get": {
         "summary": "On-chain audit flags",
-        "description": "Just the audit subset of `/tokens/{mint}`. Cheaper when you only need rug-check signals.",
+        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n- **Malformed** (non-base58) mint → `400`.",
         "operationId": "getTokenAudit",
         "tags": [
           "Tokens"
@@ -5024,11 +5101,55 @@
         ],
         "responses": {
           "200": {
-            "description": "Audit flags",
+            "description": "Audit flags. `indexed: false` (with all-null flags) is the sentinel for a valid-but-unindexed mint — not an error.",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TokenAudit"
+                },
+                "examples": {
+                  "indexed": {
+                    "summary": "Indexed mint",
+                    "value": {
+                      "mint": "DMcu8numYJ9eExLoG3MUvhByPwSMLttUy2S53auk7MfE",
+                      "indexed": true,
+                      "mint_revoked": true,
+                      "freeze_revoked": true,
+                      "lp_burnt": false,
+                      "top10_pct": {
+                        "value": 0.184,
+                        "status": "ready",
+                        "computed_at": 1749312000000
+                      },
+                      "computed_at": 1749312000
+                    }
+                  },
+                  "unindexed": {
+                    "summary": "Valid but not yet indexed (sentinel)",
+                    "value": {
+                      "mint": "So11111111111111111111111111111111111111112",
+                      "indexed": false,
+                      "mint_revoked": null,
+                      "freeze_revoked": null,
+                      "lp_burnt": null,
+                      "top10_pct": {
+                        "value": null,
+                        "status": "no_holder_data",
+                        "computed_at": null
+                      },
+                      "computed_at": null
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed (non-base58) mint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -7455,7 +7576,7 @@
     "/pump-lifecycle": {
       "get": {
         "summary": "Pump.fun token lifecycle events",
-        "description": "Stream of mint-create / bonding-progress / graduation events for pump.fun tokens. Filter by lifecycle status to surface fresh mints (`new`), tokens about to migrate (`graduating`), or completed migrations (`migrated`).\n\nFor a real-time push of these events, see [WebSocket: pump lifecycle](/streaming/pump-lifecycle).",
+        "description": "Stream of mint-create / bonding-progress / graduation events for pump.fun tokens. Filter by lifecycle status to surface fresh mints (`new`), tokens close to the curve end (`completing`), tokens about to migrate (`graduating`), or completed migrations (`migrated`).\n\nAn unrecognized `status` value returns **HTTP 400** `{\"error\":\"invalid_filter:status:<value>\"}`.\n\nFor a real-time push of these events, see [WebSocket: pump lifecycle](/streaming/pump-lifecycle).",
         "operationId": "listPumpLifecycle",
         "tags": [
           "Pump lifecycle"
@@ -7469,12 +7590,13 @@
               "type": "string",
               "enum": [
                 "new",
+                "completing",
                 "graduating",
                 "migrated"
               ],
               "default": "new"
             },
-            "description": "Lifecycle phase. `new` = recent mints; `graduating` = bonding curve near 100%; `migrated` = already on pumpswap."
+            "description": "Lifecycle phase. `new` = recent mints; `completing` / `graduating` = bonding curve near 100%; `migrated` = already on pumpswap. Any other value → 400 `invalid_filter:status:<value>`."
           },
           {
             "name": "limit",
@@ -7522,6 +7644,28 @@
                       "description": "Pass this back as `before` for the next page; null when exhausted."
                     }
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unrecognized `status` value.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "example": "invalid_filter:status:foo"
+                    }
+                  }
+                },
+                "example": {
+                  "error": "invalid_filter:status:foo"
                 }
               }
             }
@@ -10305,7 +10449,7 @@
     "/search": {
       "get": {
         "summary": "Flat query-string screener alias",
-        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical body to `POST /screener` (and the same `x-cache` / `x-total-matches-exact` headers).",
+        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical **top-level** body to `POST /screener` — `{ results, total_matches, limit, offset, warnings }`, no `{success, data, error}` wrapper — and the same `x-cache` / `x-total-matches-exact` headers.\n\nInherits the screener error contract: a malformed `mint`/`creator` (non-base58) → **HTTP 400** `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`; an unsupported filter (e.g. `minRiskScore`/`maxRiskScore`) stays **200** with a `warnings[]` note.",
         "operationId": "getSearch",
         "tags": [
           "Screener"
@@ -10930,17 +11074,42 @@
                       }
                     }
                   },
-                  "description": "Identical body to POST /screener."
+                  "description": "Identical top-level body to POST /screener (no success/data/error wrapper)."
                 }
               }
             }
           },
           "400": {
-            "description": "Invalid parameter or malformed body",
+            "description": "Malformed address filter (`mint` or `creator` not valid base58). Same enveloped body as `POST /screener`. Unsupported filters (e.g. `minRiskScore`) stay 200 with a `warnings[]` note.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "data",
+                    "error"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "enum": [
+                        false
+                      ]
+                    },
+                    "data": {
+                      "type": "null"
+                    },
+                    "error": {
+                      "type": "string",
+                      "example": "invalid parameter: invalid_filter:creator"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "data": null,
+                  "error": "invalid parameter: invalid_filter:creator"
                 }
               }
             }

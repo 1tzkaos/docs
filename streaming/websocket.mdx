@@ -114,7 +114,7 @@ A few things worth flagging:
 - **`timestamp` is epoch seconds.** On REST `/swaps*` it's epoch milliseconds; on REST candles it's ISO 8601.
 - **There is no `price` field.** Use `pool_price` (decimals-adjusted mid after the swap) or compute fill price client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
 - **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
-- **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account).
+- **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account). The swaps stream keys it as `pool_address`; REST and the [OHLCV WebSocket](/streaming/ohlcv) key the *same* account as `pair_address`.
 - **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
 - **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings.
 

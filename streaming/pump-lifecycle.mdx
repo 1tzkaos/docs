@@ -6,7 +6,7 @@ asyncapi: "/api-reference/asyncapi.json pumpLifecycle"
 
 The pump-lifecycle stream pushes a token's entire pump.fun journey — from the `mint_created` event, through bonding-curve progress, to `graduated` (migration to a tradeable pumpswap pool).
 
-For one-shot history of the same events, use the REST endpoint `GET /pump-lifecycle` (under **Pump lifecycle** in the API reference).
+For one-shot history of the same events, use the REST endpoint `GET /pump-lifecycle` (under **Pump lifecycle** in the API reference). That endpoint takes a `status` filter — `new`, `completing`, `graduating`, or `migrated` — and returns **400** `invalid_filter:status:<value>` for anything else.
 
 ## When to use it
 

@@ -248,10 +248,12 @@ For example, BONK trades across pools like these (real shape — fetch the lates
 | pair_address | protocol | recent_volume_sol |
 | --- | --- | --- |
 | `<pumpswap_pool_address>` | pumpswap | 1234.56 |
-| `<raydium_pool_address>` | raydium | 987.65 |
-| `<meteora_pool_address>` | meteora | 543.21 |
+| `<raydium_pool_address>` | raydium_amm | 987.65 |
+| `<meteora_pool_address>` | meteora_pools | 543.21 |
 
 These are different pools — different LP accounts on-chain. They'll have small price differences and different volume profiles.
+
+`protocol` is one of the **granular** DEX names — `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm`, `orca`, `meteora_damm_v2`, `meteora_dbc`, `meteora_dlmm`, `meteora_pools`. The full list is `GET /api/v1/protocols`.
 
 ## What `pair_address` actually is
 
@@ -419,7 +421,9 @@ If `end` is omitted on `/api/v1/candles`, the server snaps to a 30-second-aligne
 
 ## Response envelope
 
-Every JSON response is wrapped:
+The envelope is **not uniform across the surface** — it depends on the endpoint family.
+
+**Enveloped (legacy `/api/v1/*` + raw stats/swaps):**
 
 ```json
 // Success
@@ -429,7 +433,32 @@ Every JSON response is wrapped:
 { "success": false, "error": { "code": "...", "message": "..." } }
 ```
 
+These endpoints wrap success payloads: `/api/v1/pairs`, `/api/v1/candles`, `/api/v1/candles/latest`, `/api/v1/stats`, `/api/v1/top-movers`, `/api/v1/protocols` (and the raw `/stats/*`, `/swaps/*` families).
+
+**Top-level (no wrapper):** newer endpoints return the payload directly — no `success`/`data` keys:
+
+- `/screener`, `/search`, `/trending`, `/tokens/{mint}/intel`, `/tokens/{mint}/risk`
+
+For example, `/screener` returns `{ results, total_matches, limit, offset, warnings }` at the top level.
+
+**Errors are always enveloped** (even for the top-level endpoints), but the `error` field shape differs:
+
+- Most endpoints: `{ "success": false, "error": { "code": "...", "message": "..." } }`.
+- The `/screener` and `/search` filter-validation 400 returns `error` as a **string**: `{ "success": false, "data": null, "error": "invalid parameter: invalid_filter:mint|creator|mints" }`. A malformed `mint`, `mints[]`, or `creator` triggers this 400; an *unsupported* filter (e.g. `risk_score`) instead stays **200** and adds a note to the `warnings[]` array.
+
 Streaming protocols (WebSocket, gRPC) use protocol-native error frames — see the [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) pages.
+
+## Base paths
+
+Endpoints live under different base paths, and one is served by a separate service:
+
+| Family | Base path | Notes |
+| --- | --- | --- |
+| `candles`, `candles/latest`, `pairs`, `protocols`, `stats`, `top-movers` | `/api/v1/...` | Versioned. |
+| `screener`, `trending`, `search`, `tokens/*` (intel, risk, holders, audit, …) | `/` (root) | Unversioned. |
+| `tokens/{mint}/audit` | `/` (root) | **Separate service (CT106)** — same host (`api.dexploit.dev`) but a different backend. Returns a `200` `indexed: false` sentinel for valid-but-unindexed mints and `400` for malformed mints. |
+
+All paths share the same host, `https://api.dexploit.dev`, and the same `Authorization` / API-key auth.
 
 ## Rate limits
 
@@ -911,7 +940,7 @@ A few things worth flagging:
 - **`timestamp` is epoch seconds.** On REST `/swaps*` it's epoch milliseconds; on REST candles it's ISO 8601.
 - **There is no `price` field.** Use `pool_price` (decimals-adjusted mid after the swap) or compute fill price client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
 - **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
-- **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account).
+- **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account). The swaps stream keys it as `pool_address`; REST and the [OHLCV WebSocket](/streaming/ohlcv) key the *same* account as `pair_address`.
 - **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
 - **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings.
 
@@ -1008,7 +1037,7 @@ This is the right channel when you want to render a live chart or trigger logic 
 wss://ws.dexploit.dev/ws/ohlcv
 ```
 
-Authenticate either via Bearer header (server) or query string (browser):
+Authenticate either via Bearer header (server) or query string (browser) — `/ws/ohlcv` accepts **both**, same as [`/ws/swaps`](/streaming/websocket):
 
 ```
 Authorization: Bearer ohlcv_live_sk_<your_key>
@@ -1068,6 +1097,7 @@ Subsequent `subscribe` messages are **additive** — they widen the subscription
 
 | Field | Notes |
 | --- | --- |
+| `pair_address` | The on-chain pool/LP account. **Note the naming:** OHLCV frames key the pool as `pair_address`, but [swaps WebSocket](/streaming/websocket) frames key the *same* on-chain pool as `pool_address`. Same account, different field name across the two streams. |
 | `timestamp` | Bar **open** time, ISO 8601. The bar covers `[timestamp, timestamp + timeframe)`. |
 | `is_closed` | `false` for interim mid-bar pushes; `true` on the bar's final tick. A given `(pair, timeframe, timestamp)` may emit multiple `is_closed: false` frames followed by one `is_closed: true` — the latter is authoritative. |
 | `volume_sol` | **Lamports**, despite the name. Divide by `1e9` for SOL. |
@@ -1136,7 +1166,7 @@ The full message contract for this channel — and the other two WebSocket strea
 
 The pump-lifecycle stream pushes a token's entire pump.fun journey — from the `mint_created` event, through bonding-curve progress, to `graduated` (migration to a tradeable pumpswap pool).
 
-For one-shot history of the same events, use the REST endpoint `GET /pump-lifecycle` (under **Pump lifecycle** in the API reference).
+For one-shot history of the same events, use the REST endpoint `GET /pump-lifecycle` (under **Pump lifecycle** in the API reference). That endpoint takes a `status` filter — `new`, `completing`, `graduating`, or `migrated` — and returns **400** `invalid_filter:status:<value>` for anything else.
 
 ## When to use it
 

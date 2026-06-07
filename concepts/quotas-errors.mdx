@@ -5,7 +5,9 @@ description: "Per-tier RPS caps, response envelope shape, and error codes. Phase
 
 ## Response envelope
 
-Every JSON response is wrapped:
+The envelope is **not uniform across the surface** — it depends on the endpoint family.
+
+**Enveloped (legacy `/api/v1/*` + raw stats/swaps):**
 
 ```json
 // Success
@@ -15,7 +17,32 @@ Every JSON response is wrapped:
 { "success": false, "error": { "code": "...", "message": "..." } }
 ```
 
+These endpoints wrap success payloads: `/api/v1/pairs`, `/api/v1/candles`, `/api/v1/candles/latest`, `/api/v1/stats`, `/api/v1/top-movers`, `/api/v1/protocols` (and the raw `/stats/*`, `/swaps/*` families).
+
+**Top-level (no wrapper):** newer endpoints return the payload directly — no `success`/`data` keys:
+
+- `/screener`, `/search`, `/trending`, `/tokens/{mint}/intel`, `/tokens/{mint}/risk`
+
+For example, `/screener` returns `{ results, total_matches, limit, offset, warnings }` at the top level.
+
+**Errors are always enveloped** (even for the top-level endpoints), but the `error` field shape differs:
+
+- Most endpoints: `{ "success": false, "error": { "code": "...", "message": "..." } }`.
+- The `/screener` and `/search` filter-validation 400 returns `error` as a **string**: `{ "success": false, "data": null, "error": "invalid parameter: invalid_filter:mint|creator|mints" }`. A malformed `mint`, `mints[]`, or `creator` triggers this 400; an *unsupported* filter (e.g. `risk_score`) instead stays **200** and adds a note to the `warnings[]` array.
+
 Streaming protocols (WebSocket, gRPC) use protocol-native error frames — see the [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) pages.
+
+## Base paths
+
+Endpoints live under different base paths, and one is served by a separate service:
+
+| Family | Base path | Notes |
+| --- | --- | --- |
+| `candles`, `candles/latest`, `pairs`, `protocols`, `stats`, `top-movers` | `/api/v1/...` | Versioned. |
+| `screener`, `trending`, `search`, `tokens/*` (intel, risk, holders, audit, …) | `/` (root) | Unversioned. |
+| `tokens/{mint}/audit` | `/` (root) | **Separate service (CT106)** — same host (`api.dexploit.dev`) but a different backend. Returns a `200` `indexed: false` sentinel for valid-but-unindexed mints and `400` for malformed mints. |
+
+All paths share the same host, `https://api.dexploit.dev`, and the same `Authorization` / API-key auth.
 
 ## Rate limits
 
