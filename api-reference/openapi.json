@@ -528,7 +528,7 @@
       },
       "PoolEvent": {
         "type": "object",
-        "description": "Liquidity-pool event other than a swap — LP deposit, LP withdraw, or token burn.",
+        "description": "Liquidity-pool event other than a swap — LP deposit, LP withdraw, token burn, or a server-classified rug. The real-time push of these same events is the `pool_event` frame on the [`/ws/swaps`](/streaming/websocket) WebSocket: a large `lp_withdraw` is the live LP-removal signal, and `rug_detected` is its classified version (`RUGGED` / `LIQUIDITY_DRAINING`).",
         "properties": {
           "signature": {
             "type": "string"
@@ -545,7 +545,8 @@
             "enum": [
               "lp_deposit",
               "lp_withdraw",
-              "token_burn"
+              "token_burn",
+              "rug_detected"
             ]
           },
           "dex": {
@@ -575,6 +576,32 @@
             "type": "integer",
             "format": "int64",
             "description": "DAMM v2 saturates this to u64::MAX — prefer `base_amount` + `quote_amount` for math."
+          },
+          "drained_pct": {
+            "type": "number",
+            "format": "float",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Fraction of pool liquidity removed by this event, 0..1. Constant-product pools use the LP-supply ratio; Meteora CL uses the SOL-reserve ratio. `0.0` when not computable."
+          },
+          "classification": {
+            "type": "string",
+            "description": "Set only on `rug_detected` events: `RUGGED` when >95% of liquidity was removed, `LIQUIDITY_DRAINING` when 50–95%. Empty otherwise."
+          },
+          "pool_base_reserve_after": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Post-event pool reserve, base side (atomic). `0` when N/A."
+          },
+          "pool_quote_reserve_after": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Post-event pool reserve, quote side (lamports for SOL-quoted pools). `0` when N/A."
+          },
+          "lp_supply_after": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Post-event total LP supply. Constant-product only — `0` for Meteora."
           }
         }
       },
@@ -4758,7 +4785,7 @@
     "/pool-events": {
       "get": {
         "summary": "LP and burn events for a token",
-        "description": "Non-swap pool activity for a token: LP deposits, LP withdrawals, and token burns across every indexed pool.\n\nUseful for detecting rug-pulls (large `lp_withdraw` events), tracking dev positions, or surfacing freshly-locked liquidity.",
+        "description": "Non-swap pool activity for a token: LP deposits, LP withdrawals, token burns, and server-classified `rug_detected` events across every indexed pool.\n\nUseful for detecting rug-pulls (large `lp_withdraw` events, or a `rug_detected` with `classification` `RUGGED`/`LIQUIDITY_DRAINING`), tracking dev positions, or surfacing freshly-locked liquidity.\n\nFor the real-time push of these same events, subscribe to the `pool_event` frame on the [`/ws/swaps`](/streaming/websocket) WebSocket.",
         "operationId": "listPoolEvents",
         "tags": [
           "Pool events"

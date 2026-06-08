@@ -36,6 +36,18 @@
         "swap": {
           "$ref": "#/components/messages/SwapEvent"
         },
+        "poolEvent": {
+          "$ref": "#/components/messages/PoolEvent"
+        },
+        "roomMessage": {
+          "$ref": "#/components/messages/SwapsRoomMessage"
+        },
+        "joined": {
+          "$ref": "#/components/messages/SwapsJoined"
+        },
+        "left": {
+          "$ref": "#/components/messages/SwapsLeft"
+        },
         "pong": {
           "$ref": "#/components/messages/Pong"
         },
@@ -47,6 +59,12 @@
         },
         "unsubscribe": {
           "$ref": "#/components/messages/SwapsUnsubscribe"
+        },
+        "join": {
+          "$ref": "#/components/messages/SwapsJoin"
+        },
+        "leave": {
+          "$ref": "#/components/messages/SwapsLeave"
         },
         "ping": {
           "$ref": "#/components/messages/Ping"
@@ -105,6 +123,57 @@
       ],
       "summary": "Swap event",
       "description": "One executed swap on a Solana DEX, normalized across protocols."
+    },
+    "receiveSwapsPoolEvent": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/poolEvent"
+        }
+      ],
+      "summary": "Pool event (filter-mode)",
+      "description": "Non-swap pool activity — `lp_deposit`, `lp_withdraw`, `token_burn`, and the server-classified `rug_detected`. Delivered on an unfiltered or `tokens`/`pools`-filtered connection, interleaved with swaps. Demux on `event_type`. Only the `tokens`/`pools` filters apply to pool events; `dexes`/`min_sol`/`max_sol`/`traders`/`is_buy`/`wallet_tags` are swap-only. NOTE: `timestamp_ms` is epoch **milliseconds** (the `swap` frame uses `timestamp` in **seconds**); `quote_amount`/`lp_sol_pulled` are **lamports** despite no `_sol` suffix; `base_amount`/`amount_atomic` are atomic units; Meteora DAMM v2 (`dex=7`) saturates `lp_token_amount` to `u64::MAX`."
+    },
+    "receiveSwapsRoomMessage": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/roomMessage"
+        }
+      ],
+      "summary": "Room message (room-mode)",
+      "description": "In room-mode, a swap OR pool event scoped to a joined room. The event payload is nested under `data` and carries `event_type` but NOT a top-level `type` — the **dual-frame trap** (same event, two on-wire shapes by mode). `transaction:{mint}` rooms interleave swaps + pool events + `rug_detected`."
+    },
+    "receiveSwapsJoined": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/joined"
+        }
+      ],
+      "summary": "Join ack",
+      "description": "Sent after a successful `join`. The first `join` locks the connection into room-mode (mode-exclusive with filter-mode)."
+    },
+    "receiveSwapsLeft": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/left"
+        }
+      ],
+      "summary": "Leave ack"
     },
     "receiveSwapsSubscribed": {
       "action": "send",
@@ -194,6 +263,31 @@
       ],
       "summary": "Heartbeat",
       "description": "Optional keepalive. Server replies with `pong`. Recommended every 25\u201330 seconds."
+    },
+    "sendSwapsJoin": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/join"
+        }
+      ],
+      "summary": "Join a room",
+      "description": "Subscribe to a room such as `transaction:<mint>` or `transaction:<mint>:<pool>`. The first `join` locks the connection into room-mode \u2014 mode-exclusive with `subscribe`/filter-mode. `transaction:{mint}` rooms interleave swaps + pool events + `rug_detected`."
+    },
+    "sendSwapsLeave": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/swaps"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/swaps/messages/leave"
+        }
+      ],
+      "summary": "Leave a room"
     },
     "receiveOhlcvOhlcv": {
       "action": "send",
@@ -331,6 +425,52 @@
         "summary": "One executed swap on a Solana DEX, normalized across protocols.",
         "payload": {
           "$ref": "#/components/schemas/WsSwapFrame"
+        }
+      },
+      "PoolEvent": {
+        "name": "pool_event",
+        "title": "Pool event",
+        "summary": "Non-swap pool activity (filter-mode): LP deposit / withdraw, token burn, or the server-classified rug signal. All four share `type: \"pool_event\"` — demux on `event_type`. `lp_withdraw` is the real-time LP-removal signal; `rug_detected` is the classified version.",
+        "payload": {
+          "$ref": "#/components/schemas/WsPoolEventFrame"
+        }
+      },
+      "SwapsRoomMessage": {
+        "name": "message",
+        "title": "Room message",
+        "summary": "Room-mode delivery wrapper. The swap or pool event is nested under `data`; `data` carries `event_type` but NOT a top-level `type` (dual-frame trap).",
+        "payload": {
+          "$ref": "#/components/schemas/WsRoomMessageFrame"
+        }
+      },
+      "SwapsJoin": {
+        "name": "join",
+        "title": "Join room",
+        "summary": "Subscribe to a room (e.g. `transaction:<mint>` or `transaction:<mint>:<pool>`). First `join` locks room-mode.",
+        "payload": {
+          "$ref": "#/components/schemas/SwapsJoinBody"
+        }
+      },
+      "SwapsLeave": {
+        "name": "leave",
+        "title": "Leave room",
+        "payload": {
+          "$ref": "#/components/schemas/SwapsLeaveBody"
+        }
+      },
+      "SwapsJoined": {
+        "name": "joined",
+        "title": "Join ack",
+        "summary": "Sent after a successful `join`.",
+        "payload": {
+          "$ref": "#/components/schemas/SwapsRoomAck"
+        }
+      },
+      "SwapsLeft": {
+        "name": "left",
+        "title": "Leave ack",
+        "payload": {
+          "$ref": "#/components/schemas/SwapsRoomAck"
         }
       },
       "Pong": {
@@ -752,6 +892,334 @@
           "cashback": null,
           "cashback_bps": 0,
           "maker_tags": []
+        }
+      },
+      "DexId": {
+        "type": "integer",
+        "description": "Integer (Enum8) DEX id used on **pool-event** frames — distinct from the string `Dex` used on swap frames. `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2 (the venues with live LP/rug events). `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `8`=MeteoraDbc, `9`=MeteoraDlmm, `10`=MeteoraPools do NOT emit pool events yet.",
+        "enum": [
+          2,
+          3,
+          7
+        ]
+      },
+      "WsLpEventFrame": {
+        "type": "object",
+        "description": "`lp_deposit` / `lp_withdraw` liquidity event. No buy/sell side and no price field.",
+        "properties": {
+          "type": {
+            "const": "pool_event"
+          },
+          "event_type": {
+            "type": "string",
+            "enum": [
+              "lp_deposit",
+              "lp_withdraw"
+            ]
+          },
+          "timestamp_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Epoch **milliseconds** — the `swap` frame uses `timestamp` in epoch **seconds** (1000×)."
+          },
+          "slot": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Base58 transaction signature."
+          },
+          "user": {
+            "type": "string",
+            "description": "Wallet that added/removed the LP."
+          },
+          "pool_address": {
+            "type": "string",
+            "description": "On-chain pool / LP account (elsewhere called `pair_address`)."
+          },
+          "token_mint": {
+            "type": "string"
+          },
+          "base_amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Memecoin side, **atomic** units. Divide by `10**decimals` (~6 for pump). Decimals are NOT carried on the event."
+          },
+          "quote_amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "SOL / WSOL side in **lamports** despite no `_sol` suffix. Divide by `1e9` for SOL."
+          },
+          "lp_token_amount": {
+            "type": "integer",
+            "format": "int64",
+            "description": "LP tokens, atomic. Meteora DAMM v2 (`dex=7`) **saturates this to `u64::MAX`** — use `base_amount`+`quote_amount` for value."
+          },
+          "drained_pct": {
+            "type": "number",
+            "format": "float",
+            "description": "Fraction of pool liquidity removed by this event, 0..1. Constant-product pools use the LP-supply ratio; Meteora CL uses the SOL-reserve ratio. `0.0` when not computable."
+          },
+          "pool_base_reserve_after": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Post-event pool reserve, base side (atomic). `0` when N/A."
+          },
+          "pool_quote_reserve_after": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Post-event pool reserve, quote side (**lamports**). `0` when N/A."
+          },
+          "lp_supply_after": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Post-event total LP supply. Constant-product only — `0` for Meteora."
+          },
+          "dex": {
+            "$ref": "#/components/schemas/DexId"
+          }
+        },
+        "example": {
+          "type": "pool_event",
+          "event_type": "lp_withdraw",
+          "timestamp_ms": 1717000000000,
+          "slot": 270123456,
+          "signature": "5Qx2vG7mB1qf6n7dWbN4d8Zp5gQ3sR9tH2cJ4kL6mN8pVxYzA1bC3dE5fG7hJ9kL2mN4pQ6rS8tU0vW2xY4zA6",
+          "user": "9aB7cD2eF4gH6jK8mN1pQ3rS5tU7vW9xY1zA3bC5dE7",
+          "pool_address": "DT75gs9fygQxi2Aq2ST1jz9C6FTNcbBjpgSpdDpMDdLX",
+          "token_mint": "8ZiqYN6rEm6PapbhCm5wWWzkRjsYyixgqW3K2384D1C3",
+          "base_amount": 123456789,
+          "quote_amount": 4200000000,
+          "lp_token_amount": 987654321,
+          "drained_pct": 0.97,
+          "pool_base_reserve_after": 0,
+          "pool_quote_reserve_after": 0,
+          "lp_supply_after": 30000,
+          "dex": 2
+        }
+      },
+      "WsBurnRecordFrame": {
+        "type": "object",
+        "description": "`token_burn` — a DIFFERENT shape: no `pool_address`, no base/quote.",
+        "properties": {
+          "type": {
+            "const": "pool_event"
+          },
+          "event_type": {
+            "const": "token_burn"
+          },
+          "timestamp_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Epoch **milliseconds**."
+          },
+          "slot": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "user": {
+            "type": "string",
+            "description": "Wallet that burned."
+          },
+          "token_mint": {
+            "type": "string"
+          },
+          "amount_atomic": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Burned amount in **atomic** units."
+          }
+        },
+        "example": {
+          "type": "pool_event",
+          "event_type": "token_burn",
+          "timestamp_ms": 1717000001000,
+          "slot": 270123457,
+          "signature": "3rjMq3C7Zp4eDDRtKwEBmVFXErFt4twvUVryNerBgkrxqs53XhAgL3LqDvfiZjDLNHEbwkbkQMTwfSjD1BvSboES",
+          "user": "9aB7cD2eF4gH6jK8mN1pQ3rS5tU7vW9xY1zA3bC5dE7",
+          "token_mint": "8ZiqYN6rEm6PapbhCm5wWWzkRjsYyixgqW3K2384D1C3",
+          "amount_atomic": 999999999999
+        }
+      },
+      "WsRugRecordFrame": {
+        "type": "object",
+        "description": "`rug_detected` — server-side classified rug / drain signal derived from an `lp_withdraw` or `lp_burn`. Fires only on already-graduated AMM pools (PumpSwap/RaydiumAmm/MeteoraDammV2), never the pump bonding curve. Pump graduation-migrations are EXCLUDED.",
+        "properties": {
+          "type": {
+            "const": "pool_event"
+          },
+          "event_type": {
+            "const": "rug_detected"
+          },
+          "timestamp_ms": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Epoch **milliseconds**."
+          },
+          "slot": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "signature": {
+            "type": "string",
+            "description": "Base58 signature of the triggering withdraw/burn."
+          },
+          "pool_address": {
+            "type": "string"
+          },
+          "token_mint": {
+            "type": "string"
+          },
+          "dex": {
+            "$ref": "#/components/schemas/DexId"
+          },
+          "lp_sol_pulled": {
+            "type": "integer",
+            "format": "int64",
+            "description": "SOL liquidity removed, in **lamports**. Divide by `1e9` for SOL."
+          },
+          "drained_pct": {
+            "type": "number",
+            "format": "float",
+            "description": "Fraction of pool liquidity removed, 0..1."
+          },
+          "classification": {
+            "type": "string",
+            "enum": [
+              "RUGGED",
+              "LIQUIDITY_DRAINING"
+            ],
+            "description": "`RUGGED` when >95% of liquidity removed; `LIQUIDITY_DRAINING` when 50–95%."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "lp_withdraw",
+              "lp_burn"
+            ],
+            "description": "Which action triggered the classification."
+          },
+          "graduated": {
+            "type": "boolean",
+            "description": "Always true in practice — the signal only fires on graduated AMM pools."
+          }
+        },
+        "example": {
+          "type": "pool_event",
+          "event_type": "rug_detected",
+          "timestamp_ms": 1717000002000,
+          "slot": 270123458,
+          "signature": "5Qx2vG7mB1qf6n7dWbN4d8Zp5gQ3sR9tH2cJ4kL6mN8pVxYzA1bC3dE5fG7hJ9kL2mN4pQ6rS8tU0vW2xY4zA6",
+          "pool_address": "DT75gs9fygQxi2Aq2ST1jz9C6FTNcbBjpgSpdDpMDdLX",
+          "token_mint": "8ZiqYN6rEm6PapbhCm5wWWzkRjsYyixgqW3K2384D1C3",
+          "dex": 2,
+          "lp_sol_pulled": 4200000000,
+          "drained_pct": 0.97,
+          "classification": "RUGGED",
+          "reason": "lp_withdraw",
+          "graduated": true
+        }
+      },
+      "WsPoolEventFrame": {
+        "description": "A pool-event frame (filter-mode). One of an LP deposit/withdraw, a token burn, or a classified rug. Demux on `event_type`.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/WsLpEventFrame"
+          },
+          {
+            "$ref": "#/components/schemas/WsBurnRecordFrame"
+          },
+          {
+            "$ref": "#/components/schemas/WsRugRecordFrame"
+          }
+        ]
+      },
+      "WsRoomMessageFrame": {
+        "type": "object",
+        "description": "Room-mode delivery wrapper. The swap or pool event is nested under `data`; `data` carries `event_type` but NOT a top-level `type` (the dual-frame trap — same event, two shapes by mode).",
+        "properties": {
+          "type": {
+            "const": "message"
+          },
+          "room": {
+            "type": "string",
+            "description": "The room this message belongs to, e.g. `transaction:<mint>` or `transaction:<mint>:<pool>`."
+          },
+          "data": {
+            "type": "object",
+            "description": "The swap or pool event. For pool events, carries `event_type` (`lp_deposit`/`lp_withdraw`/`token_burn`/`rug_detected`) and the same fields as the filter-mode frame, minus the top-level `type`."
+          }
+        },
+        "example": {
+          "type": "message",
+          "room": "transaction:8ZiqYN6rEm6PapbhCm5wWWzkRjsYyixgqW3K2384D1C3",
+          "data": {
+            "event_type": "lp_withdraw",
+            "timestamp_ms": 1717000000000,
+            "slot": 270123456,
+            "signature": "5Qx2vG7mB1qf6n7dWbN4d8Zp5gQ3sR9tH2cJ4kL6mN8pVxYzA1bC3dE5fG7hJ9kL2mN4pQ6rS8tU0vW2xY4zA6",
+            "user": "9aB7cD2eF4gH6jK8mN1pQ3rS5tU7vW9xY1zA3bC5dE7",
+            "pool_address": "DT75gs9fygQxi2Aq2ST1jz9C6FTNcbBjpgSpdDpMDdLX",
+            "token_mint": "8ZiqYN6rEm6PapbhCm5wWWzkRjsYyixgqW3K2384D1C3",
+            "base_amount": 123456789,
+            "quote_amount": 4200000000,
+            "lp_token_amount": 987654321,
+            "drained_pct": 0.97,
+            "pool_base_reserve_after": 0,
+            "pool_quote_reserve_after": 0,
+            "lp_supply_after": 30000,
+            "dex": 2
+          }
+        }
+      },
+      "SwapsJoinBody": {
+        "type": "object",
+        "required": [
+          "type",
+          "room"
+        ],
+        "properties": {
+          "type": {
+            "const": "join"
+          },
+          "room": {
+            "type": "string",
+            "description": "Room to join, e.g. `transaction:<mint>` or `transaction:<mint>:<pool>`. The first `join` locks room-mode (mode-exclusive with `subscribe`/filter-mode)."
+          }
+        }
+      },
+      "SwapsLeaveBody": {
+        "type": "object",
+        "required": [
+          "type",
+          "room"
+        ],
+        "properties": {
+          "type": {
+            "const": "leave"
+          },
+          "room": {
+            "type": "string"
+          }
+        }
+      },
+      "SwapsRoomAck": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "joined",
+              "left"
+            ]
+          },
+          "room": {
+            "type": "string"
+          }
         }
       },
       "OhlcvConnectedBody": {

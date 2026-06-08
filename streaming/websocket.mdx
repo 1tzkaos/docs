@@ -118,6 +118,181 @@ A few things worth flagging:
 - **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
 - **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings.
 
+## Pool events (LP add/remove + burns)
+
+The same `/ws/swaps` socket also carries **non-swap pool activity** — LP deposits, LP withdrawals, token burns, and a server-classified rug signal. An unfiltered connection (or one filtered only by `tokens`/`pools`) receives these frames **interleaved** with swaps. This is the real-time liquidity-removal push that lets a bot react to a rug in the same second it lands, instead of polling.
+
+<Note>
+**`lp_withdraw` is the live rug / LP-removal signal.** A large `lp_withdraw` *is* liquidity leaving the pool the instant it happens. `rug_detected` is the *classified* version — the server applies a drain threshold and a graduation-exclusion gate and tells you `RUGGED` vs `LIQUIDITY_DRAINING` so you don't have to.
+</Note>
+
+### Filter-mode frame
+
+In filter-mode (the default — the mode you get after sending a [`subscribe`](#subscribe) message), pool events arrive with a top-level `type: "pool_event"` and an `event_type` discriminator. **All four pool-event kinds share `type: "pool_event"` — demux on `event_type`.**
+
+```json
+{
+  "type": "pool_event",
+  "event_type": "lp_withdraw",
+  "timestamp_ms": 1717000000000,
+  "slot": 270123456,
+  "signature": "5Qx…",
+  "user": "9aB…",
+  "pool_address": "DT7…",
+  "token_mint": "8Zi…",
+  "base_amount": 123456789,
+  "quote_amount": 4200000000,
+  "lp_token_amount": 987654321,
+  "drained_pct": 0.97,
+  "pool_base_reserve_after": 0,
+  "pool_quote_reserve_after": 0,
+  "lp_supply_after": 30000,
+  "dex": 2
+}
+```
+
+### `lp_withdraw` / `lp_deposit` (LpEvent) fields
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `timestamp_ms` | `i64` | Epoch **milliseconds**. ⚠ The `swap` frame on this *same socket* uses `timestamp` in epoch **seconds** — a 1000× difference. Don't mix them. |
+| `slot` | `u64` | Solana slot. |
+| `signature` | `string` | Base58 transaction signature. |
+| `user` | `string` | Wallet that added/removed the LP. |
+| `pool_address` | `string` | On-chain pool / LP account (elsewhere called `pair_address`). |
+| `token_mint` | `string` | Token mint. |
+| `base_amount` | `u64` | Memecoin side, **atomic** units. Divide by `10**decimals` (~6 for pump tokens). ⚠ Decimals are **not** carried on the event. |
+| `quote_amount` | `u64` | The SOL / WSOL side in **lamports**, despite no `_sol` suffix. ⚠ Divide by `1e9` for SOL (the lamports-named-non-`_sol` trap). |
+| `lp_token_amount` | `u64` | LP tokens, atomic. ⚠ Meteora DAMM v2 (`dex=7`) **saturates this to `u64::MAX`** on high-liquidity pools — use `base_amount` + `quote_amount` for value, never `lp_token_amount`. |
+| `drained_pct` | `f32` (0..1) | Fraction of pool liquidity removed by this event. Constant-product pools (PumpSwap, RaydiumAmm) use the LP-supply ratio; Meteora CL uses the SOL-reserve ratio. `0.0` when not computable. |
+| `pool_base_reserve_after` | `u64` | Post-event pool reserve, base side, atomic. `0` when N/A. |
+| `pool_quote_reserve_after` | `u64` | Post-event pool reserve, quote side, **lamports**. `0` when N/A. |
+| `lp_supply_after` | `u64` | Post-event total LP supply. Constant-product only — `0` for Meteora. |
+| `dex` | `int` (Enum8) | `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2. |
+
+There is **no buy/sell side and no price field** on a pool event — it's a liquidity action, not a trade.
+
+### `token_burn` (BurnRecord) — a different shape
+
+A burn carries a **different** field set. There is **no `pool_address`** and **no base/quote** amount:
+
+```json
+{
+  "type": "pool_event",
+  "event_type": "token_burn",
+  "timestamp_ms": 1717000001000,
+  "slot": 270123457,
+  "signature": "3rj…",
+  "user": "9aB…",
+  "token_mint": "8Zi…",
+  "amount_atomic": 999999999999
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `timestamp_ms` | `i64` | Epoch **milliseconds** (same as LpEvent). |
+| `slot` | `u64` | Solana slot. |
+| `signature` | `string` | Base58 transaction signature. |
+| `user` | `string` | Wallet that burned. |
+| `token_mint` | `string` | Token mint. |
+| `amount_atomic` | `u64` | Burned amount in **atomic** units. |
+
+### `rug_detected` (RugRecord) — the classified signal
+
+`rug_detected` is a **server-side classified** rug / drain signal, derived from an `lp_withdraw` or `lp_burn`. It fires **only on already-graduated AMM pools** (PumpSwap, RaydiumAmm, MeteoraDammV2) — never on the pump.fun bonding curve. **Pump graduation-migrations are excluded**: they move liquidity but aren't rugs, so they never produce a `rug_detected`.
+
+```json
+{
+  "type": "pool_event",
+  "event_type": "rug_detected",
+  "timestamp_ms": 1717000002000,
+  "slot": 270123458,
+  "signature": "5Qx…",
+  "pool_address": "DT7…",
+  "token_mint": "8Zi…",
+  "dex": 2,
+  "lp_sol_pulled": 4200000000,
+  "drained_pct": 0.97,
+  "classification": "RUGGED",
+  "reason": "lp_withdraw",
+  "graduated": true
+}
+```
+
+| Field | Type | Notes |
+| --- | --- | --- |
+| `timestamp_ms` | `i64` | Epoch **milliseconds**. |
+| `slot` | `u64` | Solana slot. |
+| `signature` | `string` | Base58 transaction signature of the triggering withdraw/burn. |
+| `pool_address` | `string` | On-chain pool / LP account. |
+| `token_mint` | `string` | Token mint. |
+| `dex` | `int` (Enum8) | `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2. |
+| `lp_sol_pulled` | `u64` | SOL liquidity removed, in **lamports**. Divide by `1e9` for SOL. |
+| `drained_pct` | `f32` (0..1) | Fraction of pool liquidity removed. |
+| `classification` | `string` | `"RUGGED"` when >95% of liquidity was removed; `"LIQUIDITY_DRAINING"` when 50–95%. |
+| `reason` | `string` | `"lp_withdraw"` or `"lp_burn"` — which action triggered the classification. |
+| `graduated` | `bool` | Always true in practice — the signal only fires on graduated AMM pools. |
+
+### Filter scope for pool events
+
+In filter-mode, **only `tokens` and `pools` apply to pool events.** The `dexes`, `min_sol`, `max_sol`, `traders`, `is_buy`, and `wallet_tags` filters are **swap-only** and have no effect on pool-event delivery. A default (empty) subscription delivers the **full pool-event firehose immediately** on connect — you don't have to subscribe to start receiving them.
+
+### Room-mode delivers the same events with a different shape
+
+If you use **rooms** (a `join` message) instead of filters, the same pool events arrive **wrapped** in a room message. Join a transaction room:
+
+```json
+{ "type": "join", "room": "transaction:<mint>" }
+```
+
+(or `transaction:<mint>:<pool>` to scope to one pool). Events then arrive as:
+
+```json
+{
+  "type": "message",
+  "room": "transaction:<mint>",
+  "data": { "event_type": "lp_withdraw", "timestamp_ms": 1717000000000, "...": "..." }
+}
+```
+
+<Warning>
+**Dual-frame trap.** The *same* pool event has **two on-wire shapes** depending on mode. In filter-mode it's top-level (`type: "pool_event"`, `event_type: …`). In room-mode the `data` object carries `event_type` but **not** a top-level `type`. Read `event_type` from `msg` in filter-mode and from `msg.data` in room-mode.
+</Warning>
+
+`transaction:{mint}` rooms **interleave** swaps, pool events (`lp_deposit`/`lp_withdraw`/`token_burn`), and `rug_detected` — demux on `type` / `event_type`. Room-mode is **mode-exclusive** with filter-mode on a given connection: the first `subscribe` locks the socket into filter-mode, and the first `join` locks it into room-mode. Pick one per connection.
+
+### Per-DEX coverage matrix
+
+LP and rug events are **live** for three venues:
+
+| DEX | `dex` | LP / rug events |
+| --- | --- | --- |
+| PumpSwap | `2` | ✅ Live |
+| RaydiumAmm v4 | `3` | ✅ Live |
+| MeteoraDammV2 | `7` | ✅ Live |
+| RaydiumClmm | `4` | ❌ Not emitted |
+| RaydiumCpmm | `5` | ❌ Not emitted |
+| Orca | `6` | ❌ Not emitted |
+| MeteoraDbc | `8` | ❌ Not emitted |
+| MeteoraDlmm | `9` | ❌ Not emitted |
+| MeteoraPools | `10` | ❌ Not emitted |
+
+<Warning>
+**Absence is not safety.** The 6 uncovered venues do **not** emit `lp_withdraw` (or `rug_detected`) yet, so *not seeing* an LP-removal event on one of them is **not** proof a pool is safe. Coverage for these venues is a tracked follow-up.
+</Warning>
+
+### Historical / replay companions
+
+For backfill and gap-filling, the same events are queryable over REST and MCP:
+
+- REST: [`GET /pool-events?token=<mint>&limit=N&before=<ts_ms>`](/api-reference) — paginated LP/burn history (cursor is epoch **ms**).
+- MCP: the `list_pool_events` tool wraps the same endpoint.
+
+<Note>
+**Edge:** `/ws/swaps` is already routed at the OVH edge — both `lp_withdraw` and `rug_detected` ride this same socket. No new endpoint or connection is needed.
+</Note>
+
 ## Complete TypeScript client
 
 ```typescript
