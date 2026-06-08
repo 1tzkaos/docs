@@ -44,10 +44,77 @@ Then send a `subscribe`. **Both `pair_addresses` and `timeframes` are required**
 Server ack:
 
 ```json
-{ "status": "subscribed", "pairs": 1, "timeframes": ["1s", "1m"], "subjects": 2 }
+{ "status": "subscribed", "op": "subscribed", "pairs": 1, "timeframes": ["1s", "1m"], "subjects": 2 }
 ```
 
-Subsequent `subscribe` messages are **additive** — they widen the subscription set rather than replace it. (Different from the [swaps WebSocket](/streaming/websocket), where each `subscribe` replaces the prior filters.)
+This first frame is the one-shot, backward-compatible path: a client that only ever sends it sees **zero** change from before. `pairs` is the distinct pool count, `subjects` is the number of live `(pool, timeframe)` pairs, and `op` mirrors `status`.
+
+<Note>
+A **subject** is one `(pair_address, timeframe)` pair — the unit the stream actually fans out on. A subscribe of 3 pools × 2 timeframes is 3 pairs but **6 subjects**.
+</Note>
+
+## Add / remove / unsubscribe (mid-stream)
+
+Once you're subscribed you can change the watched symbol set **without reconnecting** by sending more frames on the same socket. This is what lets a chart or watchlist UI swap the active pool, or add/drop timeframes, in place.
+
+Every mutating frame carries an `op`. Each `(pair_address, timeframe)` pair it expands to is a **subject**; the ack's `pairs`/`timeframes`/`subjects` always report the **new total live set after the op** — not just the delta.
+
+| `op` | Effect | Ack `op` |
+| --- | --- | --- |
+| `add` | Union the new `(pair, timeframe)` subjects into the live set. Bars for the added symbols start arriving immediately. | `added` |
+| `remove` | Drop those subjects. Bars for removed symbols stop. | `removed` |
+| `unsubscribe` | Clear **all** subjects. `pair_addresses` / `timeframes` are optional and ignored. Totals go to `0`. | `unsubscribed` |
+| `subscribe` | **Replace** the entire live set with the new one (reset). Atomic — see note below. | `subscribed` |
+
+### Add symbols
+
+```json
+{ "op": "add", "pair_addresses": ["38tqb1K…"], "timeframes": ["1m"] }
+```
+
+Ack with the new totals (now 2 pools × the union of timeframes):
+
+```json
+{ "status": "added", "op": "added", "pairs": 2, "timeframes": ["1m", "1s"], "subjects": 3 }
+```
+
+### Remove symbols
+
+```json
+{ "op": "remove", "pair_addresses": ["38tqb1K…"], "timeframes": ["1m"] }
+```
+
+```json
+{ "status": "removed", "op": "removed", "pairs": 1, "timeframes": ["1m", "1s"], "subjects": 2 }
+```
+
+### Unsubscribe (clear everything)
+
+```json
+{ "op": "unsubscribe" }
+```
+
+```json
+{ "status": "unsubscribed", "op": "unsubscribed", "pairs": 0, "timeframes": [], "subjects": 0 }
+```
+
+### Replace the whole set
+
+A later frame with `op: "subscribe"` (or with **no** `op` — absent defaults to `subscribe`) **replaces** the entire live set with the new one:
+
+```json
+{ "op": "subscribe", "pair_addresses": ["HdqYz5GVu…"], "timeframes": ["5m"] }
+```
+
+```json
+{ "status": "subscribed", "op": "subscribed", "pairs": 1, "timeframes": ["5m"], "subjects": 1 }
+```
+
+<Warning>
+**This reset behaviour is the opposite of the [swaps WebSocket](/streaming/websocket).** On `/ws/ohlcv`, **to widen** the set you must use `op: "add"` — sending another `subscribe` (or an op-absent frame) **discards** what you had. The frame's `op` field is what the server reads; the legacy `type` field is ignored.
+</Warning>
+
+The replace is **atomic**: if the new set would exceed the [per-connection subject cap](#limits-and-errors), the replace is rejected and your **prior** subscription stays fully intact.
 
 ## Frame shape
 
@@ -80,6 +147,25 @@ Subsequent `subscribe` messages are **additive** — they widen the subscription
 | `volume_sol` | **Lamports**, despite the name. Divide by `1e9` for SOL. |
 | `volume_token` | Token base units. Divide by `10 ** quote_decimals` for human-readable. |
 | `unique_traders` | Distinct wallets that traded in this bar so far. Grows monotonically across mid-bar frames. |
+
+## Limits and errors
+
+Two independent limits apply:
+
+| Limit | Bounds | Env | Default |
+| --- | --- | --- | --- |
+| `pair_addresses` per frame | The pool count of a **single** `subscribe` / `add` / `subscribe`-replace frame. | `MAX_PAIRS_PER_SUBSCRIBE` | 1000 |
+| Live subjects per connection | The **cumulative** live `(pool × timeframe)` set across all your `add`s. | `MAX_SUBJECTS_PER_CONNECTION` | 5000 |
+
+Mid-stream errors are **non-fatal** — the socket stays open and a later valid frame still works. (Only an error on the **initial** subscribe frame closes the connection, as before.)
+
+- **Bad frame / unknown op** → `{ "error": "invalid subscribe: <detail>" }` and the socket stays open. An unknown op comes back as `{ "error": "invalid subscribe: unknown op: <op>" }`.
+- **Per-frame pool cap** → `{ "error": "invalid subscribe: too many pair_addresses; max 1000" }`.
+- **Per-connection subject cap** → an `add` or `subscribe`-replace that would push the live set past the cap is rejected **atomically** — no partial apply, and your existing subjects keep delivering:
+
+```json
+{ "error": "subject cap reached for this connection; cap 5000", "cap": 5000 }
+```
 
 ## Minimal TypeScript client
 
@@ -128,6 +214,46 @@ connect();
 ```
 
 If you're rendering a live chart, key your local bar store by `(pair_address, timeframe, timestamp)` and *overwrite* the entry on every frame for that key — the latest frame is always the freshest snapshot of that bar. When `is_closed: true` arrives, that bar is final.
+
+### Changing the watched set at runtime
+
+A watchlist or chart UI that switches the active pool sends `add` / `remove` on the **same** open socket — no reconnect. Helpers, and an ack handler that reads back the new live totals:
+
+```typescript
+// `ws` is the open socket from above.
+
+// Start watching another pool (keeps the existing ones):
+const addPair = (pair: string, tfs = ['1m']) =>
+  ws.send(JSON.stringify({ op: 'add', pair_addresses: [pair], timeframes: tfs }));
+
+// Stop watching a pool:
+const removePair = (pair: string, tfs = ['1m']) =>
+  ws.send(JSON.stringify({ op: 'remove', pair_addresses: [pair], timeframes: tfs }));
+
+// Drop everything (e.g. on view teardown):
+const clearAll = () => ws.send(JSON.stringify({ op: 'unsubscribe' }));
+
+// In your message handler, branch on the ack/error frames:
+ws.on('message', (raw) => {
+  const f = JSON.parse(raw.toString());
+  switch (f.op ?? f.status) {            // 'subscribed' | 'added' | 'removed' | 'unsubscribed'
+    case 'added':
+    case 'removed':
+    case 'unsubscribed':
+    case 'subscribed':
+      // f.pairs / f.subjects are the NEW live totals after the op.
+      console.log(`live set: ${f.pairs} pools, ${f.subjects} subjects`);
+      return;
+  }
+  if (f.error) {                          // non-fatal mid-stream — socket stays open
+    console.warn('op rejected:', f.error, f.cap ? `(cap ${f.cap})` : '');
+    return;
+  }
+  // …otherwise it's an `ohlcv` bar frame — handle as above.
+});
+```
+
+Use `op: 'subscribe'` (or an op-absent frame) only when you intend to **reset** the whole set — it discards the current subscription. To widen, always use `op: 'add'`.
 
 For reconnect strategy, gap-filling against `/api/v1/candles`, and keepalive guidance, see [Reconnect & backpressure](/streaming/reconnect-backpressure).
 

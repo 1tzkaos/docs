@@ -135,7 +135,7 @@
         }
       ],
       "summary": "Pool event (filter-mode)",
-      "description": "Non-swap pool activity — `lp_deposit`, `lp_withdraw`, `token_burn`, and the server-classified `rug_detected`. Delivered on an unfiltered or `tokens`/`pools`-filtered connection, interleaved with swaps. Demux on `event_type`. Only the `tokens`/`pools` filters apply to pool events; `dexes`/`min_sol`/`max_sol`/`traders`/`is_buy`/`wallet_tags` are swap-only. NOTE: `timestamp_ms` is epoch **milliseconds** (the `swap` frame uses `timestamp` in **seconds**); `quote_amount`/`lp_sol_pulled` are **lamports** despite no `_sol` suffix; `base_amount`/`amount_atomic` are atomic units; Meteora DAMM v2 (`dex=7`) saturates `lp_token_amount` to `u64::MAX`."
+      "description": "Non-swap pool activity \u2014 `lp_deposit`, `lp_withdraw`, `token_burn`, and the server-classified `rug_detected`. Delivered on an unfiltered or `tokens`/`pools`-filtered connection, interleaved with swaps. Demux on `event_type`. Only the `tokens`/`pools` filters apply to pool events; `dexes`/`min_sol`/`max_sol`/`traders`/`is_buy`/`wallet_tags` are swap-only. NOTE: `timestamp_ms` is epoch **milliseconds** (the `swap` frame uses `timestamp` in **seconds**); `quote_amount`/`lp_sol_pulled` are **lamports** despite no `_sol` suffix; `base_amount`/`amount_atomic` are atomic units; Meteora DAMM v2 (`dex=7`) saturates `lp_token_amount` to `u64::MAX`."
     },
     "receiveSwapsRoomMessage": {
       "action": "send",
@@ -148,7 +148,7 @@
         }
       ],
       "summary": "Room message (room-mode)",
-      "description": "In room-mode, a swap OR pool event scoped to a joined room. The event payload is nested under `data` and carries `event_type` but NOT a top-level `type` — the **dual-frame trap** (same event, two on-wire shapes by mode). `transaction:{mint}` rooms interleave swaps + pool events + `rug_detected`."
+      "description": "In room-mode, a swap OR pool event scoped to a joined room. The event payload is nested under `data` and carries `event_type` but NOT a top-level `type` \u2014 the **dual-frame trap** (same event, two on-wire shapes by mode). `transaction:{mint}` rooms interleave swaps + pool events + `rug_detected`."
     },
     "receiveSwapsJoined": {
       "action": "send",
@@ -325,8 +325,8 @@
           "$ref": "#/channels/ohlcv/messages/subscribed"
         }
       ],
-      "summary": "Subscribe ack",
-      "description": "Sent after each successful `subscribe`. `pairs` is the new total subscribed pool count; `subjects` is the count of (pool \u00d7 timeframe) Cartesian-product subjects on the NATS backbone."
+      "summary": "Subscribe / add / remove / unsubscribe ack",
+      "description": "Sent after each successful op. `status`/`op` echo the op; `pairs` is the live distinct pool count and `subjects` the live (pool x timeframe) count AFTER the op. A subject cap rejection instead returns an error frame `{\"error\":\"subject cap reached for this connection; cap <N>\",\"cap\":<N>}` and leaves the prior subscription intact."
     },
     "receiveOhlcvError": {
       "action": "send",
@@ -351,8 +351,8 @@
           "$ref": "#/channels/ohlcv/messages/subscribe"
         }
       ],
-      "summary": "Subscribe to (pools \u00d7 timeframes)",
-      "description": "Both arrays are required. Server emits frames for every (pool \u00d7 timeframe) pair."
+      "summary": "Subscribe / add / remove / unsubscribe (pools x timeframes)",
+      "description": "First frame subscribes (arrays required). Later frames carry `op`: `add` unions symbols into the live set, `remove` drops them, `unsubscribe` clears all, `subscribe` (or op-absent) REPLACES the whole set. Mid-stream errors are non-fatal (socket stays open). Two caps: MAX_PAIRS_PER_SUBSCRIBE (per frame, default 1000) and MAX_SUBJECTS_PER_CONNECTION (cumulative live set, default 5000); an add/replace over the subject cap is rejected atomically."
     },
     "receivePumpLifecycleMintCreated": {
       "action": "send",
@@ -430,7 +430,7 @@
       "PoolEvent": {
         "name": "pool_event",
         "title": "Pool event",
-        "summary": "Non-swap pool activity (filter-mode): LP deposit / withdraw, token burn, or the server-classified rug signal. All four share `type: \"pool_event\"` — demux on `event_type`. `lp_withdraw` is the real-time LP-removal signal; `rug_detected` is the classified version.",
+        "summary": "Non-swap pool activity (filter-mode): LP deposit / withdraw, token burn, or the server-classified rug signal. All four share `type: \"pool_event\"` \u2014 demux on `event_type`. `lp_withdraw` is the real-time LP-removal signal; `rug_detected` is the classified version.",
         "payload": {
           "$ref": "#/components/schemas/WsPoolEventFrame"
         }
@@ -537,8 +537,8 @@
       },
       "OhlcvSubscribed": {
         "name": "subscribed",
-        "title": "Subscribe ack",
-        "summary": "Sent after each successful `subscribe`. `pairs` is the new total subscribed pool count; `subjects` is the count of (pool \u00d7 timeframe) Cartesian-product subjects on the NATS backbone.",
+        "title": "Subscribe / add / remove ack",
+        "summary": "Sent after each successful op. `status` and `op` echo the op (`subscribed`/`added`/`removed`/`unsubscribed`). `pairs`/`subjects` are the new LIVE TOTALS after the op (not a delta). A subject = one (pool, timeframe) pair.",
         "payload": {
           "$ref": "#/components/schemas/OhlcvSubscribedBody"
         }
@@ -553,8 +553,8 @@
       },
       "OhlcvSubscribe": {
         "name": "subscribe",
-        "title": "Subscribe to (pools \u00d7 timeframes)",
-        "summary": "Both arrays are required. Server emits frames for every (pool \u00d7 timeframe) pair.",
+        "title": "Subscribe / add / remove / unsubscribe",
+        "summary": "Op-tagged frame that mutates the live (pool x timeframe) set. The FIRST frame subscribes; later frames on the same socket can `add`/`remove`/`unsubscribe` or `subscribe` (reset) without reconnecting. `op` absent = `subscribe` = REPLACE.",
         "payload": {
           "$ref": "#/components/schemas/OhlcvSubscribeBody"
         }
@@ -650,7 +650,11 @@
           "error": {
             "type": "string",
             "description": "Some errors return just `{\"error\":\"\u2026\"}` instead of `{\"type\":\"error\",\"message\":\"\u2026\"}` \u2014 handle both.",
-            "example": "invalid subscribe: pair_addresses required"
+            "example": "invalid subscribe: unknown op: frobnicate"
+          },
+          "cap": {
+            "type": "integer",
+            "description": "Present only on the per-connection subject-cap rejection: `{\"error\":\"subject cap reached for this connection; cap <N>\",\"cap\":<N>}`. Non-fatal \u2014 the prior subscription stays intact."
           }
         }
       },
@@ -896,7 +900,7 @@
       },
       "DexId": {
         "type": "integer",
-        "description": "Integer (Enum8) DEX id used on **pool-event** frames — distinct from the string `Dex` used on swap frames. `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2 (the venues with live LP/rug events). `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `8`=MeteoraDbc, `9`=MeteoraDlmm, `10`=MeteoraPools do NOT emit pool events yet.",
+        "description": "Integer (Enum8) DEX id used on **pool-event** frames \u2014 distinct from the string `Dex` used on swap frames. `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2 (the venues with live LP/rug events). `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `8`=MeteoraDbc, `9`=MeteoraDlmm, `10`=MeteoraPools do NOT emit pool events yet.",
         "enum": [
           2,
           3,
@@ -920,7 +924,7 @@
           "timestamp_ms": {
             "type": "integer",
             "format": "int64",
-            "description": "Epoch **milliseconds** — the `swap` frame uses `timestamp` in epoch **seconds** (1000×)."
+            "description": "Epoch **milliseconds** \u2014 the `swap` frame uses `timestamp` in epoch **seconds** (1000\u00d7)."
           },
           "slot": {
             "type": "integer",
@@ -954,7 +958,7 @@
           "lp_token_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "LP tokens, atomic. Meteora DAMM v2 (`dex=7`) **saturates this to `u64::MAX`** — use `base_amount`+`quote_amount` for value."
+            "description": "LP tokens, atomic. Meteora DAMM v2 (`dex=7`) **saturates this to `u64::MAX`** \u2014 use `base_amount`+`quote_amount` for value."
           },
           "drained_pct": {
             "type": "number",
@@ -974,7 +978,7 @@
           "lp_supply_after": {
             "type": "integer",
             "format": "int64",
-            "description": "Post-event total LP supply. Constant-product only — `0` for Meteora."
+            "description": "Post-event total LP supply. Constant-product only \u2014 `0` for Meteora."
           },
           "dex": {
             "$ref": "#/components/schemas/DexId"
@@ -1001,7 +1005,7 @@
       },
       "WsBurnRecordFrame": {
         "type": "object",
-        "description": "`token_burn` — a DIFFERENT shape: no `pool_address`, no base/quote.",
+        "description": "`token_burn` \u2014 a DIFFERENT shape: no `pool_address`, no base/quote.",
         "properties": {
           "type": {
             "const": "pool_event"
@@ -1047,7 +1051,7 @@
       },
       "WsRugRecordFrame": {
         "type": "object",
-        "description": "`rug_detected` — server-side classified rug / drain signal derived from an `lp_withdraw` or `lp_burn`. Fires only on already-graduated AMM pools (PumpSwap/RaydiumAmm/MeteoraDammV2), never the pump bonding curve. Pump graduation-migrations are EXCLUDED.",
+        "description": "`rug_detected` \u2014 server-side classified rug / drain signal derived from an `lp_withdraw` or `lp_burn`. Fires only on already-graduated AMM pools (PumpSwap/RaydiumAmm/MeteoraDammV2), never the pump bonding curve. Pump graduation-migrations are EXCLUDED.",
         "properties": {
           "type": {
             "const": "pool_event"
@@ -1093,7 +1097,7 @@
               "RUGGED",
               "LIQUIDITY_DRAINING"
             ],
-            "description": "`RUGGED` when >95% of liquidity removed; `LIQUIDITY_DRAINING` when 50–95%."
+            "description": "`RUGGED` when >95% of liquidity removed; `LIQUIDITY_DRAINING` when 50\u201395%."
           },
           "reason": {
             "type": "string",
@@ -1105,7 +1109,7 @@
           },
           "graduated": {
             "type": "boolean",
-            "description": "Always true in practice — the signal only fires on graduated AMM pools."
+            "description": "Always true in practice \u2014 the signal only fires on graduated AMM pools."
           }
         },
         "example": {
@@ -1140,7 +1144,7 @@
       },
       "WsRoomMessageFrame": {
         "type": "object",
-        "description": "Room-mode delivery wrapper. The swap or pool event is nested under `data`; `data` carries `event_type` but NOT a top-level `type` (the dual-frame trap — same event, two shapes by mode).",
+        "description": "Room-mode delivery wrapper. The swap or pool event is nested under `data`; `data` carries `event_type` but NOT a top-level `type` (the dual-frame trap \u2014 same event, two shapes by mode).",
         "properties": {
           "type": {
             "const": "message"
@@ -1241,28 +1245,37 @@
       "OhlcvSubscribeBody": {
         "type": "object",
         "required": [
-          "type",
-          "pair_addresses",
-          "timeframes"
+          "op"
         ],
         "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "subscribe",
+              "add",
+              "remove",
+              "unsubscribe"
+            ],
+            "default": "subscribe",
+            "description": "Mutation against the live (pool x timeframe) set. Absent = `subscribe`. `subscribe` REPLACES the whole set (reset); `add` unions; `remove` drops; `unsubscribe` clears all. The server reads `op` only \u2014 a legacy `type` field is ignored."
+          },
           "type": {
-            "const": "subscribe"
+            "const": "subscribe",
+            "description": "Legacy field, IGNORED by the server (it reads `op`). Retained for backward compatibility with the original one-shot subscribe frame."
           },
           "pair_addresses": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "minItems": 1,
-            "description": "Pool / pair addresses."
+            "description": "Pool / pair addresses. Required (>=1) for `subscribe`/`add`/`remove`; optional and ignored for `unsubscribe`."
           },
           "timeframes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Timeframe"
             },
-            "minItems": 1
+            "description": "Required (>=1) for `subscribe`/`add`/`remove`; optional and ignored for `unsubscribe`."
           }
         }
       },
@@ -1270,21 +1283,39 @@
         "type": "object",
         "properties": {
           "status": {
-            "const": "subscribed"
+            "type": "string",
+            "enum": [
+              "subscribed",
+              "added",
+              "removed",
+              "unsubscribed"
+            ],
+            "description": "Echoes the op that was applied. `op` field carries the same value."
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "subscribed",
+              "added",
+              "removed",
+              "unsubscribed"
+            ],
+            "description": "Same value as `status`; the op-tagged ack form."
           },
           "pairs": {
             "type": "integer",
-            "description": "Total subscribed pool count after this call."
+            "description": "Distinct pool count in the live set AFTER this op (a total, not a delta). `0` after `unsubscribe`."
           },
           "timeframes": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/Timeframe"
-            }
+            },
+            "description": "Distinct timeframes in the live set after this op."
           },
           "subjects": {
             "type": "integer",
-            "description": "NATS subjects under the hood (pools \u00d7 timeframes)."
+            "description": "Total live (pool x timeframe) subjects after this op. `0` after `unsubscribe`."
           }
         }
       },
