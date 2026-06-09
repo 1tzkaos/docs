@@ -14,7 +14,7 @@
 - [Swap-event OHLCV](https://docs.dexploit.dev/concepts/swap-event-ohlcv)
 - [Timeframes & resolution](https://docs.dexploit.dev/concepts/timeframes-resolution)
 - [Risk score algorithm](https://docs.dexploit.dev/concepts/risk-score)
-- [Data coverage](https://docs.dexploit.dev/concepts/coverage): when our index begins + which endpoints carry coverage notes
+- [Data coverage](https://docs.dexploit.dev/concepts/coverage): the 10 supported DEX venues + per-venue caveats, when our index begins, which endpoints carry coverage notes
 - [Actor charts](https://docs.dexploit.dev/concepts/actor-charts): time-series of holder count, snipers, insiders, and dev holdings
 - [Wallet portfolio](https://docs.dexploit.dev/concepts/wallet-portfolio): holdings sources (Shyft vs basic), cron-free chart model, FIFO PnL, Phase-5 feature flags
 

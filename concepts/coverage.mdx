@@ -5,6 +5,57 @@ description: "What's in our index, when it started, and where the gaps are."
 
 Dexploit's index begins on **2026-05-26** — the day [Phase 0](/concepts/risk-score#phase-0)'s gRPC-firehose mint capture went live. Endpoints that depend on data captured by that pipeline will return a `coverage_note` field when results are empty.
 
+## Supported venues
+
+Dexploit indexes swaps from **10 Solana DEX programs**. Each swap carries a `dex`
+field — an integer ID (`1`–`10`) on the raw `/swaps` surface, the canonical
+lower-snake string everywhere else. The authoritative, always-current list is
+`GET /api/v1/protocols`.
+
+| Venue | `dex` | Liquidity events | Per-pool price &amp; reserves |
+| --- | --- | --- | --- |
+| Pump.fun (bonding curve) | `pumpfun` | — | Yes |
+| PumpSwap AMM | `pumpswap` | Yes | Yes |
+| Raydium AMM v4 | `raydium_amm` | Yes | Yes |
+| Raydium CLMM | `raydium_clmm` | Yes | Spot price; TVL reserves <sup>1</sup> |
+| Raydium CPMM | `raydium_cpmm` | Yes | Yes |
+| Orca Whirlpools | `orca` | Yes | Approximate; TVL reserves <sup>1</sup> |
+| Meteora DAMM v2 | `meteora_damm_v2` | Yes | Yes |
+| Meteora DBC (bonding curve) | `meteora_dbc` | — | Yes |
+| Meteora DLMM | `meteora_dlmm` | Yes | Approximate; TVL reserves <sup>1</sup> |
+| Meteora Dynamic AMM (Pools) | `meteora_pools` | Not yet <sup>2</sup> | Swap amounts only <sup>2</sup> |
+
+Orca and the three Meteora venues — DBC, DLMM, and Pools — were added on
+**2026-06-09**; swaps before that date aren't indexed for those four. Pump.fun and
+Meteora DBC are bonding curves, so they have no add/remove-liquidity events (the
+curve *is* the liquidity).
+
+### SOL-quoted swaps only
+
+Every venue except Pump.fun indexes only swaps where one side is **wrapped SOL**
+(`So111…1112`). Pools quoted in USDC, USDT, or another token are not indexed, and
+neither are the non-SOL legs of a multi-hop route. This matters most on the
+concentrated-liquidity venues — Raydium CLMM, Orca, and Meteora DLMM — which list
+many USDC-quoted pools, so a meaningful share of their on-chain activity falls
+outside the index. Pump.fun is SOL-native, so all of its trades are captured.
+
+### Price &amp; liquidity quality
+
+<sup>1</sup> `pool_price`, `real_sol_reserves`, and `real_token_reserves` are
+reliable per-pool values on the constant-product and bonding-curve venues
+(`pumpfun`, `pumpswap`, `raydium_amm`, `raydium_cpmm`, `meteora_damm_v2`,
+`meteora_dbc`). On the concentrated-liquidity venues the reserve fields are
+**whole-pool totals (TVL-like), not active-tick liquidity** — don't use them as a
+constant-product price oracle. `raydium_clmm` still reports a true spot
+`pool_price` (from the pool's sqrt-price); `orca` and `meteora_dlmm` report a
+vault-ratio approximation that can diverge from the executed price.
+
+<sup>2</sup> On `meteora_pools`, liquidity sits in dynamic vaults shared across
+many pools, so no per-pool reserve is derivable from a swap: `pool_price` and the
+reserve fields are absent, and only the swap's own `sol_amount` / `token_amount`
+are indexed (these still drive volume and per-trade price). Add/remove-liquidity
+events for this venue aren't published yet.
+
 ## Endpoints affected
 
 ### `/deployer/{wallet}`
