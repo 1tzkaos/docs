@@ -50,7 +50,7 @@ Twelve signals across six categories. "Graded" signals scale their contribution 
 
 | `code` | Trigger | Weight | Notes |
 |---|---|---|---|
-| `lp_not_burnt` | LP tokens not burnt | 4000 | Returns `None` (signal sits in `missing_signals`) when the LP-burnt cron hasn't checked this mint yet — avoids a false-positive during the warm-up window. |
+| `lp_not_burnt` | LP tokens not burnt/locked | 4000 | Returns `None` (signal sits in `missing_signals`) until the LP-lock state has been checked — avoids a false-positive during the warm-up window. Lock state is written in real time from on-chain burn/lock events and refined by a polling detector; the `/tokens/{mint}/audit` `lock` object surfaces the `mechanism` (burned vs locked) and a `verified` confidence flag. Bonding-curve venues (PumpFun, Meteora DBC) have no fungible LP, so this signal stays `None` there. |
 | `mint_authority_active` | mint authority not revoked | 2500 | Empty or `null` authority counts as revoked. |
 | `freeze_authority_active` | freeze authority not revoked | 7500 | The heaviest single signal in the catalog — token holders can be frozen out of their positions. |
 

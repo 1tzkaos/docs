@@ -625,7 +625,44 @@
               "boolean",
               "null"
             ],
-            "description": "True if the dominant LP token is burnt/locked. `null` when not indexed/computed."
+            "description": "True if the dominant LP token is burnt/locked. `null` when not indexed/computed. This is the boolean roll-up; see `lock` for the structured signal."
+          },
+          "lock": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "Structured LP-lock signal. `null` when there is no structured signal yet (same meaning as a `null` `lp_burnt`). When present it distinguishes *how* the LP is secured and how confident we are.",
+            "properties": {
+              "secured_pct": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "description": "Fraction of LP secured, `0..1`. Precise when measured by the polling detector; `null` when only the real-time firehose event path observed the lock (a binary on-chain burn/lock event — exact share not measured). Never fabricated."
+              },
+              "mechanism": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "enum": [
+                  "burned",
+                  "locked",
+                  "partial",
+                  "unsecured",
+                  null
+                ],
+                "description": "`burned` = LP sent to the incinerator (irreversible). `locked` = LP/position held by a locker program (Streamflow / Jupiter Lock / Raydium Burn&Earn / UNCX). `partial` / `unsecured` are graded readings from the detector. Bonding-curve venues (PumpFun, Meteora DBC) have no fungible LP to burn, so `lock` stays `null` there."
+              },
+              "verified": {
+                "type": [
+                  "boolean",
+                  "null"
+                ],
+                "description": "`true` for direct on-chain observations (firehose LP burn/lock events; Raydium AMM/CPMM verified layouts). `false` for asserted layouts (Meteora DAMM v2, Raydium CLMM position scans)."
+              }
+            }
           },
           "mint_revoked": {
             "type": [
