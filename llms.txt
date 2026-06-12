@@ -109,6 +109,10 @@ Phase-8 cost-basis engine. `pnl_mode=raw|strict|adjusted` (default adjusted). Al
 - [GET /v2/pnl/leaderboard/kols/calendar](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/leaderboard/kols/calendar): realized-only heatmap (top-N KOL rows × days; range ≤90d)
 - [GET /v2/pnl/leaderboard/kols/date](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/leaderboard/kols/date): top KOLs by realized on one UTC day (win_rate/trade_count omitted)
 
+### Rugs
+- [GET /rugs](https://docs.dexploit.dev/api-reference/openapi/get/rugs): recent liquidity-rug / drain events across all venues (7-day window; drained_pct is 0..1, lp_sol_pulled already in SOL; reason/graduated are WS-only); requires X-API-Key
+- [GET /tokens/{mint}/rugs](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/rugs): rug history for one mint (newest first; malformed mint → 400); requires X-API-Key
+
 ### Pump lifecycle
 - [GET /pump-lifecycle](https://docs.dexploit.dev/api-reference/openapi/get/pump-lifecycle): lifecycle event stream
 

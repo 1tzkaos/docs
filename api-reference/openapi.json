@@ -2915,7 +2915,7 @@
               "number",
               "null"
             ],
-            "description": "Pool/curve liquidity in SOL. A **number** when `liquidity_status` is `IN_CURVE`; **null** for `POOL_DEPTH` (graduated/AMM pools, where curve liquidity is not the relevant measure) and `DRAINED`."
+            "description": "Pool/curve liquidity in SOL. A **number** when `liquidity_status` is `IN_CURVE`; **0** when `DRAINED` (curve reserves collapsed — LP-drain/rug); **null** for `POOL_DEPTH` (graduated/AMM pools, where curve liquidity is not the relevant measure)."
           },
           "liquidity_status": {
             "type": "string",
@@ -2924,7 +2924,7 @@
               "POOL_DEPTH",
               "DRAINED"
             ],
-            "description": "Source/meaning of `liquidity_sol`. `IN_CURVE` = pre-graduation bonding-curve liquidity (numeric `liquidity_sol`); `POOL_DEPTH` = post-graduation AMM pool depth (`liquidity_sol` is null); `DRAINED` = liquidity removed/rugged."
+            "description": "Source/meaning of `liquidity_sol`. `IN_CURVE` = pre-graduation bonding-curve liquidity (numeric `liquidity_sol`); `POOL_DEPTH` = post-graduation AMM pool depth (`liquidity_sol` is null); `DRAINED` = curve reserves collapsed / rugged (`liquidity_sol` is `0`)."
           },
           "market_cap": {
             "type": [
@@ -11356,6 +11356,284 @@
                       "description": "Epoch milliseconds."
                     }
                   }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rugs": {
+      "get": {
+        "summary": "Recent rugs (all venues)",
+        "description": "Most-recent liquidity-rug / drain events across **all venues**, newest first, over a **7-day rolling window**. Reads the `rug_detected` rows the rug classifier persists. `drained_pct` is a **0..1 fraction** (not a percentage) and `lp_sol_pulled` is **already in SOL** (lamports ÷ 1e9). The live-only `reason`/`graduated` fields are **not** on this REST shape — use the [`rugs` WebSocket room](/streaming/websocket#the-global-rugs-room) for those. **Requires an API key** (header `X-API-Key`, or `?api_key=` / `Authorization: Bearer`).",
+        "operationId": "getRecentRugs",
+        "tags": [
+          "Rugs"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 2000
+            },
+            "description": "Page size (clamped 1..2000)."
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Page offset."
+          },
+          {
+            "name": "min_drained_pct",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "format": "float",
+              "default": 0,
+              "minimum": 0,
+              "maximum": 1
+            },
+            "description": "Only return rugs with `drained_pct >= ` this **0..1** fraction (default `0` = all). Clamped 0..1."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recent rug list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rugs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "token_mint": {
+                            "type": "string"
+                          },
+                          "pool_address": {
+                            "type": "string",
+                            "description": "On-chain pool / LP account that was drained."
+                          },
+                          "dex": {
+                            "type": "string",
+                            "description": "Venue name (e.g. `pumpswap`, `raydium_amm`, `raydium_clmm`, `orca`, `meteora_damm_v2`, `meteora_dlmm`)."
+                          },
+                          "classification": {
+                            "type": "string",
+                            "enum": [
+                              "RUGGED",
+                              "LIQUIDITY_DRAINING"
+                            ],
+                            "description": "`RUGGED` = a graduated/AMM pool drained past the rug threshold (>95%); `LIQUIDITY_DRAINING` = a large (50–95%) drain that isn't a full rug."
+                          },
+                          "drained_pct": {
+                            "type": "number",
+                            "format": "float",
+                            "description": "Fraction of pool liquidity removed, **0..1** (NOT a 0–100 percentage). e.g. `0.97` = 97%."
+                          },
+                          "lp_sol_pulled": {
+                            "type": "number",
+                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you — do **not** divide again)."
+                          },
+                          "signature": {
+                            "type": "string",
+                            "description": "Base58 signature of the triggering withdraw/burn."
+                          },
+                          "slot": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "Solana slot."
+                          },
+                          "ts_ms": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "Event time, epoch **milliseconds**."
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Full match total (`count() OVER ()`), independent of `limit`/`offset`."
+                    },
+                    "computed_at": {
+                      "type": "integer",
+                      "description": "Epoch milliseconds."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tokens/{mint}/rugs": {
+      "get": {
+        "summary": "Rug history for one mint",
+        "description": "Rug / liquidity-drain history for a single mint, newest first (no 7-day bound — uses the `token_mint` sort key). Same row shape as `GET /rugs`: `drained_pct` is a **0..1 fraction**, `lp_sol_pulled` is **already in SOL**. The live-only `reason`/`graduated` fields are WS-only. **Requires an API key.**",
+        "operationId": "getTokenRugs",
+        "tags": [
+          "Rugs"
+        ],
+        "parameters": [
+          {
+            "name": "mint",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Token mint (base58). A malformed mint returns **400**."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "minimum": 1,
+              "maximum": 500
+            },
+            "description": "Page size (clamped 1..500)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rug history for the mint",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "mint": {
+                      "type": "string",
+                      "description": "The mint echoed back from the path."
+                    },
+                    "rugs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "token_mint": {
+                            "type": "string"
+                          },
+                          "pool_address": {
+                            "type": "string",
+                            "description": "On-chain pool / LP account that was drained."
+                          },
+                          "dex": {
+                            "type": "string",
+                            "description": "Venue name (e.g. `pumpswap`, `raydium_amm`, `raydium_clmm`, `orca`, `meteora_damm_v2`, `meteora_dlmm`)."
+                          },
+                          "classification": {
+                            "type": "string",
+                            "enum": [
+                              "RUGGED",
+                              "LIQUIDITY_DRAINING"
+                            ],
+                            "description": "`RUGGED` = a graduated/AMM pool drained past the rug threshold (>95%); `LIQUIDITY_DRAINING` = a large (50–95%) drain that isn't a full rug."
+                          },
+                          "drained_pct": {
+                            "type": "number",
+                            "format": "float",
+                            "description": "Fraction of pool liquidity removed, **0..1** (NOT a 0–100 percentage). e.g. `0.97` = 97%."
+                          },
+                          "lp_sol_pulled": {
+                            "type": "number",
+                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you — do **not** divide again)."
+                          },
+                          "signature": {
+                            "type": "string",
+                            "description": "Base58 signature of the triggering withdraw/burn."
+                          },
+                          "slot": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "Solana slot."
+                          },
+                          "ts_ms": {
+                            "type": "integer",
+                            "format": "int64",
+                            "description": "Event time, epoch **milliseconds**."
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Full match total (`count() OVER ()`), independent of `limit`/`offset`."
+                    },
+                    "computed_at": {
+                      "type": "integer",
+                      "description": "Epoch milliseconds."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed mint (not base58)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }

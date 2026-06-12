@@ -247,6 +247,14 @@
             ]
           },
           {
+            "group": "Rugs",
+            "openapi": "api-reference/openapi.json",
+            "pages": [
+              "GET /rugs",
+              "GET /tokens/{mint}/rugs"
+            ]
+          },
+          {
             "group": "Pump lifecycle",
             "openapi": "api-reference/openapi.json",
             "pages": [

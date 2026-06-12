@@ -168,7 +168,7 @@ In filter-mode (the default — the mode you get after sending a [`subscribe`](#
 | `pool_base_reserve_after` | `u64` | Post-event pool reserve, base side, atomic. `0` when N/A. |
 | `pool_quote_reserve_after` | `u64` | Post-event pool reserve, quote side, **lamports**. `0` when N/A. |
 | `lp_supply_after` | `u64` | Post-event total LP supply. Constant-product only — `0` for Meteora. |
-| `dex` | `int` (Enum8) | `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2. |
+| `dex` | `int` (Enum8) | `2`=PumpSwap, `3`=RaydiumAmm, `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `7`=MeteoraDammV2, `9`=MeteoraDlmm. |
 
 There is **no buy/sell side and no price field** on a pool event — it's a liquidity action, not a trade.
 
@@ -200,7 +200,7 @@ A burn carries a **different** field set. There is **no `pool_address`** and **n
 
 ### `rug_detected` (RugRecord) — the classified signal
 
-`rug_detected` is a **server-side classified** rug / drain signal, derived from an `lp_withdraw` or `lp_burn`. It fires **only on already-graduated AMM pools** (PumpSwap, RaydiumAmm, MeteoraDammV2) — never on the pump.fun bonding curve. **Pump graduation-migrations are excluded**: they move liquidity but aren't rugs, so they never produce a `rug_detected`.
+`rug_detected` is a **server-side classified** rug / drain signal, derived from an `lp_withdraw` or `lp_burn`. It fires on **any non-`pumpfun` venue** when a real LP drain crosses the drain threshold **outside the graduation/migration window** — i.e. on a genuine AMM/CLMM pool, not the pump.fun bonding curve (which has no fungible LP to pull). **Pump graduation-migrations are excluded**: they move liquidity but aren't rugs, so they never produce a `rug_detected`.
 
 ```json
 {
@@ -227,12 +227,12 @@ A burn carries a **different** field set. There is **no `pool_address`** and **n
 | `signature` | `string` | Base58 transaction signature of the triggering withdraw/burn. |
 | `pool_address` | `string` | On-chain pool / LP account. |
 | `token_mint` | `string` | Token mint. |
-| `dex` | `int` (Enum8) | `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2. |
+| `dex` | `int` (Enum8) | The venue the drain happened on — any non-`pumpfun` AMM/CLMM (e.g. `2`=PumpSwap, `3`=RaydiumAmm, `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `7`=MeteoraDammV2, `9`=MeteoraDlmm). |
 | `lp_sol_pulled` | `u64` | SOL liquidity removed, in **lamports**. Divide by `1e9` for SOL. |
 | `drained_pct` | `f32` (0..1) | Fraction of pool liquidity removed. |
 | `classification` | `string` | `"RUGGED"` when >95% of liquidity was removed; `"LIQUIDITY_DRAINING"` when 50–95%. |
 | `reason` | `string` | `"lp_withdraw"` or `"lp_burn"` — which action triggered the classification. |
-| `graduated` | `bool` | Always true in practice — the signal only fires on graduated AMM pools. |
+| `graduated` | `bool` | Whether the mint had already graduated/migrated off the pump.fun bonding curve when the drain landed. The graduation/migration window itself is excluded, so a `rug_detected` is a post-migration (or never-pumped) AMM drain. |
 
 ### Filter scope for pool events
 
@@ -262,24 +262,114 @@ If you use **rooms** (a `join` message) instead of filters, the same pool events
 
 `transaction:{mint}` rooms **interleave** swaps, pool events (`lp_deposit`/`lp_withdraw`/`token_burn`), and `rug_detected` — demux on `type` / `event_type`. Room-mode is **mode-exclusive** with filter-mode on a given connection: the first `subscribe` locks the socket into filter-mode, and the first `join` locks it into room-mode. Pick one per connection.
 
+### Rooms reference
+
+Every valid `/ws/swaps` room is listed below. Join with `{ "type": "join", "room": "<room>" }`; the server replies `{ "type": "joined", "room": "<room>" }` (and `{ "type": "left", "room": "<room>" }` after a `leave`). An unknown or malformed room is rejected with an `error` frame (`unknown_room` / `malformed_room`). Joining a room that **isn't** the discovery rooms — i.e. any `pnl:*` room — requires the **Pro or Enterprise** tier; lower tiers get a `tier_required` error.
+
+Per-tier join caps apply: Free **5**, Developer **25**, Pro **100**, Enterprise unlimited.
+
+Unless noted, every room delivers the **room-mode wrapper** — `{ "type": "message", "room": "<room>", "data": { … } }` — and you read the real payload from `data` (the [dual-frame trap](#room-mode-delivers-the-same-events-with-a-different-shape) above).
+
+| Room | Join string | What it carries |
+| --- | --- | --- |
+| Latest mints | `latest` | New-mint discovery — one `data` per `mints.observed` event as a token is first seen. |
+| Graduating | `graduating` | Tokens crossing the bonding-curve completion threshold (the `mints.completing` lifecycle event). |
+| Graduated | `graduated` | Tokens that migrated to a tradeable AMM pool (the `mints.graduated` lifecycle event). |
+| Rugs (global) | `rugs` | Every `rug_detected` across all venues — the **full `RugRecord`** (`classification`, `drained_pct`, `lp_sol_pulled` in **lamports**, `dex`, plus `reason` + `graduated`). See below. |
+| Token safety | `safety:{mint}` | The mint's full actor/safety snapshot (holder/sniper/insider/bundler counts, top-holder %, dev-held %, …), re-pushed on-change (~3–5 s coalesced). |
+| Price bars | `price:{addr}:{tf}` | Live OHLCV bar updates for `addr` (a **mint OR pool**) at timeframe `tf`. `tf` ∈ `1s 30s 1m 5m 15m 1h 4h 1d`. A mint-keyed room interleaves the mint's pairs (each frame carries `pair_address`). |
+| Wallet trades | `wallet:{wallet}` | Every `swap` where `wallet` is the trader (a live per-wallet trade tape). |
+| Transaction (token) | `transaction:{mint}` | Interleaved `swap` + `lp_deposit`/`lp_withdraw`/`token_burn` + `rug_detected` for one mint (all pools). |
+| Transaction (pool) | `transaction:{mint}:{pool}` | Same as above, scoped to a single `pool`. |
+| Wallet PnL | `pnl:{wallet}` | Per-position PnL frames for `wallet` — one frame per holding, re-pushed as the wallet trades or spot moves. **Pro+.** |
+| Position PnL | `pnl:{wallet}:{token}` | A single `(wallet, token)` position, glass-box (with `realized_breakdown`). **Pro+.** A token literally named `summary` is not addressable. |
+| Wallet PnL summary | `pnl:{wallet}:summary` | The wallet-level rollup (`realized_sol`, `unrealized_sol`, `cost_basis_sol`, `open_positions`, `closed_positions`, `positions[]`). **Pro+.** |
+
+<Note>
+**`pnl:*` rooms push an instant snapshot on join.** The other rooms only start delivering on the next matching event; the PnL rooms seed the joining connection with its current book immediately (then keep it live).
+</Note>
+
+#### The global `rugs` room
+
+```json
+{ "type": "join", "room": "rugs" }
+```
+
+The `rugs` room fans out the **full `RugRecord`** for every `rug_detected` — the same object the [`rug_detected` field table](#rug-detected-rugrecord-the-classified-signal) describes, including **`reason` and `graduated`** (and the `dex` venue id). This is a superset of what the REST `GET /rugs` feed (under **Rugs** in the [API reference](/api-reference)) returns — REST **omits `reason` and `graduated`** (they live only on the NATS wire), so use the room when you need them live:
+
+```json
+{
+  "type": "message",
+  "room": "rugs",
+  "data": {
+    "event_type": "rug_detected",
+    "token_mint": "8Zi…",
+    "pool_address": "DT7…",
+    "dex": 7,
+    "classification": "RUGGED",
+    "drained_pct": 0.97,
+    "lp_sol_pulled": 4200000000,
+    "reason": "lp_withdraw",
+    "graduated": true
+  }
+}
+```
+
+#### A `safety:{mint}` frame
+
+```json
+{
+  "type": "message",
+  "room": "safety:8Zi…",
+  "data": { "mint": "8Zi…", "holder_count": 412, "top10_pct": 0.38, "dev_held_pct": 0.0, "sniper_count": 9, "insider_count": 3, "bundler_count": 0, "...": "..." }
+}
+```
+
+#### A `pnl:{wallet}:summary` frame
+
+```json
+{
+  "type": "message",
+  "room": "pnl:9aB…:summary",
+  "data": {
+    "wallet": "9aB…",
+    "pnl_mode": "adjusted",
+    "realized_sol": 12.34,
+    "unrealized_sol": -1.2,
+    "cost_basis_sol": 40.0,
+    "open_positions": 5,
+    "closed_positions": 18,
+    "positions": [ { "mint": "8Zi…", "realized_sol": 3.1, "unrealized_sol": 0.4, "...": "..." } ]
+  }
+}
+```
+
 ### Per-DEX coverage matrix
 
-LP and rug events are **live** for three venues:
+LP and rug events are **live** for every AMM venue. The only two gaps are the
+bonding-curve venues, which have no fungible LP to add, remove, or drain (see
+[Data coverage](/concepts/coverage)).
 
 | DEX | `dex` | LP / rug events |
 | --- | --- | --- |
 | PumpSwap | `2` | ✅ Live |
 | RaydiumAmm v4 | `3` | ✅ Live |
+| RaydiumClmm | `4` | ✅ Live |
+| RaydiumCpmm | `5` | ✅ Live |
+| Orca | `6` | ✅ Live |
 | MeteoraDammV2 | `7` | ✅ Live |
-| RaydiumClmm | `4` | ❌ Not emitted |
-| RaydiumCpmm | `5` | ❌ Not emitted |
-| Orca | `6` | ❌ Not emitted |
+| MeteoraDlmm | `9` | ✅ Live |
 | MeteoraDbc | `8` | ❌ Not emitted |
-| MeteoraDlmm | `9` | ❌ Not emitted |
 | MeteoraPools | `10` | ❌ Not emitted |
 
 <Warning>
-**Absence is not safety.** The 6 uncovered venues do **not** emit `lp_withdraw` (or `rug_detected`) yet, so *not seeing* an LP-removal event on one of them is **not** proof a pool is safe. Coverage for these venues is a tracked follow-up.
+**Absence is not safety on the two uncovered venues.** `meteora_dbc` (`8`) is a
+**bonding curve** — there's no fungible LP, so the curve *is* the liquidity and
+there's nothing to `lp_withdraw`. `meteora_pools` (`10`) routes liquidity through
+**dynamic vaults shared across many pools**, so a per-pool LP add/remove isn't
+derivable from a swap (see [Data coverage](/concepts/coverage)). On those two,
+*not seeing* an LP-removal or `rug_detected` event is **not** proof a pool is
+safe.
 </Warning>
 
 ### Historical / replay companions
@@ -287,7 +377,9 @@ LP and rug events are **live** for three venues:
 For backfill and gap-filling, the same events are queryable over REST and MCP:
 
 - REST: [`GET /pool-events?token=<mint>&limit=N&before=<ts_ms>`](/api-reference) — paginated LP/burn history (cursor is epoch **ms**).
-- MCP: the `list_pool_events` tool wraps the same endpoint.
+- REST: `GET /rugs` (under **Rugs** in the [API reference](/api-reference)) — recent `rug_detected` events across all venues (7-day window, paged; requires an API key). `drained_pct` is a **0..1** fraction and `lp_sol_pulled` is **already in SOL** — but `reason`/`graduated` are **WS-only** (use the [`rugs` room](#the-global-rugs-room) for those).
+- REST: `GET /tokens/{mint}/rugs` — rug history for a single mint.
+- MCP: the `list_pool_events` tool wraps the same pool-events endpoint.
 
 <Note>
 **Edge:** `/ws/swaps` is already routed at the OVH edge — both `lp_withdraw` and `rug_detected` ride this same socket. No new endpoint or connection is needed.

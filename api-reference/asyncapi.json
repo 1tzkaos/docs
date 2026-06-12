@@ -275,7 +275,7 @@
         }
       ],
       "summary": "Join a room",
-      "description": "Subscribe to a room such as `transaction:<mint>` or `transaction:<mint>:<pool>`. The first `join` locks the connection into room-mode \u2014 mode-exclusive with `subscribe`/filter-mode. `transaction:{mint}` rooms interleave swaps + pool events + `rug_detected`."
+      "description": "Subscribe to a room. The first `join` locks the connection into room-mode \u2014 mode-exclusive with `subscribe`/filter-mode. Valid rooms: `latest`, `graduating`, `graduated`, `rugs` (global rug feed \u2014 full RugRecord incl. `reason`+`graduated`), `safety:{mint}`, `price:{addr}:{tf}` (addr = mint OR pool; tf \u2208 1s/30s/1m/5m/15m/1h/4h/1d), `wallet:{wallet}`, `transaction:{mint}`, `transaction:{mint}:{pool}`, and the Pro+ PnL rooms `pnl:{wallet}`, `pnl:{wallet}:{token}`, `pnl:{wallet}:summary`. `transaction:{mint}` rooms interleave swaps + pool events + `rug_detected`. Per-tier join caps: Free 5, Developer 25, Pro 100, Enterprise unlimited."
     },
     "sendSwapsLeave": {
       "action": "receive",
@@ -900,11 +900,15 @@
       },
       "DexId": {
         "type": "integer",
-        "description": "Integer (Enum8) DEX id used on **pool-event** frames \u2014 distinct from the string `Dex` used on swap frames. `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2 (the venues with live LP/rug events). `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `8`=MeteoraDbc, `9`=MeteoraDlmm, `10`=MeteoraPools do NOT emit pool events yet.",
+        "description": "Integer (Enum8) DEX id used on **pool-event** frames \u2014 distinct from the string `Dex` used on swap frames. `2`=PumpSwap, `3`=RaydiumAmm, `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `7`=MeteoraDammV2, `9`=MeteoraDlmm emit LP/rug pool events. `1`=PumpFun and `8`=MeteoraDbc are bonding curves (no fungible LP); `10`=MeteoraPools LP events are not yet emitted (shared dynamic vaults).",
         "enum": [
           2,
           3,
-          7
+          4,
+          5,
+          6,
+          7,
+          9
         ]
       },
       "WsLpEventFrame": {
@@ -1051,7 +1055,7 @@
       },
       "WsRugRecordFrame": {
         "type": "object",
-        "description": "`rug_detected` \u2014 server-side classified rug / drain signal derived from an `lp_withdraw` or `lp_burn`. Fires only on already-graduated AMM pools (PumpSwap/RaydiumAmm/MeteoraDammV2), never the pump bonding curve. Pump graduation-migrations are EXCLUDED.",
+        "description": "`rug_detected` \u2014 server-side classified rug / drain signal derived from an `lp_withdraw` or `lp_burn`. Fires on ANY non-`pumpfun` venue when a real LP drain crosses the drain threshold OUTSIDE the graduation/migration window (a genuine AMM/CLMM pool, not the pump.fun bonding curve, which has no fungible LP). Pump graduation-migrations are EXCLUDED.",
         "properties": {
           "type": {
             "const": "pool_event"
@@ -1109,7 +1113,7 @@
           },
           "graduated": {
             "type": "boolean",
-            "description": "Always true in practice \u2014 the signal only fires on graduated AMM pools."
+            "description": "Whether the mint had already graduated/migrated off the pump.fun bonding curve when the drain landed. The graduation/migration window itself is excluded, so a `rug_detected` is always a post-migration (or never-pumped) AMM/CLMM drain."
           }
         },
         "example": {
@@ -1151,7 +1155,7 @@
           },
           "room": {
             "type": "string",
-            "description": "The room this message belongs to, e.g. `transaction:<mint>` or `transaction:<mint>:<pool>`."
+            "description": "The room this message belongs to. One of the discovery rooms (`latest`/`graduating`/`graduated`/`rugs`), `safety:{mint}`, `price:{addr}:{tf}`, `wallet:{wallet}`, `transaction:{mint}`(`:{pool}`), or a `pnl:{wallet}`(`:{token}`|`:summary`) room. For the global `rugs` room, `data` is the full RugRecord (incl. `reason`+`graduated`, which REST `GET /rugs` omits)."
           },
           "data": {
             "type": "object",
@@ -1192,7 +1196,7 @@
           },
           "room": {
             "type": "string",
-            "description": "Room to join, e.g. `transaction:<mint>` or `transaction:<mint>:<pool>`. The first `join` locks room-mode (mode-exclusive with `subscribe`/filter-mode)."
+            "description": "Room to join. Valid rooms: `latest`, `graduating`, `graduated`, `rugs`, `safety:{mint}`, `price:{addr}:{tf}`, `wallet:{wallet}`, `transaction:{mint}`, `transaction:{mint}:{pool}`, `pnl:{wallet}`, `pnl:{wallet}:{token}`, `pnl:{wallet}:summary` (the `pnl:*` rooms require Pro+). The first `join` locks room-mode (mode-exclusive with `subscribe`/filter-mode)."
           }
         }
       },
