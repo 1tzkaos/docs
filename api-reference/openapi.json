@@ -87,7 +87,7 @@
           },
           "recent_volume_sol": {
             "type": "number",
-            "description": "Volume in SOL over a recent rolling window"
+            "description": "Volume in **decimal SOL** over a recent rolling window — already divided by 1e9. NOTE: unlike the candle `volume_sol` field (which is **lamports** despite the same suffix), this `/pairs` field is real SOL — do **not** divide by 1e9 again."
           }
         }
       },
@@ -4645,8 +4645,9 @@
     "/api/v1/protocols": {
       "get": {
         "summary": "List supported DEX protocols",
-        "description": "Returns the lowercase snake_case names of every DEX Dexploit currently indexes. These are the values you'll pass as `protocol=` to [/api/v1/pairs](#tag/pairs/get/api/v1/pairs) and [/api/v1/top-movers](#tag/stats-trends/get/api/v1/top-movers), or as `dex=` to [/swaps](#tag/swaps/get/swaps).",
+        "description": "Returns the lowercase snake_case names of every DEX Dexploit currently indexes. These are the values you'll pass as `protocol=` to [/api/v1/pairs](#tag/pairs/get/api/v1/pairs) and [/api/v1/top-movers](#tag/stats-trends/get/api/v1/top-movers), or as `dex=` to [/swaps](#tag/swaps/get/swaps).\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/tokens/{mint}/audit](#tag/tokens/get/tokens/{mint}/audit)).",
         "operationId": "listProtocols",
+        "security": [],
         "tags": [
           "Stats & trends"
         ],
@@ -4692,8 +4693,9 @@
     "/api/v1/stats": {
       "get": {
         "summary": "Aggregate platform stats",
-        "description": "Roll-up of the OHLCV index — how many candles, pools, mints, and supported timeframes; plus when the index started.",
+        "description": "Roll-up of the OHLCV index — how many candles, pools, mints, and supported timeframes; plus when the index started.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols) and [/tokens/{mint}/audit](#tag/tokens/get/tokens/{mint}/audit)).",
         "operationId": "getOhlcvStats",
+        "security": [],
         "tags": [
           "Stats & trends"
         ],
@@ -5148,8 +5150,9 @@
     "/tokens/{mint}/audit": {
       "get": {
         "summary": "On-chain audit flags",
-        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n- **Malformed** (non-base58) mint → `400`.",
+        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n- **Malformed** (non-base58) mint → `400`.",
         "operationId": "getTokenAudit",
+        "security": [],
         "tags": [
           "Tokens"
         ],
@@ -7640,7 +7643,7 @@
     "/pump-lifecycle": {
       "get": {
         "summary": "Pump.fun token lifecycle events",
-        "description": "Stream of mint-create / bonding-progress / graduation events for pump.fun tokens. Filter by lifecycle status to surface fresh mints (`new`), tokens close to the curve end (`completing`), tokens about to migrate (`graduating`), or completed migrations (`migrated`).\n\nAn unrecognized `status` value returns **HTTP 400** `{\"error\":\"invalid_filter:status:<value>\"}`.\n\nFor a real-time push of these events, see [WebSocket: pump lifecycle](/streaming/pump-lifecycle).",
+        "description": "Stream of mint-create / bonding-progress / graduation events for pump.fun tokens. Filter by lifecycle `status`. The **only valid values** are `new` (recent mints), `completing` / `graduating` (bonding curve near 100%), and `migrated` (already on pumpswap). Any other value — including `graduated` or `rugged` — returns **HTTP 400** `{\"error\":\"invalid_filter:status:<value>\"}`.\n\nFor a real-time push of these events, join the `latest` / `graduating` / `graduated` discovery rooms on the main [WebSocket: swaps](/streaming/websocket) feed.",
         "operationId": "listPumpLifecycle",
         "tags": [
           "Pump lifecycle"

@@ -80,15 +80,9 @@ Call `GET /credits` at any time to see your current tier, RPS cap, requests used
 
 `monthly_used` is informational. There is no monthly cap on Dexploit — the field shows your cumulative request count for the current calendar month so you can size up your typical load.
 
-## Rate-limit headers
+## Rate limiting
 
-Every authenticated response carries:
-
-- `X-RateLimit-Limit` — the cap for the current window (= `rps_cap × rps_window_secs`).
-- `X-RateLimit-Remaining` — requests left.
-- `X-RateLimit-Reset` — seconds until the window rolls over.
-
-When you exceed the cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Retry after `X-RateLimit-Reset` seconds.
+When you exceed your tier's RPS cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Back off and retry. Use [`GET /credits`](#inspecting-your-usage) to read your current-window usage and the seconds until it resets (`current_window_reset_secs`).
 
 ## Tier-locked features
 
@@ -128,7 +122,7 @@ Exceeding the cap returns `RESOURCE_EXHAUSTED`. The `wallet_tags` filter is Pro+
 | --- | --- | --- | --- |
 | `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
 | `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
-| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in current window. | Retry after `X-RateLimit-Reset` seconds. |
+| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in current window. | Back off and retry; check `current_window_reset_secs` from `/credits`. |
 | `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
 | `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |

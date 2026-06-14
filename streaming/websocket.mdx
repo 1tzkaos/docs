@@ -4,7 +4,7 @@ description: "Real-time swap stream over WebSocket. Subscribe by pool, get pushe
 asyncapi: "/api-reference/asyncapi.json swaps"
 ---
 
-The swaps WebSocket is the easiest way to get real-time DEX trades into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc). For other streams: [OHLCV candles](/streaming/ohlcv) and [pump.fun lifecycle](/streaming/pump-lifecycle).
+The swaps WebSocket is the easiest way to get real-time DEX trades into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc). For live OHLCV bars, see [OHLCV candles](/streaming/ohlcv). Pump.fun mint / graduation events stream from this same socket — join the `latest`, `graduating`, and `graduated` discovery rooms.
 
 ## When to use WebSocket
 
@@ -14,7 +14,7 @@ The swaps WebSocket is the easiest way to get real-time DEX trades into a browse
 | Low-to-mid throughput server | WebSocket |
 | Highest throughput, schema-typed clients | [gRPC](/streaming/grpc) |
 | Live OHLCV bars | [WebSocket: OHLCV](/streaming/ohlcv) |
-| Pump.fun mint / migration events | [WebSocket: pump lifecycle](/streaming/pump-lifecycle) |
+| Pump.fun mint / migration events | This socket — join the `latest` / `graduating` / `graduated` rooms |
 | One-shot historical data | [REST](/quickstart) |
 
 ## Endpoint and auth
@@ -460,4 +460,4 @@ For production hardening (resubscribe state, gap-filling via REST, idle pings), 
 
 ## Programmatic spec
 
-If you're generating clients or feeding the contract into an LLM/codegen pipeline, every WebSocket channel — `/ws/swaps`, `/ws/ohlcv`, `/ws/pump-lifecycle` — is described as a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). All message schemas and live-captured example payloads are included.
+If you're generating clients or feeding the contract into an LLM/codegen pipeline, every WebSocket channel — `/ws/swaps` and `/ws/ohlcv` — is described as a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). All message schemas and live-captured example payloads are included.

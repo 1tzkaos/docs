@@ -23,15 +23,15 @@
 ### OHLCV
 - [GET /api/v1/candles](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/candles): historical candles
 - [GET /api/v1/candles/latest](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/candles/latest): newest per timeframe
-- [GET /api/v1/pairs](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/pairs): liquidity pools
-- [GET /api/v1/protocols](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/protocols): supported DEXes
-- [GET /api/v1/stats](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/stats): aggregate platform stats
+- [GET /api/v1/pairs](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/pairs): liquidity pools (Pair.recent_volume_sol is decimal SOL — already /1e9 — unlike candle volume_sol which is lamports)
+- [GET /api/v1/protocols](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/protocols): supported DEXes (PUBLIC — no API key)
+- [GET /api/v1/stats](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/stats): aggregate platform stats (PUBLIC — no API key)
 - [GET /api/v1/top-movers](https://docs.dexploit.dev/api-reference/openapi/get/api/v1/top-movers): top gainers/losers per timeframe
 
 ### Tokens
 - [GET /tokens](https://docs.dexploit.dev/api-reference/openapi/get/tokens): paginated token directory
 - [GET /tokens/{mint}](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}): token metadata + audit
-- [GET /tokens/{mint}/audit](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/audit): rug-check audit only
+- [GET /tokens/{mint}/audit](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/audit): rug-check audit only (PUBLIC — no API key)
 - [GET /tokens/{mint}/intel](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/intel): dashboard summary (actors + top10 + risk)
 - [GET /tokens/{mint}/risk](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/risk): glass-box 0-10 risk score
 - [GET /tokens/{mint}/holders](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/holders): paginated holders
@@ -114,18 +114,17 @@ Phase-8 cost-basis engine. `pnl_mode=raw|strict|adjusted` (default adjusted). Al
 - [GET /tokens/{mint}/rugs](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/rugs): rug history for one mint (newest first; malformed mint → 400); requires X-API-Key
 
 ### Pump lifecycle
-- [GET /pump-lifecycle](https://docs.dexploit.dev/api-reference/openapi/get/pump-lifecycle): lifecycle event stream
+- [GET /pump-lifecycle](https://docs.dexploit.dev/api-reference/openapi/get/pump-lifecycle): lifecycle event poll. Valid `status` values are ONLY `new`/`completing`/`graduating`/`migrated` — any other (incl. `graduated`/`rugged`) → 400 invalid_filter:status. (The `/ws/pump-lifecycle` socket was removed; use the swaps WS discovery rooms for a live push.)
 
 ### Account
 - [GET /credits](https://docs.dexploit.dev/api-reference/openapi/get/credits): RPS-tier usage snapshot
 - [GET /subscription](https://docs.dexploit.dev/api-reference/openapi/get/subscription): subscription status (JWT)
 
 ## Streaming
-- [WebSocket: swaps](https://docs.dexploit.dev/streaming/websocket): per-swap firehose
+- [WebSocket: swaps](https://docs.dexploit.dev/streaming/websocket): per-swap firehose. Join the `latest`/`graduating`/`graduated` discovery rooms for pump.fun mint/graduation events (the old `/ws/pump-lifecycle` socket was removed; poll REST `GET /pump-lifecycle` for one-shot history).
 - [WebSocket: OHLCV](https://docs.dexploit.dev/streaming/ohlcv): live candle updates
-- [WebSocket: pump lifecycle](https://docs.dexploit.dev/streaming/pump-lifecycle): mint/graduation events
-- [gRPC: PriceStream](https://docs.dexploit.dev/streaming/grpc): protocol price feed
-- [gRPC: SwapStream](https://docs.dexploit.dev/streaming/grpc-swaps): streaming swap feed with server-side filtering
+- [gRPC: PriceStream](https://docs.dexploit.dev/streaming/grpc): `dexploit.v1.PriceStream/Subscribe` — typed DexTransaction protocol price feed
+- [gRPC: SwapStream](https://docs.dexploit.dev/streaming/grpc-swaps): `dexploit.v1.SwapStream/StreamLive` — streaming UnifiedSwap feed with server-side filtering
 
 ## Optional
 - [GraphQL playground](https://docs.dexploit.dev/api-reference/graphql)

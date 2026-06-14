@@ -68,29 +68,23 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
 }
 ```
 
-## Rate-limit response headers
-
-Every successful response includes:
-
-- `X-RateLimit-Limit` — total cap for the current 60-second window (= `rps_cap × 60`).
-- `X-RateLimit-Remaining` — requests left.
-- `X-RateLimit-Reset` — seconds until the window rolls over.
-
 ## Error responses
+
+Errors are always enveloped. The default shape carries `error` as a **string** alongside `data: null`:
 
 ```json
 {
   "success": false,
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Missing or invalid API key"
-  }
+  "data": null,
+  "error": "Missing or invalid API key"
 }
 ```
 
-| Status | Code | Meaning |
-| --- | --- | --- |
-| 401 | `UNAUTHORIZED` | Key missing, malformed, or revoked. |
-| 429 | `RATE_LIMIT_EXCEEDED` | RPS cap exceeded in current window. Retry after `X-RateLimit-Reset` seconds. |
+Some endpoint families instead wrap `error` as an **object** (`{ code, message }`) — the legacy `/api/v1/*` and raw `/stats/*` / `/swaps/*` families. Handle both: read `error` as either a string or an object. See [Quotas & errors](/concepts/quotas-errors#response-envelope) for the per-family breakdown.
+
+| Status | Meaning |
+| --- | --- |
+| 401 | Key missing, malformed, or revoked. |
+| 429 | RPS cap exceeded in the current window. Retry with backoff. |
 
 Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).

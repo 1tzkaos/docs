@@ -3,7 +3,7 @@
   "info": {
     "title": "Dexploit Streaming API",
     "version": "1.0.0",
-    "description": "Real-time WebSocket streams: raw swaps, swap-event OHLCV candles, and pump.fun token lifecycle events. Authenticate with `?api_key=\u2026` or `Authorization: Bearer \u2026`.",
+    "description": "Real-time WebSocket streams: raw swaps and swap-event OHLCV candles. Authenticate with `?api_key=\u2026` or `Authorization: Bearer \u2026`.",
     "license": {
       "name": "Proprietary"
     }
@@ -90,22 +90,6 @@
         },
         "subscribe": {
           "$ref": "#/components/messages/OhlcvSubscribe"
-        }
-      }
-    },
-    "pumpLifecycle": {
-      "address": "/ws/pump-lifecycle",
-      "title": "Pump.fun lifecycle stream",
-      "description": "Every connected client receives every lifecycle event \u2014 there is no `subscribe` message. Filter client-side by `type`, `mint`, or `creator`.",
-      "messages": {
-        "mintCreated": {
-          "$ref": "#/components/messages/PumpMintCreated"
-        },
-        "completing": {
-          "$ref": "#/components/messages/PumpCompleting"
-        },
-        "graduated": {
-          "$ref": "#/components/messages/PumpGraduated"
         }
       }
     }
@@ -353,45 +337,6 @@
       ],
       "summary": "Subscribe / add / remove / unsubscribe (pools x timeframes)",
       "description": "First frame subscribes (arrays required). Later frames carry `op`: `add` unions symbols into the live set, `remove` drops them, `unsubscribe` clears all, `subscribe` (or op-absent) REPLACES the whole set. Mid-stream errors are non-fatal (socket stays open). Two caps: MAX_PAIRS_PER_SUBSCRIBE (per frame, default 1000) and MAX_SUBJECTS_PER_CONNECTION (cumulative live set, default 5000); an add/replace over the subject cap is rejected atomically."
-    },
-    "receivePumpLifecycleMintCreated": {
-      "action": "send",
-      "channel": {
-        "$ref": "#/channels/pumpLifecycle"
-      },
-      "messages": [
-        {
-          "$ref": "#/channels/pumpLifecycle/messages/mintCreated"
-        }
-      ],
-      "summary": "Mint created",
-      "description": "A new pump.fun token has been minted. Bonding curve sits at 0%."
-    },
-    "receivePumpLifecycleCompleting": {
-      "action": "send",
-      "channel": {
-        "$ref": "#/channels/pumpLifecycle"
-      },
-      "messages": [
-        {
-          "$ref": "#/channels/pumpLifecycle/messages/completing"
-        }
-      ],
-      "summary": "Bonding curve completing",
-      "description": "The pump.fun bonding curve has reached its threshold and migration to pumpswap is imminent. `bonding_pct` will read 1.0."
-    },
-    "receivePumpLifecycleGraduated": {
-      "action": "send",
-      "channel": {
-        "$ref": "#/channels/pumpLifecycle"
-      },
-      "messages": [
-        {
-          "$ref": "#/channels/pumpLifecycle/messages/graduated"
-        }
-      ],
-      "summary": "Token graduated to pumpswap",
-      "description": "The token has finished bonding and an AMM pool exists at `new_pool`. Use that pair address on the candles / swaps endpoints."
     }
   },
   "components": {
@@ -557,30 +502,6 @@
         "summary": "Op-tagged frame that mutates the live (pool x timeframe) set. The FIRST frame subscribes; later frames on the same socket can `add`/`remove`/`unsubscribe` or `subscribe` (reset) without reconnecting. `op` absent = `subscribe` = REPLACE.",
         "payload": {
           "$ref": "#/components/schemas/OhlcvSubscribeBody"
-        }
-      },
-      "PumpMintCreated": {
-        "name": "mint_created",
-        "title": "Mint created",
-        "summary": "A new pump.fun token has been minted. Bonding curve sits at 0%.",
-        "payload": {
-          "$ref": "#/components/schemas/PumpMintCreatedBody"
-        }
-      },
-      "PumpCompleting": {
-        "name": "completing",
-        "title": "Bonding curve completing",
-        "summary": "The pump.fun bonding curve has reached its threshold and migration to pumpswap is imminent. `bonding_pct` will read 1.0.",
-        "payload": {
-          "$ref": "#/components/schemas/PumpCompletingBody"
-        }
-      },
-      "PumpGraduated": {
-        "name": "graduated",
-        "title": "Token graduated to pumpswap",
-        "summary": "The token has finished bonding and an AMM pool exists at `new_pool`. Use that pair address on the candles / swaps endpoints.",
-        "payload": {
-          "$ref": "#/components/schemas/PumpGraduatedBody"
         }
       }
     },
@@ -1399,107 +1320,6 @@
           "sell_count": 0,
           "unique_traders": 5,
           "is_closed": false
-        }
-      },
-      "PumpEventBase": {
-        "type": "object",
-        "properties": {
-          "type": {
-            "type": "string",
-            "enum": [
-              "mint_created",
-              "completing",
-              "graduated"
-            ],
-            "description": "**Different from REST**: the streaming feed uses the field name `type`. The REST `/pump-lifecycle` response uses `event_type` for the same value."
-          },
-          "mint": {
-            "type": "string"
-          },
-          "ts": {
-            "type": "integer",
-            "description": "Unix epoch **seconds**."
-          }
-        }
-      },
-      "PumpMintCreatedBody": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/PumpEventBase"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "mint_created"
-              },
-              "creator": {
-                "type": "string",
-                "description": "Wallet that minted the token."
-              }
-            }
-          }
-        ],
-        "example": {
-          "type": "mint_created",
-          "mint": "AkK37QB3MSaEdz2e5LFt1JuFA1MjSckonnEjW6txpump",
-          "ts": 1779279502,
-          "creator": "FeFdCVhqVyLizLGWkNkgFm4UhZXgrjq6tkjXpVEKHqSk"
-        }
-      },
-      "PumpCompletingBody": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/PumpEventBase"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "completing"
-              },
-              "bonding_pct": {
-                "type": "number",
-                "description": "1.0 when this fires."
-              }
-            }
-          }
-        ],
-        "example": {
-          "type": "completing",
-          "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
-          "ts": 1779279513,
-          "bonding_pct": 1.0
-        }
-      },
-      "PumpGraduatedBody": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/PumpEventBase"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "const": "graduated"
-              },
-              "dex": {
-                "type": "string",
-                "description": "Destination DEX (today: `pumpswap`)."
-              },
-              "new_pool": {
-                "type": "string",
-                "description": "Pool address on the destination DEX \u2014 use this as `pair_address` for candles + swap queries from now on."
-              }
-            }
-          }
-        ],
-        "example": {
-          "type": "graduated",
-          "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
-          "ts": 1779279512,
-          "dex": "pumpswap",
-          "new_pool": "DyYPN3FsuUjbXspisF4HszHswsuVMV3BxWZ8ALmXAKiF"
         }
       }
     }

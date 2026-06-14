@@ -32,7 +32,7 @@ WebSocket: send `{ "type": "ping" }` every 30 seconds. The server replies with `
 gRPC: configure HTTP/2 keepalive on the channel:
 
 ```typescript
-const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+const client = new proto.dexploit.v1.PriceStream(ENDPOINT, creds, {
   'grpc.keepalive_time_ms': 30_000,
   'grpc.keepalive_timeout_ms': 10_000,
   'grpc.keepalive_permit_without_calls': 1,

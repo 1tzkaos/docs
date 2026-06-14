@@ -204,30 +204,24 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
 }
 ```
 
-## Rate-limit response headers
-
-Every successful response includes:
-
-- `X-RateLimit-Limit` — total cap for the current 60-second window (= `rps_cap × 60`).
-- `X-RateLimit-Remaining` — requests left.
-- `X-RateLimit-Reset` — seconds until the window rolls over.
-
 ## Error responses
+
+Errors are always enveloped. The default shape carries `error` as a **string** alongside `data: null`:
 
 ```json
 {
   "success": false,
-  "error": {
-    "code": "UNAUTHORIZED",
-    "message": "Missing or invalid API key"
-  }
+  "data": null,
+  "error": "Missing or invalid API key"
 }
 ```
 
-| Status | Code | Meaning |
-| --- | --- | --- |
-| 401 | `UNAUTHORIZED` | Key missing, malformed, or revoked. |
-| 429 | `RATE_LIMIT_EXCEEDED` | RPS cap exceeded in current window. Retry after `X-RateLimit-Reset` seconds. |
+Some endpoint families instead wrap `error` as an **object** (`{ code, message }`) — the legacy `/api/v1/*` and raw `/stats/*` / `/swaps/*` families. Handle both: read `error` as either a string or an object. See [Quotas & errors](/concepts/quotas-errors#response-envelope) for the per-family breakdown.
+
+| Status | Meaning |
+| --- | --- |
+| 401 | Key missing, malformed, or revoked. |
+| 429 | RPS cap exceeded in the current window. Retry with backoff. |
 
 Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 
@@ -496,15 +490,9 @@ Call `GET /credits` at any time to see your current tier, RPS cap, requests used
 
 `monthly_used` is informational. There is no monthly cap on Dexploit — the field shows your cumulative request count for the current calendar month so you can size up your typical load.
 
-## Rate-limit headers
+## Rate limiting
 
-Every authenticated response carries:
-
-- `X-RateLimit-Limit` — the cap for the current window (= `rps_cap × rps_window_secs`).
-- `X-RateLimit-Remaining` — requests left.
-- `X-RateLimit-Reset` — seconds until the window rolls over.
-
-When you exceed the cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Retry after `X-RateLimit-Reset` seconds.
+When you exceed your tier's RPS cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Back off and retry. Use [`GET /credits`](#inspecting-your-usage) to read your current-window usage and the seconds until it resets (`current_window_reset_secs`).
 
 ## Tier-locked features
 
@@ -544,7 +532,7 @@ Exceeding the cap returns `RESOURCE_EXHAUSTED`. The `wallet_tags` filter is Pro+
 | --- | --- | --- | --- |
 | `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
 | `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
-| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in current window. | Retry after `X-RateLimit-Reset` seconds. |
+| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in current window. | Back off and retry; check `current_window_reset_secs` from `/credits`. |
 | `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
 | `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |
@@ -881,7 +869,7 @@ Wire these parameters into your UI now if you want them to take effect automatic
 # streaming/websocket
 
 
-The swaps WebSocket is the easiest way to get real-time DEX trades into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc). For other streams: [OHLCV candles](/streaming/ohlcv) and [pump.fun lifecycle](/streaming/pump-lifecycle).
+The swaps WebSocket is the easiest way to get real-time DEX trades into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc). For live OHLCV bars, see [OHLCV candles](/streaming/ohlcv). Pump.fun mint / graduation events stream from this same socket — join the `latest`, `graduating`, and `graduated` discovery rooms.
 
 ## When to use WebSocket
 
@@ -891,7 +879,7 @@ The swaps WebSocket is the easiest way to get real-time DEX trades into a browse
 | Low-to-mid throughput server | WebSocket |
 | Highest throughput, schema-typed clients | [gRPC](/streaming/grpc) |
 | Live OHLCV bars | [WebSocket: OHLCV](/streaming/ohlcv) |
-| Pump.fun mint / migration events | [WebSocket: pump lifecycle](/streaming/pump-lifecycle) |
+| Pump.fun mint / migration events | This socket — join the `latest` / `graduating` / `graduated` rooms |
 | One-shot historical data | [REST](/quickstart) |
 
 ## Endpoint and auth
@@ -1045,7 +1033,7 @@ In filter-mode (the default — the mode you get after sending a [`subscribe`](#
 | `pool_base_reserve_after` | `u64` | Post-event pool reserve, base side, atomic. `0` when N/A. |
 | `pool_quote_reserve_after` | `u64` | Post-event pool reserve, quote side, **lamports**. `0` when N/A. |
 | `lp_supply_after` | `u64` | Post-event total LP supply. Constant-product only — `0` for Meteora. |
-| `dex` | `int` (Enum8) | `2`=PumpSwap, `3`=RaydiumAmm, `7`=MeteoraDammV2. |
+| `dex` | `int` (Enum8) | `2`=PumpSwap, `3`=RaydiumAmm, `4`=RaydiumClmm, `5`=RaydiumCpmm, `6`=Orca, `7`=MeteoraDammV2, `9`=MeteoraDlmm. |
 
 There is **no buy/sell side and no price field** on a pool event — it's a liquidity action, not a trade.
 
@@ -1337,7 +1325,7 @@ For production hardening (resubscribe state, gap-filling via REST, idle pings), 
 
 ## Programmatic spec
 
-If you're generating clients or feeding the contract into an LLM/codegen pipeline, every WebSocket channel — `/ws/swaps`, `/ws/ohlcv`, `/ws/pump-lifecycle` — is described as a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). All message schemas and live-captured example payloads are included.
+If you're generating clients or feeding the contract into an LLM/codegen pipeline, every WebSocket channel — `/ws/swaps` and `/ws/ohlcv` — is described as a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). All message schemas and live-captured example payloads are included.
 
 
 ---
@@ -1605,140 +1593,14 @@ The full message contract for this channel — and the other two WebSocket strea
 
 ---
 
-# streaming/pump-lifecycle
-
-
-The pump-lifecycle stream pushes a token's entire pump.fun journey — from the `mint_created` event, through bonding-curve progress, to `graduated` (migration to a tradeable pumpswap pool).
-
-For one-shot history of the same events, use the REST endpoint `GET /pump-lifecycle` (under **Pump lifecycle** in the API reference). That endpoint takes a `status` filter — `new`, `completing`, `graduating`, or `migrated` — and returns **400** `invalid_filter:status:<value>` for anything else.
-
-## When to use it
-
-- You want to surface fresh mints the second they appear.
-- You want to alert when a token crosses some bonding-curve threshold.
-- You want to react to graduations as the AMM pool comes alive.
-
-For all *post-graduation* trading activity (swaps), switch to the main [WebSocket: swaps](/streaming/websocket) feed once you see a `graduated` event — the pool only has swap volume after that point.
-
-## Endpoint and auth
-
-```
-wss://ws.dexploit.dev/ws/pump-lifecycle
-```
-
-Authenticate the same way as the main WebSocket:
-
-```
-Authorization: Bearer ohlcv_live_sk_<your_key>
-
-# or, for browsers:
-wss://ws.dexploit.dev/ws/pump-lifecycle?api_key=ohlcv_live_sk_<your_key>
-```
-
-There is **no subscribe step** — every connected client receives every lifecycle event. Filter client-side.
-
-## Event shapes
-
-Frames are typed by `type` (note: the REST `/pump-lifecycle` endpoint uses `event_type` for the same field — the streaming feed differs intentionally).
-
-**`mint_created`** — a new pump.fun token is minted; the bonding curve is at 0%.
-
-```json
-{
-  "type": "mint_created",
-  "mint": "AkK37QB3MSaEdz2e5LFt1JuFA1MjSckonnEjW6txpump",
-  "ts": 1779279502,
-  "creator": "FeFdCVhqVyLizLGWkNkgFm4UhZXgrjq6tkjXpVEKHqSk"
-}
-```
-
-**`completing`** — the bonding curve hit its threshold and migration is imminent. `bonding_pct` reads `1.0`.
-
-```json
-{
-  "type": "completing",
-  "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
-  "ts": 1779279513,
-  "bonding_pct": 1.0
-}
-```
-
-**`graduated`** — bonding curve done, AMM pool is live at `new_pool`. Use that pool address for candles and swap queries from now on.
-
-```json
-{
-  "type": "graduated",
-  "mint": "GEeJ4hSyQVCZv4TJnM4QZCevEiTn1QBXrCRkDM7Qpump",
-  "ts": 1779279512,
-  "dex": "pumpswap",
-  "new_pool": "DyYPN3FsuUjbXspisF4HszHswsuVMV3BxWZ8ALmXAKiF"
-}
-```
-
-| Field | Notes |
-| --- | --- |
-| `type` | `mint_created` \| `completing` \| `graduated`. |
-| `ts` | Unix epoch **seconds** (not ms — different from the swaps feed). |
-| `dex` / `new_pool` | Only on `graduated`. |
-| `creator` | Only on `mint_created`. |
-| `bonding_pct` | Only on `completing` (always `1.0`). |
-
-## Minimal TypeScript client
-
-```typescript
-import WebSocket from 'ws'; // browser: use the global WebSocket
-
-const URL = 'wss://ws.dexploit.dev/ws/pump-lifecycle';
-const API_KEY = 'ohlcv_live_sk_<your_key>';
-
-let backoff = 1000;
-
-function connect() {
-  const ws = new WebSocket(URL, {
-    headers: { Authorization: `Bearer ${API_KEY}` },
-  });
-
-  ws.on('open', () => { backoff = 1000; });
-
-  ws.on('message', (raw) => {
-    const e = JSON.parse(raw.toString());
-    switch (e.type) {
-      case 'mint_created':
-        console.log(`NEW MINT   ${e.mint} by ${e.creator}`);
-        break;
-      case 'completing':
-        console.log(`COMPLETING ${e.mint} (curve at ${e.bonding_pct})`);
-        break;
-      case 'graduated':
-        console.log(`GRADUATED  ${e.mint} → pool ${e.new_pool} (${e.dex})`);
-        break;
-    }
-  });
-
-  ws.on('close', () => {
-    setTimeout(connect, backoff);
-    backoff = Math.min(backoff * 2, 60_000);
-  });
-
-  ws.on('error', () => { /* close will fire next */ });
-}
-
-connect();
-```
-
-For pings, idle timeouts, and gap-filling against the REST endpoint, see [Reconnect & backpressure](/streaming/reconnect-backpressure).
-
-## Programmatic spec
-
-All three WebSocket channels — including this one — are described in a single [AsyncAPI 3.0 document](https://github.com/1tzkaos/docs/blob/main/api-reference/asyncapi.json). Useful for client codegen or LLM context.
-
-
----
-
 # streaming/grpc
 
 
-For high-volume pipelines or when you want a strongly-typed client across multiple languages, use gRPC.
+The `dexploit.v1.PriceStream` gRPC service streams real-time price updates (`DexTransaction`) for every swap on the protocols you subscribe to. Use it for high-throughput price pipelines and strongly-typed clients in any language.
+
+<Note>
+For the **raw swap feed** with rich server-side filtering (tokens / traders / pools / SOL amount / direction / wallet tags), use [gRPC: SwapStream](/streaming/grpc-swaps) instead. `PriceStream` is protocol-scoped price updates; `SwapStream` is filtered `UnifiedSwap` records.
+</Note>
 
 ## When to use gRPC over WebSocket
 
@@ -1748,55 +1610,62 @@ For high-volume pipelines or when you want a strongly-typed client across multip
 
 ## Endpoint and auth
 
+- Host: `grpc.dexploit.dev:443` (TLS)
+- Service: `dexploit.v1.PriceStream`
+- Proto: [`price_stream.proto`](https://github.com/DexploitV1/Dexploit-Swaps/blob/main/crates/swaps-streamer/proto/price_stream.proto)
+
+TLS is required. Authenticate via gRPC metadata — `x-api-key` or `authorization: Bearer`:
+
 ```
-grpc.dexploit.dev:443
+x-api-key: ohlcv_live_sk_<your_key>
 ```
 
-TLS is required. Authenticate via gRPC metadata:
-
-```
-authorization: Bearer ohlcv_live_sk_<your_key>
-```
+Server reflection is enabled, so `grpcurl grpc.dexploit.dev:443 list` resolves the service set (`dexploit.v1.PriceStream`, `dexploit.v1.SwapStream`) without the `.proto`.
 
 ## Service definition
 
-The service is `swaps.SwapStream.Subscribe`. The full `.proto` is in [GitHub Examples](https://github.com/DexploitV1/Dexploit-Examples).
+`PriceStream` has a single server-streaming RPC, `Subscribe`. The request selects which protocols to receive; an empty list streams all of them.
 
 ```proto
 syntax = "proto3";
+package dexploit.v1;
 
-package swaps;
-
-service SwapStream {
-  rpc Subscribe(SubscribeRequest) returns (stream SwapEvent);
+service PriceStream {
+  // Stream of DexTransaction price updates, filtered by protocol.
+  rpc Subscribe(SubscribeRequest) returns (stream DexTransaction);
 }
 
 message SubscribeRequest {
-  repeated string tokens   = 1;
-  repeated string traders  = 2;
-  repeated string pools    = 3;   // pool / pair addresses
-  repeated string dexes    = 4;
-  optional uint64 min_sol  = 5;   // lamports
-  optional uint64 max_sol  = 6;
-  optional bool   is_buy   = 7;
+  // "pumpfun" | "pumpswap" | "clmm" | "cpmm" | "amm"
+  // Empty list = all protocols.
+  repeated string protocols = 1;
 }
 
-message SwapEvent {
-  string signature       = 1;
-  uint64 slot            = 2;
-  int64  timestamp       = 3;
-  string dex             = 4;
-  string swap_type       = 5;   // "buy" or "sell"
-  string trader          = 6;
-  string token_mint      = 7;
-  string token_decimals  = 8;
-  string sol_amount      = 9;   // string-encoded uint64 (lamports)
-  string token_amount    = 10;  // string-encoded uint64
-  string pool_address    = 11;
+message DexTransaction {
+  string signature      = 1;
+  string pair_id        = 2;   // pool / bonding-curve address
+  string token_address  = 3;   // base token (the token being priced)
+  string mint           = 4;   // quote currency (SOL or stablecoin)
+  double price          = 5;   // quote per base token
+  double token_balance  = 6;   // base reserve, decimal-adjusted
+  double sol_balance    = 7;   // quote reserve, decimal-adjusted
+  optional double liquidity = 8;   // TVL; CLMM/CPMM/AMM only
+  optional string creator   = 9;   // PumpFun only
+  ProtocolType protocol     = 10;
+  uint32 schema_version     = 11;
+}
+
+enum ProtocolType {
+  PROTOCOL_UNSPECIFIED = 0;
+  PROTOCOL_PUMPFUN     = 1;
+  PROTOCOL_PUMPSWAP    = 2;
+  PROTOCOL_CLMM        = 3;
+  PROTOCOL_CPMM        = 4;
+  PROTOCOL_AMM         = 5;
 }
 ```
 
-`sol_amount`, `token_amount`, and `token_decimals` arrive as strings to dodge JS/TS `Number` precision issues — convert to `BigInt` or parse as needed.
+`price`, `token_balance`, and `sol_balance` are already decimal-adjusted doubles (not raw lamports/atomic units). `liquidity` and `creator` are protocol-specific and absent on some venues.
 
 ## Complete TypeScript client
 
@@ -1806,7 +1675,7 @@ Install:
 npm i @grpc/grpc-js @grpc/proto-loader
 ```
 
-Save the proto above as `./proto/swaps.proto`, then:
+Save the proto above as `./proto/price_stream.proto`, then:
 
 ```typescript
 import * as grpc from '@grpc/grpc-js';
@@ -1815,9 +1684,8 @@ import path from 'path';
 
 const ENDPOINT = 'grpc.dexploit.dev:443';
 const API_KEY  = 'ohlcv_live_sk_<your_key>';
-const POOL     = '<pool_address>';
 
-const PROTO_PATH = path.join(__dirname, 'proto', 'swaps.proto');
+const PROTO_PATH = path.join(__dirname, 'proto', 'price_stream.proto');
 const def = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
   longs: String,
@@ -1831,28 +1699,26 @@ const creds = grpc.credentials.combineChannelCredentials(
   grpc.credentials.createSsl(),
   grpc.credentials.createFromMetadataGenerator((_params, cb) => {
     const md = new grpc.Metadata();
-    md.add('authorization', `Bearer ${API_KEY}`);
+    md.add('x-api-key', API_KEY);
     cb(null, md);
   })
 );
 
-const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+const client = new proto.dexploit.v1.PriceStream(ENDPOINT, creds, {
   // Mandatory — without these, half-open TCP hangs look like a stalled stream.
   'grpc.keepalive_time_ms': 30_000,
   'grpc.keepalive_timeout_ms': 10_000,
   'grpc.keepalive_permit_without_calls': 1,
 });
 
-const call = client.Subscribe({ pools: [POOL] });
+// Empty protocols = every protocol. Or e.g. { protocols: ['clmm', 'cpmm'] }.
+const call = client.Subscribe({ protocols: [] });
 
-call.on('data', (e: any) => {
-  const sol = Number(BigInt(e.sol_amount)) / 1e9;
-  const decimals = Number(e.token_decimals) || 6;
-  const tok = Number(BigInt(e.token_amount)) / Math.pow(10, decimals);
-  const price = sol / tok;
+call.on('data', (tx: any) => {
   console.log(
-    `${e.swap_type.toUpperCase()} ${tok.toFixed(2)} @ ${price.toExponential(3)} SOL ` +
-    `(${e.dex}, ${e.signature.slice(0, 8)}…)`
+    `${tx.protocol} ${tx.token_address.slice(0, 8)}… ` +
+    `price=${tx.price.toExponential(3)} tvl=${tx.sol_balance.toFixed(2)} SOL ` +
+    `(${tx.signature.slice(0, 8)}…)`
   );
 });
 
@@ -2005,7 +1871,7 @@ WebSocket: send `{ "type": "ping" }` every 30 seconds. The server replies with `
 gRPC: configure HTTP/2 keepalive on the channel:
 
 ```typescript
-const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+const client = new proto.dexploit.v1.PriceStream(ENDPOINT, creds, {
   'grpc.keepalive_time_ms': 30_000,
   'grpc.keepalive_timeout_ms': 10_000,
   'grpc.keepalive_permit_without_calls': 1,

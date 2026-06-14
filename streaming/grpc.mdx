@@ -1,9 +1,13 @@
 ---
-title: "gRPC"
-description: "Highest-throughput swap stream. Schema-typed clients in any language via the .proto file."
+title: "gRPC: PriceStream"
+description: "Real-time protocol price feed at grpc.dexploit.dev. Typed DexTransaction price updates across every supported Solana DEX."
 ---
 
-For high-volume pipelines or when you want a strongly-typed client across multiple languages, use gRPC.
+The `dexploit.v1.PriceStream` gRPC service streams real-time price updates (`DexTransaction`) for every swap on the protocols you subscribe to. Use it for high-throughput price pipelines and strongly-typed clients in any language.
+
+<Note>
+For the **raw swap feed** with rich server-side filtering (tokens / traders / pools / SOL amount / direction / wallet tags), use [gRPC: SwapStream](/streaming/grpc-swaps) instead. `PriceStream` is protocol-scoped price updates; `SwapStream` is filtered `UnifiedSwap` records.
+</Note>
 
 ## When to use gRPC over WebSocket
 
@@ -13,55 +17,62 @@ For high-volume pipelines or when you want a strongly-typed client across multip
 
 ## Endpoint and auth
 
+- Host: `grpc.dexploit.dev:443` (TLS)
+- Service: `dexploit.v1.PriceStream`
+- Proto: [`price_stream.proto`](https://github.com/DexploitV1/Dexploit-Swaps/blob/main/crates/swaps-streamer/proto/price_stream.proto)
+
+TLS is required. Authenticate via gRPC metadata — `x-api-key` or `authorization: Bearer`:
+
 ```
-grpc.dexploit.dev:443
+x-api-key: ohlcv_live_sk_<your_key>
 ```
 
-TLS is required. Authenticate via gRPC metadata:
-
-```
-authorization: Bearer ohlcv_live_sk_<your_key>
-```
+Server reflection is enabled, so `grpcurl grpc.dexploit.dev:443 list` resolves the service set (`dexploit.v1.PriceStream`, `dexploit.v1.SwapStream`) without the `.proto`.
 
 ## Service definition
 
-The service is `swaps.SwapStream.Subscribe`. The full `.proto` is in [GitHub Examples](https://github.com/DexploitV1/Dexploit-Examples).
+`PriceStream` has a single server-streaming RPC, `Subscribe`. The request selects which protocols to receive; an empty list streams all of them.
 
 ```proto
 syntax = "proto3";
+package dexploit.v1;
 
-package swaps;
-
-service SwapStream {
-  rpc Subscribe(SubscribeRequest) returns (stream SwapEvent);
+service PriceStream {
+  // Stream of DexTransaction price updates, filtered by protocol.
+  rpc Subscribe(SubscribeRequest) returns (stream DexTransaction);
 }
 
 message SubscribeRequest {
-  repeated string tokens   = 1;
-  repeated string traders  = 2;
-  repeated string pools    = 3;   // pool / pair addresses
-  repeated string dexes    = 4;
-  optional uint64 min_sol  = 5;   // lamports
-  optional uint64 max_sol  = 6;
-  optional bool   is_buy   = 7;
+  // "pumpfun" | "pumpswap" | "clmm" | "cpmm" | "amm"
+  // Empty list = all protocols.
+  repeated string protocols = 1;
 }
 
-message SwapEvent {
-  string signature       = 1;
-  uint64 slot            = 2;
-  int64  timestamp       = 3;
-  string dex             = 4;
-  string swap_type       = 5;   // "buy" or "sell"
-  string trader          = 6;
-  string token_mint      = 7;
-  string token_decimals  = 8;
-  string sol_amount      = 9;   // string-encoded uint64 (lamports)
-  string token_amount    = 10;  // string-encoded uint64
-  string pool_address    = 11;
+message DexTransaction {
+  string signature      = 1;
+  string pair_id        = 2;   // pool / bonding-curve address
+  string token_address  = 3;   // base token (the token being priced)
+  string mint           = 4;   // quote currency (SOL or stablecoin)
+  double price          = 5;   // quote per base token
+  double token_balance  = 6;   // base reserve, decimal-adjusted
+  double sol_balance    = 7;   // quote reserve, decimal-adjusted
+  optional double liquidity = 8;   // TVL; CLMM/CPMM/AMM only
+  optional string creator   = 9;   // PumpFun only
+  ProtocolType protocol     = 10;
+  uint32 schema_version     = 11;
+}
+
+enum ProtocolType {
+  PROTOCOL_UNSPECIFIED = 0;
+  PROTOCOL_PUMPFUN     = 1;
+  PROTOCOL_PUMPSWAP    = 2;
+  PROTOCOL_CLMM        = 3;
+  PROTOCOL_CPMM        = 4;
+  PROTOCOL_AMM         = 5;
 }
 ```
 
-`sol_amount`, `token_amount`, and `token_decimals` arrive as strings to dodge JS/TS `Number` precision issues — convert to `BigInt` or parse as needed.
+`price`, `token_balance`, and `sol_balance` are already decimal-adjusted doubles (not raw lamports/atomic units). `liquidity` and `creator` are protocol-specific and absent on some venues.
 
 ## Complete TypeScript client
 
@@ -71,7 +82,7 @@ Install:
 npm i @grpc/grpc-js @grpc/proto-loader
 ```
 
-Save the proto above as `./proto/swaps.proto`, then:
+Save the proto above as `./proto/price_stream.proto`, then:
 
 ```typescript
 import * as grpc from '@grpc/grpc-js';
@@ -80,9 +91,8 @@ import path from 'path';
 
 const ENDPOINT = 'grpc.dexploit.dev:443';
 const API_KEY  = 'ohlcv_live_sk_<your_key>';
-const POOL     = '<pool_address>';
 
-const PROTO_PATH = path.join(__dirname, 'proto', 'swaps.proto');
+const PROTO_PATH = path.join(__dirname, 'proto', 'price_stream.proto');
 const def = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
   longs: String,
@@ -96,28 +106,26 @@ const creds = grpc.credentials.combineChannelCredentials(
   grpc.credentials.createSsl(),
   grpc.credentials.createFromMetadataGenerator((_params, cb) => {
     const md = new grpc.Metadata();
-    md.add('authorization', `Bearer ${API_KEY}`);
+    md.add('x-api-key', API_KEY);
     cb(null, md);
   })
 );
 
-const client = new proto.swaps.SwapStream(ENDPOINT, creds, {
+const client = new proto.dexploit.v1.PriceStream(ENDPOINT, creds, {
   // Mandatory — without these, half-open TCP hangs look like a stalled stream.
   'grpc.keepalive_time_ms': 30_000,
   'grpc.keepalive_timeout_ms': 10_000,
   'grpc.keepalive_permit_without_calls': 1,
 });
 
-const call = client.Subscribe({ pools: [POOL] });
+// Empty protocols = every protocol. Or e.g. { protocols: ['clmm', 'cpmm'] }.
+const call = client.Subscribe({ protocols: [] });
 
-call.on('data', (e: any) => {
-  const sol = Number(BigInt(e.sol_amount)) / 1e9;
-  const decimals = Number(e.token_decimals) || 6;
-  const tok = Number(BigInt(e.token_amount)) / Math.pow(10, decimals);
-  const price = sol / tok;
+call.on('data', (tx: any) => {
   console.log(
-    `${e.swap_type.toUpperCase()} ${tok.toFixed(2)} @ ${price.toExponential(3)} SOL ` +
-    `(${e.dex}, ${e.signature.slice(0, 8)}…)`
+    `${tx.protocol} ${tx.token_address.slice(0, 8)}… ` +
+    `price=${tx.price.toExponential(3)} tvl=${tx.sol_balance.toFixed(2)} SOL ` +
+    `(${tx.signature.slice(0, 8)}…)`
   );
 });
 

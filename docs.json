@@ -58,7 +58,6 @@
             "pages": [
               "streaming/websocket",
               "streaming/ohlcv",
-              "streaming/pump-lifecycle",
               "streaming/grpc",
               "streaming/grpc-swaps",
               "streaming/reconnect-backpressure"
@@ -266,14 +265,6 @@
             "pages": [
               "api-reference/graphql"
             ]
-          },
-          {
-            "group": "Health",
-            "openapi": "api-reference/openapi.json",
-            "pages": [
-              "GET /health",
-              "GET /ready"
-            ]
           }
         ]
       },
@@ -285,8 +276,8 @@
             "pages": [
               "streaming/websocket",
               "streaming/ohlcv",
-              "streaming/pump-lifecycle",
               "streaming/grpc",
+              "streaming/grpc-swaps",
               "streaming/reconnect-backpressure"
             ]
           }
