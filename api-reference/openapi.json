@@ -464,11 +464,26 @@
               "null"
             ]
           },
+          "liquidity_sol": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Pool liquidity in SOL — the source-of-truth value behind `liquidity_usd`."
+          },
           "price_usd": {
             "type": "number"
           },
+          "price_sol": {
+            "type": "number",
+            "description": "Price in SOL — the source-of-truth value behind `price_usd`."
+          },
           "volume_usd": {
             "type": "number"
+          },
+          "volume_sol": {
+            "type": "number",
+            "description": "Window volume in SOL — the source-of-truth value behind `volume_usd`."
           },
           "trending_score": {
             "type": "number",
@@ -488,15 +503,15 @@
               },
               "vol_acceleration": {
                 "type": "number",
-                "description": "`ln(vol_now / vol_prior) * 4`, clamped to `[-8, 12]`. Brand-new mints with no prior-window activity get a fixed `+4` boost so first-window tokens can surface. This is the dominant momentum term."
+                "description": "`vol_now_sol / max(vol_prior_sol, 0.01)` — a raw, unbounded volume ratio (not log-scaled or clamped), matching the ClickHouse `tokens_trending_score` materialized view. The dominant momentum term; values can be large when volume spikes from a near-zero prior window."
               },
               "buyer_acceleration": {
                 "type": "number",
-                "description": "`((buyers_now - buyers_prior) / max(buyers_prior, 1)) * 2`, clamped to `[-2, 6]`. Percent-change in unique buyers vs the prior window."
+                "description": "`unique_buyers_now / max(unique_buyers_prior, 1)` — a raw, unbounded ratio of unique buyers this window vs. the prior window."
               },
               "dev_sell_penalty": {
                 "type": "number",
-                "description": "Negative. `-min(dev_sell_sol * 0.5, 20)` — capped subtraction per SOL sold by the token's creator."
+                "description": "Reserved — currently always `0.0`. The creator-sell penalty is deferred to a later phase (like `holder_growth` and `top10_penalty`, which are `null` today)."
               },
               "holder_growth": {
                 "type": [
@@ -1176,17 +1191,48 @@
           "tags": {
             "type": "array",
             "items": {
-              "type": "string",
-              "enum": [
-                "sniper",
-                "insider",
-                "dev",
-                "whale",
-                "smart_money",
-                "fresh",
-                "kol"
-              ]
-            }
+              "type": "object",
+              "required": [
+                "tag"
+              ],
+              "properties": {
+                "tag": {
+                  "type": "string",
+                  "enum": [
+                    "sniper",
+                    "insider",
+                    "dev",
+                    "whale",
+                    "smart_money",
+                    "fresh",
+                    "kol",
+                    "bundler",
+                    "bot",
+                    "arbitrage",
+                    "exchange"
+                  ]
+                },
+                "score": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Tag confidence score, or `null`."
+                },
+                "mint": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The mint this tag was derived from, or `null` if wallet-global."
+                },
+                "computed_at": {
+                  "type": "integer",
+                  "description": "Unix epoch seconds when this tag was computed (per-tag)."
+                }
+              }
+            },
+            "description": "Wallet classification tags. **Not deduplicated** — one entry per `(tag, mint)`, so the same `tag` value can appear multiple times (once per mint it was derived from). A wallet active across many mints can return many entries."
           },
           "computed_at": {
             "type": "integer",
@@ -1523,10 +1569,10 @@
             "type": "string",
             "enum": [
               "mint_created",
-              "bonding_progress",
+              "completing",
               "graduated"
             ],
-            "description": "`graduated` fires once the bonding curve completes and the token migrates to a tradeable AMM pool."
+            "description": "`completing` fires while the bonding curve is filling (progress updates); `graduated` fires once the curve completes and the token migrates to a tradeable AMM pool."
           },
           "ts": {
             "type": "integer",
@@ -1539,8 +1585,11 @@
             ]
           },
           "bonding_pct": {
-            "type": "number",
-            "description": "0.0 at mint → 1.0 at graduation."
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "0.0 at mint → 1.0 at graduation. May be `null` if unknown."
           },
           "dex": {
             "type": [
@@ -1557,7 +1606,11 @@
             "description": "Migration target pool (set on `graduated`)."
           },
           "raw_tx_sig": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Transaction signature for `mint_created` and `graduated` events; `null` on `completing` events."
           }
         }
       },
@@ -2079,7 +2132,7 @@
       },
       "HoldingsBasicResponse": {
         "type": "object",
-        "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index — no Shyft call, no USD values. Fast (~30 ms). Only covers tokens traded through indexed DEXes.",
+        "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index — no Shyft call, no USD values (SOL only). Fast (~30 ms). Only covers tokens traded through indexed DEXes. Unlike `/holdings`, entries omit `no_cost_basis` and any USD fields.",
         "required": [
           "wallet",
           "holdings"
@@ -2091,7 +2144,45 @@
           "holdings": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Holding"
+              "type": "object",
+              "required": [
+                "mint",
+                "qty",
+                "cost_basis_sol",
+                "price_stale"
+              ],
+              "properties": {
+                "mint": {
+                  "type": "string"
+                },
+                "qty": {
+                  "type": "integer",
+                  "format": "int64",
+                  "description": "Held quantity in atomic base units (not UI-scaled)."
+                },
+                "cost_basis_sol": {
+                  "type": "number",
+                  "description": "FIFO cost basis in SOL. Always present — basic holdings are derived from the wallet's own indexed swaps."
+                },
+                "current_value_sol": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "Current value in SOL (`qty` × latest price); `null` when no recent price is available (`price_stale`)."
+                },
+                "unrealized_pnl_sol": {
+                  "type": [
+                    "number",
+                    "null"
+                  ],
+                  "description": "`current_value_sol - cost_basis_sol`; `null` when `current_value_sol` is `null`."
+                },
+                "price_stale": {
+                  "type": "boolean",
+                  "description": "`true` when no price ≤1h old was found for the mint (so `current_value_sol`/`unrealized_pnl_sol` are `null`)."
+                }
+              }
             }
           }
         }
@@ -4848,26 +4939,44 @@
                           "description": "Bar resolutions Dexploit aggregates to."
                         },
                         "oldest_candle": {
-                          "type": "string",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "format": "date-time",
                           "description": "Oldest bar in the index."
                         },
                         "newest_candle": {
-                          "type": "string",
+                          "type": [
+                            "string",
+                            "null"
+                          ],
                           "format": "date-time"
                         },
                         "data_inception": {
                           "type": "string",
                           "format": "date-time",
                           "description": "When Dexploit started ingesting Solana swaps."
+                        },
+                        "partial": {
+                          "type": "boolean",
+                          "description": "Present and `true` only in a degraded response where one or more timeframes failed to aggregate; absent on the happy path."
+                        },
+                        "missing_timeframes": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          },
+                          "description": "Timeframes that failed to aggregate; present only alongside `partial: true`."
                         }
                       }
                     },
                     "error": {
                       "type": [
-                        "object",
+                        "string",
                         "null"
-                      ]
+                      ],
+                      "description": "Error message, or `null` on success."
                     }
                   }
                 }
@@ -7431,9 +7540,9 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             },
-            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+            "description": "Filter to one or more DEXes — a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `0,3`). See `DexId` for the id↔name mapping."
           }
         ],
         "responses": {
@@ -7994,7 +8103,7 @@
                         "integer",
                         "null"
                       ],
-                      "description": "Pass this back as `before` for the next page; null when exhausted."
+                      "description": "Pass this back as `before` for the next page. Stays non-null on the final page of data — it only becomes `null` after a follow-up request that returns an empty `events[]`."
                     }
                   }
                 }
@@ -8019,6 +8128,26 @@
                 },
                 "example": {
                   "error": "invalid_filter:status:foo"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Quota or rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -11943,6 +12072,100 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/trending": {
+      "get": {
+        "tags": [
+          "Stats & trends"
+        ],
+        "deprecated": true,
+        "summary": "Trending tokens (legacy, SOL-only)",
+        "description": "**Deprecated legacy endpoint** served by a separate service. Prefer [`GET /trending`](#tag/stats-trends/get/trending), which returns USD values, richer scoring (`formula_breakdown`), and `offset`/`total` pagination. This endpoint is SOL-only and has no USD fields, no `offset`, and no `total`.",
+        "parameters": [
+          {
+            "name": "timeframe",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "5m",
+                "30m",
+                "1h",
+                "6h",
+                "24h"
+              ],
+              "default": "1h"
+            }
+          },
+          {
+            "name": "dex",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter to a single DEX by lowercase name (e.g. `pumpfun`)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Trending tokens (SOL-denominated).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "timeframe": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "tokens": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "mint": {
+                            "type": "string"
+                          },
+                          "trending_score": {
+                            "type": "number"
+                          },
+                          "rank": {
+                            "type": "integer"
+                          },
+                          "metrics": {
+                            "type": "object",
+                            "properties": {
+                              "tx_count": {
+                                "type": "integer"
+                              },
+                              "total_volume_sol": {
+                                "type": "number"
+                              },
+                              "price_change_pct": {
+                                "type": [
+                                  "number",
+                                  "null"
+                                ]
+                              },
+                              "liquidity_sol": {
+                                "type": "number"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             }
