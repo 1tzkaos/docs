@@ -437,7 +437,7 @@
           },
           "volume_sol": {
             "type": "number",
-            "description": "SOL volume over `timeframe`. **Lamports** despite the name — divide by 1e9."
+            "description": "Total quote volume traded over `timeframe`, in whole SOL."
           },
           "trade_count": {
             "type": "integer"
