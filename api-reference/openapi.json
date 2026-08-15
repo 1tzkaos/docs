@@ -2364,7 +2364,7 @@
           },
           "unrealized_sol": {
             "type": "number",
-            "description": "Unrealized PnL in SOL on remaining open lots."
+            "description": "Unrealized PnL in SOL on the remaining open lots the wallet is confirmed to still HOLD on chain, summed over those with a live spot price. The FIFO replay set is reconciled against on-chain holdings first, so bags exited outside the indexed venues do not contribute; `coverage_position_set` says whether that reconciliation succeeded, and `unpriced_*` say what the price window excluded."
           },
           "total_volume_sol": {
             "type": "number",
@@ -2402,6 +2402,68 @@
           "warning": {
             "type": "string",
             "description": "Always present. Explains that this is basic FIFO PnL and that full cost-basis ships in Phase 8."
+          },
+          "unrealized_price_basis": {
+            "type": "string",
+            "enum": [
+              "spot",
+              "partial",
+              "none"
+            ],
+            "description": "How much of the open book `unrealized_sol` covers. `spot` = every counted position had a live spot price; `partial` = some were excluded; `none` = nothing was priced, so `unrealized_sol` is 0 for lack of data, NOT because the wallet is flat. Distinct from `unrealized_basis`, which answers whether the whole position LIST was looked at."
+          },
+          "priced_position_count": {
+            "type": "integer",
+            "description": "Open positions that had a live spot price and are therefore included in `unrealized_sol`."
+          },
+          "unpriced_position_count": {
+            "type": "integer",
+            "description": "Open positions with NO live spot price inside `spot_price_max_age_secs`. They are EXCLUDED from `unrealized_sol` — not valued at zero and not assumed break-even, both of which would be wrong in a direction the caller cannot detect."
+          },
+          "unpriced_cost_basis_sol": {
+            "type": "number",
+            "description": "Total cost basis, in SOL, of the excluded positions — the magnitude of what `unrealized_sol` does not cover."
+          },
+          "unpriced_cost_basis_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unpriced_cost_basis_sol` in USD via the Pyth oracle. `null` when the oracle is unavailable."
+          },
+          "spot_price_max_age_secs": {
+            "type": "integer",
+            "description": "Maximum age of a trade for it to count as a live spot price (seconds)."
+          },
+          "coverage_position_set": {
+            "type": "string",
+            "enum": [
+              "onchain_held",
+              "replay_unreconciled"
+            ],
+            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book."
+          },
+          "unrealized_floor_sol": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Lower bound on the wallet's true unrealized PnL in SOL — `unrealized_sol` with every unpriced bag valued at zero. NON-NULL ONLY when `coverage_position_set` is `onchain_held`; over an unreconciled set the priced side can contain phantom gains, so no bound holds and this is `null`."
+          },
+          "unrealized_floor_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unrealized_floor_sol` in USD via the Pyth oracle. `null` when there is no floor or no oracle."
+          },
+          "reconciled": {
+            "type": "boolean",
+            "description": "Whether the open-position set was checked against on-chain holdings. `false` ⇒ the raw FIFO replay set was served and `coverage_position_set` is `replay_unreconciled`."
+          },
+          "reconciliation_source": {
+            "type": "string",
+            "description": "What supplied on-chain truth (`shyft`), or `unavailable` when the response is not reconciled."
           }
         }
       },
@@ -2825,6 +2887,60 @@
                 }
               }
             }
+          },
+          "unrealized_price_basis": {
+            "type": "string",
+            "enum": [
+              "spot",
+              "partial",
+              "none"
+            ],
+            "description": "How much of the open book `unrealized_sol` covers. `spot` = every counted position had a live spot price; `partial` = some were excluded; `none` = nothing was priced, so `unrealized_sol` is 0 for lack of data, NOT because the wallet is flat. Distinct from `unrealized_basis`, which answers whether the whole position LIST was looked at."
+          },
+          "priced_position_count": {
+            "type": "integer",
+            "description": "Open positions that had a live spot price and are therefore included in `unrealized_sol`."
+          },
+          "unpriced_position_count": {
+            "type": "integer",
+            "description": "Open positions with NO live spot price inside `spot_price_max_age_secs`. They are EXCLUDED from `unrealized_sol` — not valued at zero and not assumed break-even, both of which would be wrong in a direction the caller cannot detect."
+          },
+          "unpriced_cost_basis_sol": {
+            "type": "number",
+            "description": "Total cost basis, in SOL, of the excluded positions — the magnitude of what `unrealized_sol` does not cover."
+          },
+          "unpriced_cost_basis_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unpriced_cost_basis_sol` in USD via the Pyth oracle. `null` when the oracle is unavailable."
+          },
+          "spot_price_max_age_secs": {
+            "type": "integer",
+            "description": "Maximum age of a trade for it to count as a live spot price (seconds)."
+          },
+          "coverage_position_set": {
+            "type": "string",
+            "enum": [
+              "onchain_held",
+              "replay_unreconciled"
+            ],
+            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book."
+          },
+          "unrealized_floor_sol": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Lower bound on the wallet's true unrealized PnL in SOL — `unrealized_sol` with every unpriced bag valued at zero. NON-NULL ONLY when `coverage_position_set` is `onchain_held`; over an unreconciled set the priced side can contain phantom gains, so no bound holds and this is `null`."
+          },
+          "unrealized_floor_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unrealized_floor_sol` in USD via the Pyth oracle. `null` when there is no floor or no oracle."
           }
         }
       },
@@ -8297,7 +8413,7 @@
     "/v2/pnl/wallets/{wallet}/positions": {
       "get": {
         "summary": "List a wallet's positions",
-        "description": "Paginated cost-basis positions for a wallet. `min_value_sol` is applied **after** read-time pricing on `current_value_sol`. `total` is the true total under the LIMIT (`count() OVER ()`).",
+        "description": "Paginated cost-basis positions for a wallet. `min_value_sol` is applied **after** read-time pricing on `current_value_sol`.\n\n`total` counts the SAME set `positions[]` is paged out of, so any `offset < total` has rows behind it. For `status=open` that set is *ledger position AND still held on chain as of the newest reconciliation pass* — it is therefore NOT the wallet's on-chain position count. `onchain_held_count` is that count, and `unmatched_onchain_count` is how many held mints have no position row at all and so cannot be returned here at any offset. Both are `null` when `reconciled` is `false`.",
         "operationId": "getPnlV2Positions",
         "tags": [
           "Wallet PnL (v2)"
