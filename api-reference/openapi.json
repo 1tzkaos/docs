@@ -241,11 +241,11 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Realized fill price (SOL per 1 token, decimals-adjusted)."
+            "description": "Realized fill price in **lamports per atomic token unit** — the raw stored value, NOT decimals-adjusted SOL. To get SOL per whole token: `price_per_token * 10**quote_decimals / 1e9`. Matches the definition on `ScreenerResultV2.price_per_token`. If you want the decimals-adjusted price directly, use `pool_price` instead — reading this field as SOL-per-token overstates it by 10**(9 - quote_decimals) (1000x for a 6-decimal token)."
           },
           "pool_price": {
             "type": "number",
-            "description": "Pool mid-price after the swap."
+            "description": "Pool mid-price after the swap, in **SOL per whole token** (already decimals-adjusted). This is the decimals-adjusted companion to `price_per_token`, which is raw lamports per atomic unit."
           },
           "price_impact_bps": {
             "type": "integer",
@@ -4036,9 +4036,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "format": "int64"
             },
-            "description": "Minimum SOL amount (decimal SOL, not lamports)."
+            "description": "Minimum swap size in **lamports**, not decimal SOL (1 SOL = 1,000,000,000 lamports). The server parses this as a 64-bit unsigned integer, so a decimal value is rejected: `min_sol=20000.5` returns HTTP 400 `Failed to deserialize query string: min_sol: invalid digit found in string`. And `min_sol=20000` means 20,000 lamports (0.00002 SOL), not 20,000 SOL."
           },
           {
             "name": "dex",
@@ -4185,8 +4186,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "number"
-            }
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Minimum swap size in **lamports**, not decimal SOL (1 SOL = 1,000,000,000 lamports). The server parses this as a 64-bit unsigned integer, so a decimal value is rejected: `min_sol=20000.5` returns HTTP 400 `Failed to deserialize query string: min_sol: invalid digit found in string`. And `min_sol=20000` means 20,000 lamports (0.00002 SOL), not 20,000 SOL."
           },
           {
             "name": "dex",
@@ -4256,10 +4259,11 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "number",
-              "default": 10
+              "type": "integer",
+              "default": 10000000000,
+              "format": "int64"
             },
-            "description": "Threshold in decimal SOL."
+            "description": "Minimum swap size in **lamports**, not decimal SOL (1 SOL = 1,000,000,000 lamports). The server parses this as a 64-bit unsigned integer, so a decimal value is rejected: `min_sol=20000.5` returns HTTP 400 `Failed to deserialize query string: min_sol: invalid digit found in string`. And `min_sol=20000` means 20,000 lamports (0.00002 SOL), not 20,000 SOL."
           },
           {
             "name": "token",
