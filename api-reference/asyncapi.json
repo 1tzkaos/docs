@@ -370,7 +370,8 @@
         "summary": "One executed swap on a Solana DEX, normalized across protocols.",
         "payload": {
           "$ref": "#/components/schemas/WsSwapFrame"
-        }
+        },
+        "description": "Streaming frames carry no `price_semantics` field \u2014 that label is emitted on the REST responses only (as an envelope field, or as the `x-price-semantics` header on `GET /swaps/{signature}`). The derivations it describes apply equally here."
       },
       "PoolEvent": {
         "name": "pool_event",
@@ -386,7 +387,8 @@
         "summary": "Room-mode delivery wrapper. The swap or pool event is nested under `data`; `data` carries `event_type` but NOT a top-level `type` (dual-frame trap).",
         "payload": {
           "$ref": "#/components/schemas/WsRoomMessageFrame"
-        }
+        },
+        "description": "Streaming frames carry no `price_semantics` field \u2014 that label is emitted on the REST responses only (as an envelope field, or as the `x-price-semantics` header on `GET /swaps/{signature}`). The derivations it describes apply equally here."
       },
       "SwapsJoin": {
         "name": "join",
@@ -748,7 +750,7 @@
               "integer",
               "null"
             ],
-            "description": "Only reported by `pumpfun` and `pumpswap`. Where a venue doesn't report it you get `null` here (REST returns `0`), meaning *not reported* rather than zero impact. Derived from the pool's own reported reserves, so it carries the same caveats as `pool_price`."
+            "description": "Only reported by `pumpfun` and `pumpswap`. Where a venue doesn't report it you get `null` here (REST returns `0`), meaning *not reported* rather than zero impact. Where it is reported, the value is computed against the pool's own reserves at the time of the trade. On `pumpswap` that comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does NOT inherit the understatement described for `pool_price`. The same correction is applied on REST, WebSocket and gRPC, so the three surfaces agree for a given swap. It measures impact relative to the pool, not slippage against an external reference \u2014 for that, compare `price_per_token` to a reference you control."
           },
           "base_decimals": {
             "type": "integer",

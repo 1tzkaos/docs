@@ -59,10 +59,9 @@ Per-venue numbers are in [Data coverage](/concepts/coverage).
 
 `pumpfun` and `pumpswap` report it. On the other eight venues REST returns `0`
 and the streaming feeds return `null`, and both mean **not reported** — not
-*zero impact*. Where it is reported, it is derived from the pool's own reported
-reserves, so it inherits the same caveats as `pool_price`. To measure slippage
-against a reference you control, compare `price_per_token` to that reference
-yourself.
+*zero impact*.
+
+Where it is reported, the value is computed against the pool's own reserves at the time of the trade. On `pumpswap` that comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, WebSocket and gRPC, so the three surfaces agree for a given swap. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
 
 ### For a price series, use candles
 
@@ -71,9 +70,13 @@ bars are never re-derived at read time. So a change in how a venue's price is
 derived reaches bars written **from the day it ships forward**; bars that closed
 earlier keep the value they were written with.
 
-One case is worth a number. On PumpSwap, closes on pump.fun-migrated pools carry
-the reserve-ratio understatement described above: in a recent 7-day production
-sample, **51.2% of PumpSwap daily closes came from such a pool**, and the largest
-single gap between a stored close and the price trades on that bar actually
-filled at was **95×**. When you need a price you can act on, derive it from
-`price_per_token` over the swaps in the window rather than reading the bar close.
+One case is worth a number. On PumpSwap, daily closes written before the fix
+shipped carry the reserve-ratio understatement described above. Over the seven
+days **2026-08-31 to 2026-09-06 inclusive**, across **153,174** PumpSwap daily
+bucket-closes, **39.5% (60,474)** would take a different value once the migrated
+pool's off-vault SOL is accounted for. Most of those moves are small; the largest
+single one in that window was **135×**, on a pool drained to near-zero SOL, where
+the fixed shortfall dominates whatever is left.
+
+When you need a price you can act on, derive it from `price_per_token` over the
+swaps in the window rather than reading the bar close.

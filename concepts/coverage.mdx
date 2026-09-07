@@ -22,7 +22,7 @@ lower-snake string everywhere else. The authoritative, always-current list is
 | Raydium CLMM | `raydium_clmm` | Yes | Pool spot price; TVL reserves <sup>3</sup> |
 | Raydium CPMM | `raydium_cpmm` | Yes | Reserve ratio — tracks the fill |
 | Orca Whirlpools | `orca` | Yes | Vault ratio — diverges; TVL reserves <sup>3</sup> |
-| Meteora DAMM v2 | `meteora_damm_v2` | Yes | Pool spot price where published; TVL reserves <sup>3</sup> |
+| Meteora DAMM v2 | `meteora_damm_v2` | Yes | Pool spot price from 2026-09-04; TVL reserves <sup>3</sup> |
 | Meteora DBC (bonding curve) | `meteora_dbc` | — | Vault ratio — diverges sharply <sup>3</sup> |
 | Meteora DLMM | `meteora_dlmm` | Yes | Vault ratio — diverges; TVL reserves <sup>3</sup> |
 | Meteora Dynamic AMM (Pools) | `meteora_pools` | Not yet <sup>4</sup> | The trade's own executed price <sup>4</sup> |
@@ -85,10 +85,15 @@ offset. `price_per_token` is unaffected either way.
 On `raydium_clmm`, `orca`, `meteora_damm_v2`, and `meteora_dlmm` the reserve
 fields are **whole-pool totals (TVL-like), not active-tick liquidity** — don't
 use them as a constant-product price oracle. `raydium_clmm` reports a true spot
-`pool_price` from the pool's sqrt-price rather than the vault ratio, and
-`meteora_damm_v2` does the same on rows from **2026-09-04** onward wherever the
-venue publishes the price in its swap event; where it doesn't, the vault ratio is
-passed through. `orca`, `meteora_dlmm`, and `meteora_dbc` report the vault ratio.
+`pool_price` from the pool's sqrt-price rather than the vault ratio.
+
+`meteora_damm_v2` now does the same, but there is a **cutover** you need to know
+about if you read history: every row from **2026-09-04** onward is priced from
+the pool's own post-swap sqrt price; every row before it carries the vault ratio
+instead. There is no per-row fallback — the date is the whole rule. Rows on
+either side of it are not comparable as a price series.
+
+`orca`, `meteora_dlmm`, and `meteora_dbc` report the vault ratio.
 
 #### <sup>4</sup> Meteora Dynamic AMM (Pools)
 
