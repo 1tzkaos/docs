@@ -47,26 +47,26 @@ outside the index. Pump.fun is SOL-native, so all of its trades are captured.
 
 #### <sup>1</sup> How far `pool_price` sits from the executed price
 
-Measured on 4,000 consecutive live swaps (2026-09-07), comparing each row's
-`pool_price` against the price that same trade executed at
-(`price_per_token × 10^(quote_decimals − base_decimals)`), the median gap was:
+On the constant-product and bonding-curve venues a pool's reserve ratio should
+land within roughly a swap fee of the price a trade actually executed at, and on
+`raydium_amm`, `raydium_cpmm` and `pumpfun` it does.
 
-| Venue | Median gap | Widest in sample | Rows |
-| --- | --- | --- | --- |
-| `raydium_amm` | +0.25% | — | 18 |
-| `orca` | −20.00% | +207% | 60 |
-| `meteora_dlmm` | +120.76% | +969% | 40 |
-| `meteora_dbc` | −97.48% | — | 9 |
+On `orca`, `meteora_dlmm` and `meteora_dbc` it does not, and the gap is not a
+tail risk — it is the normal case. These are concentrated-liquidity venues: the
+reserves reported on a swap are the pool's total inventory across every price
+range, not the liquidity sitting at the price you traded at. The ratio of those
+totals is an inventory statistic, and on individual rows we have measured it
+diverging from the executed price by more than an order of magnitude, in both
+directions.
 
-`raydium_amm` is the positive control: a constant-product pool's reserve ratio
-*should* land within a fee of the fill, and it does — the +0.25% **is** the fee.
-The other three are the same measurement on venues where the reported reserves
-aren't the liquidity sitting at the active price. (`meteora_pools` also measured
-0.00% in that sample, but for a different reason — see <sup>4</sup> below.)
+On `pumpswap`, the ratio is a genuine pre-trade constant-product price, but
+pump.fun-migrated pools hold part of their SOL side outside the account the swap
+reports. The shortfall is a fixed amount, so the error is negligible on a deep
+pool and grows without bound as the pool drains.
 
-Sample sizes are each venue's share of one 4,000-row window, so read the medians
-as the shape of the gap rather than a bound on it: individual rows sit further
-out in both directions.
+**Do not use `pool_price` as a price on any venue.** Use `price_per_token`
+scaled by `10^(quote_decimals − base_decimals)`, which comes from the trade
+itself and is correct on every venue and for all history.
 
 #### <sup>2</sup> PumpSwap pools migrated from pump.fun
 
