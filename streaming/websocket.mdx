@@ -4,6 +4,8 @@ description: "Real-time swap stream over WebSocket. Subscribe by pool, get pushe
 asyncapi: "/api-reference/asyncapi.json swaps"
 ---
 
+import WhichPriceField from '/snippets/which-price-field.mdx';
+
 The swaps WebSocket is the easiest way to get real-time DEX trades into a browser, dashboard, or low-volume server. For higher throughput, see [gRPC](/streaming/grpc). For live OHLCV bars, see [OHLCV candles](/streaming/ohlcv). Pump.fun mint / graduation events stream from this same socket — join the `latest`, `graduating`, and `graduated` discovery rooms.
 
 ## When to use WebSocket
@@ -69,7 +71,7 @@ All filters are optional and combine as AND. Set to `null` or omit to disable.
 
 ## Wire format gotchas
 
-A `swap` frame looks like this (captured live from `meteora_damm_v2`):
+A `swap` frame looks like this (captured live from `meteora_damm_v2` — the values are that pool's, so read `pool_price` and `price_impact_bps` with the venue in mind):
 
 ```json
 {
@@ -112,11 +114,13 @@ A few things worth flagging:
 - **`swap_type`** is the string `"buy"` or `"sell"` (lowercase). Not `is_buy`. (`is_buy` is only a *filter* key, not a field on the event.) The REST `/swaps*` endpoints use `is_buy` (bool) instead — these two surfaces are intentionally different.
 - **`dex` is the string name** here. On the REST `/swaps*` endpoints `dex` is an integer ID. Same enum, different encoding.
 - **`timestamp` is epoch seconds.** On REST `/swaps*` it's epoch milliseconds; on REST candles it's ISO 8601.
-- **There is no `price` field.** Use `pool_price` (decimals-adjusted mid after the swap) or compute fill price client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
+- **There is no `price` field.** The price the trade filled at is the trade's own two legs: `price = (sol_amount / token_amount) * 10 ** (quote_decimals - base_decimals)`, in SOL per whole token. That is the same number REST returns as `price_per_token`, and it is correct on every venue. `pool_price` is the pool's **reported reserve ratio** — not a mid, and not a quote you can trade against; read *Which price field should I use?* below before using it.
 - **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
 - **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account). The swaps stream keys it as `pool_address`; REST and the [OHLCV WebSocket](/streaming/ohlcv) key the *same* account as `pair_address`.
 - **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
-- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings.
+- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings. `price_impact_bps` is only reported by `pumpfun` and `pumpswap`; where a venue doesn't report it you get `null` here (REST returns `0`), which means *not reported*, not zero impact.
+
+<WhichPriceField />
 
 ## Pool events (LP add/remove + burns)
 

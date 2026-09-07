@@ -711,7 +711,8 @@
           },
           "real_sol_reserves": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Pool reserves as reported alongside the swap. Whole-pool totals (TVL-like) on the concentrated-liquidity venues, not active-tick liquidity."
           },
           "real_token_reserves": {
             "type": "integer",
@@ -746,17 +747,20 @@
             "type": [
               "integer",
               "null"
-            ]
+            ],
+            "description": "Only reported by `pumpfun` and `pumpswap`. Where a venue doesn't report it you get `null` here (REST returns `0`), meaning *not reported* rather than zero impact. Derived from the pool's own reported reserves, so it carries the same caveats as `pool_price`."
           },
           "base_decimals": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Decimals of the base (SOL) side \u2014 9 on every venue."
           },
           "quote_decimals": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Decimals of the quote side, i.e. **the token's** own decimals despite the name. Commonly 6, but 9 and other values are normal \u2014 read it per frame."
           },
           "pool_price": {
             "type": "number",
-            "description": "Pool mid-price after the swap (decimals-adjusted)."
+            "description": "The ratio of the pool's **reported** SOL reserve to its **reported** token reserve, scaled to SOL per whole token and passed through as the venue published it \u2014 a reserve statistic, not a tradeable quote. There is no price field on this frame: for the price the trade executed at, use `(sol_amount / token_amount) * 10**(quote_decimals - base_decimals)`, which is the same number REST returns as `price_per_token` and is correct on every venue. Per-venue measured gaps are in [Data coverage](/concepts/coverage)."
           },
           "transfer_fee_in": {
             "type": "integer",

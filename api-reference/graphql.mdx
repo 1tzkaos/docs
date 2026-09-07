@@ -3,6 +3,8 @@ title: "GraphQL"
 description: "GraphQL endpoint for fetching multiple resources in one round-trip. Mirrors the REST surface."
 ---
 
+import WhichPriceField from '/snippets/which-price-field.mdx';
+
 The same data the REST endpoints expose is also available via GraphQL. Use REST for simple, cacheable queries; use GraphQL when you want to fetch a few related resources in one round-trip.
 
 ## Endpoint
@@ -76,6 +78,8 @@ query TraderProfile($wallet: String!) {
   }
 }
 ```
+
+<WhichPriceField />
 
 ## Schema introspection
 

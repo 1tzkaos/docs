@@ -93,6 +93,7 @@
       },
       "Candle": {
         "type": "object",
+        "description": "One OHLCV bar. `open`/`high`/`low`/`close` are in SOL per whole token, already decimals-adjusted. Bar prices are computed when the bar closes and served back exactly as stored — a bar is never re-derived at read time, so a change in how a venue's price is derived reaches bars written from that day forward and leaves earlier bars as they were. See [Swap-event OHLCV](/concepts/swap-event-ohlcv).",
         "properties": {
           "timestamp": {
             "type": "string",
@@ -125,7 +126,7 @@
           },
           "open": {
             "type": "number",
-            "description": "SOL per 1 token, decimals-adjusted."
+            "description": "SOL per 1 whole token, decimals-adjusted."
           },
           "high": {
             "type": "number"
@@ -241,23 +242,23 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Realized fill price in **lamports per atomic token unit** — the raw stored value, NOT decimals-adjusted SOL. To get SOL per whole token: `price_per_token * 10**quote_decimals / 1e9`. Matches the definition on `ScreenerResultV2.price_per_token`. If you want the decimals-adjusted price directly, use `pool_price` instead — reading this field as SOL-per-token overstates it by 10**(9 - quote_decimals) (1000x for a 6-decimal token)."
+            "description": "The price this trade executed at, in **lamports per atomic token unit** — it is exactly `sol_amount / token_amount`, computed from the trade's own two legs and nothing else. Scale it once for SOL per whole token: `price_per_token * 10**(quote_decimals - base_decimals)` (equivalently `price_per_token * 10**quote_decimals / 1e9`, since `base_decimals` is 9). Reading the raw value as SOL-per-token overstates it by 10**(9 - quote_decimals) — 1000x for a 6-decimal token. Because it never touches pool reserves, this is the one price field that is correct on all ten venues and across all history; prefer it over `pool_price` whenever you need a price a trade could actually fill at. Matches the definition on `ScreenerResultV2.price_per_token`."
           },
           "pool_price": {
             "type": "number",
-            "description": "Pool mid-price after the swap, in **SOL per whole token** (already decimals-adjusted). This is the decimals-adjusted companion to `price_per_token`, which is raw lamports per atomic unit."
+            "description": "The ratio of the pool's **reported** SOL reserve to its **reported** token reserve, scaled to SOL per whole token and passed through as the venue published it. It is a reserve statistic, not a tradeable quote. On constant-product and bonding-curve pools it lands within about a fee of the executed price; on concentrated-liquidity pools (`raydium_clmm`, `orca`, `meteora_damm_v2`, `meteora_dlmm`) the reported reserves are whole-pool inventory rather than the liquidity at the active price, and on PumpSwap pools that migrated from the pump.fun bonding curve after mid-July 2026 the ratio understates the price by `(sol_reserve + 17.58) / sol_reserve`. Use `price_per_token` for the price a trade executed at. Per-venue measured gaps are in [Data coverage](/concepts/coverage)."
           },
           "price_impact_bps": {
             "type": "integer",
-            "description": "Difference between fill price and pre-swap mid, in basis points."
+            "description": "Reported by `pumpfun` and `pumpswap` only. On the other eight venues this is `0`, which means *not reported* — not zero impact. Where it is reported it is derived from the pool's own reported reserves, so it carries the same caveats as `pool_price`; to measure slippage against a reference you control, compare `price_per_token` to that reference yourself."
           },
           "base_decimals": {
             "type": "integer",
-            "description": "Decimals of the *base* (SOL) side — typically 9."
+            "description": "Decimals of the *base* (SOL) side — 9 on every venue."
           },
           "quote_decimals": {
             "type": "integer",
-            "description": "Decimals of the *quote* (token) side."
+            "description": "Decimals of the *quote* side, i.e. **the token's** own decimals despite the name. Commonly 6, but 9 and other values are normal — read it per row."
           },
           "virtual_sol_reserves": {
             "type": "integer",
@@ -271,7 +272,7 @@
           "real_sol_reserves": {
             "type": "integer",
             "format": "int64",
-            "description": "Actual reserves on the pool after the swap."
+            "description": "Pool reserves as reported alongside the swap. On the concentrated-liquidity venues these are whole-pool totals (TVL-like), not active-tick liquidity. On `meteora_pools` liquidity sits in shared dynamic vaults, so both reserve fields come back `0`."
           },
           "real_token_reserves": {
             "type": "integer",
@@ -3080,7 +3081,7 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Price in **lamports per atomic token unit** (1 SOL = 1e9 lamports)."
+            "description": "Price in **lamports per atomic token unit** (1 SOL = 1e9 lamports). For SOL per whole token, scale by `10**(quote_decimals - base_decimals)` as on `Swap.price_per_token`."
           },
           "last_ts": {
             "type": "integer",
@@ -3199,7 +3200,7 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Price in lamports per atomic token unit (1 SOL = 1e9 lamports)."
+            "description": "Price in lamports per atomic token unit (1 SOL = 1e9 lamports). Same definition as `Swap.price_per_token`."
           },
           "change_pct": {
             "type": "number"

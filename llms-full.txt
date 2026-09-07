@@ -339,6 +339,93 @@ Building from events instead of state changes a few things you can rely on:
   - `volume_token` is the token's base units — divide by `10 ** quote_decimals` for the human-readable amount.
 </Note>
 
+## Prices on a candle
+
+`open`, `high`, `low`, and `close` are in **SOL per whole token**, already
+decimals-adjusted. They are computed when the bar closes and served back exactly
+as stored — a bar is never re-derived at read time.
+
+## Which price field should I use?
+
+A swap carries three numbers that look like a price. They mean different things,
+and only one of them is right for every venue and every date.
+
+### Start with `price_per_token`
+
+`price_per_token` is the price the trade actually executed at, computed from the
+trade's own two legs and nothing else — it is exactly `sol_amount / token_amount`.
+Because it never touches pool reserves, nothing about how a venue reports its
+reserves can bias it, which is what makes it the one price field that is correct
+on all ten venues and across all of history.
+
+It arrives as **lamports per atomic token unit**. Scale it once to get SOL per
+whole token:
+
+```js
+const solPerToken = price_per_token * 10 ** (quote_decimals - base_decimals);
+```
+
+The streaming feeds don't carry the field, but they carry both legs, so the same
+number is `sol_amount / token_amount` from the frame you already have.
+
+<Note>
+**`base_decimals` and `quote_decimals` are the reverse of the usual convention.**
+`base_decimals` is the **SOL** side and is `9` on every venue. `quote_decimals`
+holds the **token's** own decimals, despite the name — commonly `6`, but `9` and
+other values are normal. Read `quote_decimals` as "the token's decimals" and the
+line above is the whole conversion.
+</Note>
+
+For a USD price, multiply by the SOL/USD rate, or call `GET /price/multi` (under
+**Price** in the [API reference](/api-reference)), which returns `price_usd` and
+`price_sol` per mint from the latest 1-minute candle close.
+
+### `pool_price` is a reserve ratio, not a quote
+
+`pool_price` is the ratio of the pool's **reported** SOL reserve to its
+**reported** token reserve, already scaled to SOL per whole token, and passed
+through as the venue published it. We serve it uncorrected on purpose: it is the
+faithful record of what the venue reported, which is what makes it useful for
+reserve and liquidity work.
+
+That same property is why it isn't a price you can trade against:
+
+- On constant-product and bonding-curve pools the ratio **is** the pool's
+  marginal price, and it lands within about a fee of the executed price.
+- On concentrated-liquidity pools the reported reserves are the pool's whole
+  inventory across every tick or bin — not the liquidity at the active price. The
+  ratio is an inventory statistic, and it can sit far from anything you could
+  fill at.
+- On PumpSwap pools that graduated from the pump.fun bonding curve after mid-July
+  2026, about 17.58 SOL of quote sits outside the account whose balance the swap
+  event reports. The ratio therefore understates the price by
+  `(sol_reserve + 17.58) / sol_reserve` — under a percent on a well-funded pool,
+  and much larger as the pool drains.
+
+Per-venue numbers are in [Data coverage](/concepts/coverage).
+
+### `price_impact_bps` is reported by two venues
+
+`pumpfun` and `pumpswap` report it. On the other eight venues REST returns `0`
+and the streaming feeds return `null`, and both mean **not reported** — not
+*zero impact*. Where it is reported, it is derived from the pool's own reported
+reserves, so it inherits the same caveats as `pool_price`. To measure slippage
+against a reference you control, compare `price_per_token` to that reference
+yourself.
+
+### For a price series, use candles
+
+Candle prices are written when the bar closes and served back verbatim — stored
+bars are never re-derived at read time. So a change in how a venue's price is
+derived reaches bars written **from the day it ships forward**; bars that closed
+earlier keep the value they were written with.
+
+One case is worth a number. On PumpSwap, closes on pump.fun-migrated pools carry
+the reserve-ratio understatement described above: in a recent 7-day production
+sample, **51.2% of PumpSwap daily closes came from such a pool**, and the largest
+single gap between a stored close and the price trades on that bar actually
+filled at was **95×**. When you need a price you can act on, derive it from
+`price_per_token` over the swaps in the window rather than reading the bar close.
 ## Comparison with the account-update model
 
 |  | Account-update model | Swap-event model (Dexploit) |
@@ -669,18 +756,18 @@ field — an integer ID (`1`–`10`) on the raw `/swaps` surface, the canonical
 lower-snake string everywhere else. The authoritative, always-current list is
 `GET /api/v1/protocols`.
 
-| Venue | `dex` | Liquidity events | Per-pool price &amp; reserves |
+| Venue | `dex` | Liquidity events | What `pool_price` is <sup>1</sup> |
 | --- | --- | --- | --- |
-| Pump.fun (bonding curve) | `pumpfun` | — | Yes |
-| PumpSwap AMM | `pumpswap` | Yes | Yes |
-| Raydium AMM v4 | `raydium_amm` | Yes | Yes |
-| Raydium CLMM | `raydium_clmm` | Yes | Spot price; TVL reserves <sup>1</sup> |
-| Raydium CPMM | `raydium_cpmm` | Yes | Yes |
-| Orca Whirlpools | `orca` | Yes | Approximate; TVL reserves <sup>1</sup> |
-| Meteora DAMM v2 | `meteora_damm_v2` | Yes | Yes |
-| Meteora DBC (bonding curve) | `meteora_dbc` | — | Yes |
-| Meteora DLMM | `meteora_dlmm` | Yes | Approximate; TVL reserves <sup>1</sup> |
-| Meteora Dynamic AMM (Pools) | `meteora_pools` | Not yet <sup>2</sup> | Swap amounts only <sup>2</sup> |
+| Pump.fun (bonding curve) | `pumpfun` | — | Virtual-reserve ratio — tracks the curve |
+| PumpSwap AMM | `pumpswap` | Yes | Reserve ratio; understates on migrated pools <sup>2</sup> |
+| Raydium AMM v4 | `raydium_amm` | Yes | Reserve ratio — tracks the fill |
+| Raydium CLMM | `raydium_clmm` | Yes | Pool spot price; TVL reserves <sup>3</sup> |
+| Raydium CPMM | `raydium_cpmm` | Yes | Reserve ratio — tracks the fill |
+| Orca Whirlpools | `orca` | Yes | Vault ratio — diverges; TVL reserves <sup>3</sup> |
+| Meteora DAMM v2 | `meteora_damm_v2` | Yes | Pool spot price where published; TVL reserves <sup>3</sup> |
+| Meteora DBC (bonding curve) | `meteora_dbc` | — | Vault ratio — diverges sharply <sup>3</sup> |
+| Meteora DLMM | `meteora_dlmm` | Yes | Vault ratio — diverges; TVL reserves <sup>3</sup> |
+| Meteora Dynamic AMM (Pools) | `meteora_pools` | Not yet <sup>4</sup> | The trade's own executed price <sup>4</sup> |
 
 Orca and the three Meteora venues — DBC, DLMM, and Pools — were added on
 **2026-06-09**; swaps before that date aren't indexed for those four. Pump.fun and
@@ -698,19 +785,140 @@ outside the index. Pump.fun is SOL-native, so all of its trades are captured.
 
 ### Price &amp; liquidity quality
 
-<sup>1</sup> `pool_price`, `real_sol_reserves`, and `real_token_reserves` are
-reliable per-pool values on the constant-product and bonding-curve venues
-(`pumpfun`, `pumpswap`, `raydium_amm`, `raydium_cpmm`, `meteora_damm_v2`,
-`meteora_dbc`). On the concentrated-liquidity venues the reserve fields are
-**whole-pool totals (TVL-like), not active-tick liquidity** — don't use them as a
-constant-product price oracle. `raydium_clmm` still reports a true spot
-`pool_price` (from the pool's sqrt-price); `orca` and `meteora_dlmm` report a
-vault-ratio approximation that can diverge from the executed price.
+## Which price field should I use?
 
-<sup>2</sup> On `meteora_pools`, liquidity sits in dynamic vaults shared across
-many pools, so no per-pool reserve is derivable from a swap: `pool_price` and the
-reserve fields are absent, and only the swap's own `sol_amount` / `token_amount`
-are indexed (these still drive volume and per-trade price). Add/remove-liquidity
+A swap carries three numbers that look like a price. They mean different things,
+and only one of them is right for every venue and every date.
+
+### Start with `price_per_token`
+
+`price_per_token` is the price the trade actually executed at, computed from the
+trade's own two legs and nothing else — it is exactly `sol_amount / token_amount`.
+Because it never touches pool reserves, nothing about how a venue reports its
+reserves can bias it, which is what makes it the one price field that is correct
+on all ten venues and across all of history.
+
+It arrives as **lamports per atomic token unit**. Scale it once to get SOL per
+whole token:
+
+```js
+const solPerToken = price_per_token * 10 ** (quote_decimals - base_decimals);
+```
+
+The streaming feeds don't carry the field, but they carry both legs, so the same
+number is `sol_amount / token_amount` from the frame you already have.
+
+<Note>
+**`base_decimals` and `quote_decimals` are the reverse of the usual convention.**
+`base_decimals` is the **SOL** side and is `9` on every venue. `quote_decimals`
+holds the **token's** own decimals, despite the name — commonly `6`, but `9` and
+other values are normal. Read `quote_decimals` as "the token's decimals" and the
+line above is the whole conversion.
+</Note>
+
+For a USD price, multiply by the SOL/USD rate, or call `GET /price/multi` (under
+**Price** in the [API reference](/api-reference)), which returns `price_usd` and
+`price_sol` per mint from the latest 1-minute candle close.
+
+### `pool_price` is a reserve ratio, not a quote
+
+`pool_price` is the ratio of the pool's **reported** SOL reserve to its
+**reported** token reserve, already scaled to SOL per whole token, and passed
+through as the venue published it. We serve it uncorrected on purpose: it is the
+faithful record of what the venue reported, which is what makes it useful for
+reserve and liquidity work.
+
+That same property is why it isn't a price you can trade against:
+
+- On constant-product and bonding-curve pools the ratio **is** the pool's
+  marginal price, and it lands within about a fee of the executed price.
+- On concentrated-liquidity pools the reported reserves are the pool's whole
+  inventory across every tick or bin — not the liquidity at the active price. The
+  ratio is an inventory statistic, and it can sit far from anything you could
+  fill at.
+- On PumpSwap pools that graduated from the pump.fun bonding curve after mid-July
+  2026, about 17.58 SOL of quote sits outside the account whose balance the swap
+  event reports. The ratio therefore understates the price by
+  `(sol_reserve + 17.58) / sol_reserve` — under a percent on a well-funded pool,
+  and much larger as the pool drains.
+
+Per-venue numbers are in [Data coverage](/concepts/coverage).
+
+### `price_impact_bps` is reported by two venues
+
+`pumpfun` and `pumpswap` report it. On the other eight venues REST returns `0`
+and the streaming feeds return `null`, and both mean **not reported** — not
+*zero impact*. Where it is reported, it is derived from the pool's own reported
+reserves, so it inherits the same caveats as `pool_price`. To measure slippage
+against a reference you control, compare `price_per_token` to that reference
+yourself.
+
+### For a price series, use candles
+
+Candle prices are written when the bar closes and served back verbatim — stored
+bars are never re-derived at read time. So a change in how a venue's price is
+derived reaches bars written **from the day it ships forward**; bars that closed
+earlier keep the value they were written with.
+
+One case is worth a number. On PumpSwap, closes on pump.fun-migrated pools carry
+the reserve-ratio understatement described above: in a recent 7-day production
+sample, **51.2% of PumpSwap daily closes came from such a pool**, and the largest
+single gap between a stored close and the price trades on that bar actually
+filled at was **95×**. When you need a price you can act on, derive it from
+`price_per_token` over the swaps in the window rather than reading the bar close.
+#### <sup>1</sup> How far `pool_price` sits from the executed price
+
+Measured on 4,000 consecutive live swaps (2026-09-07), comparing each row's
+`pool_price` against the price that same trade executed at
+(`price_per_token × 10^(quote_decimals − base_decimals)`), the median gap was:
+
+| Venue | Median gap | Widest in sample | Rows |
+| --- | --- | --- | --- |
+| `raydium_amm` | +0.25% | — | 18 |
+| `orca` | −20.00% | +207% | 60 |
+| `meteora_dlmm` | +120.76% | +969% | 40 |
+| `meteora_dbc` | −97.48% | — | 9 |
+
+`raydium_amm` is the positive control: a constant-product pool's reserve ratio
+*should* land within a fee of the fill, and it does — the +0.25% **is** the fee.
+The other three are the same measurement on venues where the reported reserves
+aren't the liquidity sitting at the active price. (`meteora_pools` also measured
+0.00% in that sample, but for a different reason — see <sup>4</sup> below.)
+
+Sample sizes are each venue's share of one 4,000-row window, so read the medians
+as the shape of the gap rather than a bound on it: individual rows sit further
+out in both directions.
+
+#### <sup>2</sup> PumpSwap pools migrated from pump.fun
+
+PumpSwap pools that graduated from the pump.fun bonding curve after mid-July 2026
+hold about **17.58 SOL** of quote outside the account whose balance the swap event
+reports, so the ratio understates the price by
+`(sol_reserve + 17.58) / sol_reserve`. That is a fraction of a percent on a pool
+holding a few hundred SOL, and it grows as the pool drains: on a live row from a
+pool reporting **0.56 SOL** of reserve, `pool_price` sat **32.6× below** the price
+the same trade filled at — exactly the factor the formula predicts. Pools that
+graduated before that date, and manually-created PumpSwap pools, carry no such
+offset. `price_per_token` is unaffected either way.
+
+#### <sup>3</sup> Vault-ratio venues and TVL-like reserves
+
+On `raydium_clmm`, `orca`, `meteora_damm_v2`, and `meteora_dlmm` the reserve
+fields are **whole-pool totals (TVL-like), not active-tick liquidity** — don't
+use them as a constant-product price oracle. `raydium_clmm` reports a true spot
+`pool_price` from the pool's sqrt-price rather than the vault ratio, and
+`meteora_damm_v2` does the same on rows from **2026-09-04** onward wherever the
+venue publishes the price in its swap event; where it doesn't, the vault ratio is
+passed through. `orca`, `meteora_dlmm`, and `meteora_dbc` report the vault ratio.
+
+#### <sup>4</sup> Meteora Dynamic AMM (Pools)
+
+On `meteora_pools`, liquidity sits in dynamic vaults shared across many pools, so
+no per-pool reserve is derivable from a swap: `real_sol_reserves` and
+`real_token_reserves` come back **`0`**, not absent. `pool_price` is populated,
+but on this venue it is not a pool ratio at all — it is that swap's own executed
+price, decimals-adjusted, so it equals
+`price_per_token × 10^(quote_decimals − base_decimals)` exactly. Add/remove-liquidity
 events for this venue aren't published yet.
 
 ## Endpoints affected
@@ -934,7 +1142,7 @@ All filters are optional and combine as AND. Set to `null` or omit to disable.
 
 ## Wire format gotchas
 
-A `swap` frame looks like this (captured live from `meteora_damm_v2`):
+A `swap` frame looks like this (captured live from `meteora_damm_v2` — the values are that pool's, so read `pool_price` and `price_impact_bps` with the venue in mind):
 
 ```json
 {
@@ -977,12 +1185,93 @@ A few things worth flagging:
 - **`swap_type`** is the string `"buy"` or `"sell"` (lowercase). Not `is_buy`. (`is_buy` is only a *filter* key, not a field on the event.) The REST `/swaps*` endpoints use `is_buy` (bool) instead — these two surfaces are intentionally different.
 - **`dex` is the string name** here. On the REST `/swaps*` endpoints `dex` is an integer ID. Same enum, different encoding.
 - **`timestamp` is epoch seconds.** On REST `/swaps*` it's epoch milliseconds; on REST candles it's ISO 8601.
-- **There is no `price` field.** Use `pool_price` (decimals-adjusted mid after the swap) or compute fill price client-side: `price = sol_amount / token_amount`, accounting for `base_decimals` and `quote_decimals`.
+- **There is no `price` field.** The price the trade filled at is the trade's own two legs: `price = (sol_amount / token_amount) * 10 ** (quote_decimals - base_decimals)`, in SOL per whole token. That is the same number REST returns as `price_per_token`, and it is correct on every venue. `pool_price` is the pool's **reported reserve ratio** — not a mid, and not a quote you can trade against; read *Which price field should I use?* below before using it.
 - **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
 - **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account). The swaps stream keys it as `pool_address`; REST and the [OHLCV WebSocket](/streaming/ohlcv) key the *same* account as `pair_address`.
 - **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
-- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings.
+- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings. `price_impact_bps` is only reported by `pumpfun` and `pumpswap`; where a venue doesn't report it you get `null` here (REST returns `0`), which means *not reported*, not zero impact.
 
+## Which price field should I use?
+
+A swap carries three numbers that look like a price. They mean different things,
+and only one of them is right for every venue and every date.
+
+### Start with `price_per_token`
+
+`price_per_token` is the price the trade actually executed at, computed from the
+trade's own two legs and nothing else — it is exactly `sol_amount / token_amount`.
+Because it never touches pool reserves, nothing about how a venue reports its
+reserves can bias it, which is what makes it the one price field that is correct
+on all ten venues and across all of history.
+
+It arrives as **lamports per atomic token unit**. Scale it once to get SOL per
+whole token:
+
+```js
+const solPerToken = price_per_token * 10 ** (quote_decimals - base_decimals);
+```
+
+The streaming feeds don't carry the field, but they carry both legs, so the same
+number is `sol_amount / token_amount` from the frame you already have.
+
+<Note>
+**`base_decimals` and `quote_decimals` are the reverse of the usual convention.**
+`base_decimals` is the **SOL** side and is `9` on every venue. `quote_decimals`
+holds the **token's** own decimals, despite the name — commonly `6`, but `9` and
+other values are normal. Read `quote_decimals` as "the token's decimals" and the
+line above is the whole conversion.
+</Note>
+
+For a USD price, multiply by the SOL/USD rate, or call `GET /price/multi` (under
+**Price** in the [API reference](/api-reference)), which returns `price_usd` and
+`price_sol` per mint from the latest 1-minute candle close.
+
+### `pool_price` is a reserve ratio, not a quote
+
+`pool_price` is the ratio of the pool's **reported** SOL reserve to its
+**reported** token reserve, already scaled to SOL per whole token, and passed
+through as the venue published it. We serve it uncorrected on purpose: it is the
+faithful record of what the venue reported, which is what makes it useful for
+reserve and liquidity work.
+
+That same property is why it isn't a price you can trade against:
+
+- On constant-product and bonding-curve pools the ratio **is** the pool's
+  marginal price, and it lands within about a fee of the executed price.
+- On concentrated-liquidity pools the reported reserves are the pool's whole
+  inventory across every tick or bin — not the liquidity at the active price. The
+  ratio is an inventory statistic, and it can sit far from anything you could
+  fill at.
+- On PumpSwap pools that graduated from the pump.fun bonding curve after mid-July
+  2026, about 17.58 SOL of quote sits outside the account whose balance the swap
+  event reports. The ratio therefore understates the price by
+  `(sol_reserve + 17.58) / sol_reserve` — under a percent on a well-funded pool,
+  and much larger as the pool drains.
+
+Per-venue numbers are in [Data coverage](/concepts/coverage).
+
+### `price_impact_bps` is reported by two venues
+
+`pumpfun` and `pumpswap` report it. On the other eight venues REST returns `0`
+and the streaming feeds return `null`, and both mean **not reported** — not
+*zero impact*. Where it is reported, it is derived from the pool's own reported
+reserves, so it inherits the same caveats as `pool_price`. To measure slippage
+against a reference you control, compare `price_per_token` to that reference
+yourself.
+
+### For a price series, use candles
+
+Candle prices are written when the bar closes and served back verbatim — stored
+bars are never re-derived at read time. So a change in how a venue's price is
+derived reaches bars written **from the day it ships forward**; bars that closed
+earlier keep the value they were written with.
+
+One case is worth a number. On PumpSwap, closes on pump.fun-migrated pools carry
+the reserve-ratio understatement described above: in a recent 7-day production
+sample, **51.2% of PumpSwap daily closes came from such a pool**, and the largest
+single gap between a stored close and the price trades on that bar actually
+filled at was **95×**. When you need a price you can act on, derive it from
+`price_per_token` over the swaps in the window rather than reading the bar close.
 ## Pool events (LP add/remove + burns)
 
 The same `/ws/swaps` socket also carries **non-swap pool activity** — LP deposits, LP withdrawals, token burns, and a server-classified rug signal. An unfiltered connection (or one filtered only by `tokens`/`pools`) receives these frames **interleaved** with swaps. This is the real-time liquidity-removal push that lets a bot react to a rug in the same second it lands, instead of polling.
@@ -2001,6 +2290,87 @@ query TraderProfile($wallet: String!) {
 }
 ```
 
+## Which price field should I use?
+
+A swap carries three numbers that look like a price. They mean different things,
+and only one of them is right for every venue and every date.
+
+### Start with `price_per_token`
+
+`price_per_token` is the price the trade actually executed at, computed from the
+trade's own two legs and nothing else — it is exactly `sol_amount / token_amount`.
+Because it never touches pool reserves, nothing about how a venue reports its
+reserves can bias it, which is what makes it the one price field that is correct
+on all ten venues and across all of history.
+
+It arrives as **lamports per atomic token unit**. Scale it once to get SOL per
+whole token:
+
+```js
+const solPerToken = price_per_token * 10 ** (quote_decimals - base_decimals);
+```
+
+The streaming feeds don't carry the field, but they carry both legs, so the same
+number is `sol_amount / token_amount` from the frame you already have.
+
+<Note>
+**`base_decimals` and `quote_decimals` are the reverse of the usual convention.**
+`base_decimals` is the **SOL** side and is `9` on every venue. `quote_decimals`
+holds the **token's** own decimals, despite the name — commonly `6`, but `9` and
+other values are normal. Read `quote_decimals` as "the token's decimals" and the
+line above is the whole conversion.
+</Note>
+
+For a USD price, multiply by the SOL/USD rate, or call `GET /price/multi` (under
+**Price** in the [API reference](/api-reference)), which returns `price_usd` and
+`price_sol` per mint from the latest 1-minute candle close.
+
+### `pool_price` is a reserve ratio, not a quote
+
+`pool_price` is the ratio of the pool's **reported** SOL reserve to its
+**reported** token reserve, already scaled to SOL per whole token, and passed
+through as the venue published it. We serve it uncorrected on purpose: it is the
+faithful record of what the venue reported, which is what makes it useful for
+reserve and liquidity work.
+
+That same property is why it isn't a price you can trade against:
+
+- On constant-product and bonding-curve pools the ratio **is** the pool's
+  marginal price, and it lands within about a fee of the executed price.
+- On concentrated-liquidity pools the reported reserves are the pool's whole
+  inventory across every tick or bin — not the liquidity at the active price. The
+  ratio is an inventory statistic, and it can sit far from anything you could
+  fill at.
+- On PumpSwap pools that graduated from the pump.fun bonding curve after mid-July
+  2026, about 17.58 SOL of quote sits outside the account whose balance the swap
+  event reports. The ratio therefore understates the price by
+  `(sol_reserve + 17.58) / sol_reserve` — under a percent on a well-funded pool,
+  and much larger as the pool drains.
+
+Per-venue numbers are in [Data coverage](/concepts/coverage).
+
+### `price_impact_bps` is reported by two venues
+
+`pumpfun` and `pumpswap` report it. On the other eight venues REST returns `0`
+and the streaming feeds return `null`, and both mean **not reported** — not
+*zero impact*. Where it is reported, it is derived from the pool's own reported
+reserves, so it inherits the same caveats as `pool_price`. To measure slippage
+against a reference you control, compare `price_per_token` to that reference
+yourself.
+
+### For a price series, use candles
+
+Candle prices are written when the bar closes and served back verbatim — stored
+bars are never re-derived at read time. So a change in how a venue's price is
+derived reaches bars written **from the day it ships forward**; bars that closed
+earlier keep the value they were written with.
+
+One case is worth a number. On PumpSwap, closes on pump.fun-migrated pools carry
+the reserve-ratio understatement described above: in a recent 7-day production
+sample, **51.2% of PumpSwap daily closes came from such a pool**, and the largest
+single gap between a stored close and the price trades on that bar actually
+filled at was **95×**. When you need a price you can act on, derive it from
+`price_per_token` over the swaps in the window rather than reading the bar close.
 ## Schema introspection
 
 Standard GraphQL introspection works. From the command line:
