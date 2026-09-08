@@ -39,7 +39,7 @@
         "type": "apiKey",
         "in": "query",
         "name": "api_key",
-        "description": "Browser-friendly alternative to the Bearer header — accepted by every endpoint and required for WebSocket from the browser."
+        "description": "Browser-friendly alternative to the Bearer header \u2014 accepted by every endpoint and required for WebSocket from the browser."
       }
     },
     "schemas": {
@@ -87,12 +87,13 @@
           },
           "recent_volume_sol": {
             "type": "number",
-            "description": "Volume in **decimal SOL** over a recent rolling window — already divided by 1e9. NOTE: unlike the candle `volume_sol` field (which is **lamports** despite the same suffix), this `/pairs` field is real SOL — do **not** divide by 1e9 again."
+            "description": "Volume in **decimal SOL** over a recent rolling window \u2014 already divided by 1e9. NOTE: unlike the candle `volume_sol` field (which is **lamports** despite the same suffix), this `/pairs` field is real SOL \u2014 do **not** divide by 1e9 again."
           }
         }
       },
       "Candle": {
         "type": "object",
+        "description": "One OHLCV bar. `open`/`high`/`low`/`close` are in SOL per whole token, already decimals-adjusted. Bar prices are computed when the bar closes and served back exactly as stored \u2014 a bar is never re-derived at read time, so a change in how a venue's price is derived reaches bars written from that day forward and leaves earlier bars as they were. See [Swap-event OHLCV](/concepts/swap-event-ohlcv).",
         "properties": {
           "timestamp": {
             "type": "string",
@@ -108,7 +109,7 @@
           "base_mint": {
             "type": "string",
             "example": "So11111111111111111111111111111111111111112",
-            "description": "Base side of the pool — almost always wrapped SOL."
+            "description": "Base side of the pool \u2014 almost always wrapped SOL."
           },
           "timeframe": {
             "type": "string",
@@ -125,7 +126,7 @@
           },
           "open": {
             "type": "number",
-            "description": "SOL per 1 token, decimals-adjusted."
+            "description": "SOL per 1 whole token, decimals-adjusted."
           },
           "high": {
             "type": "number"
@@ -178,7 +179,7 @@
       },
       "Swap": {
         "type": "object",
-        "description": "A single swap event from the raw swaps index. Same shape across `/swaps`, `/swaps/range`, `/swaps/whale`, `/swaps/{signature}`, `/swaps/trader/{wallet}`, `/swaps/token/{mint}`.\n\nNote that the streaming feeds (WebSocket and gRPC) use a *different* shape — see [WebSocket wire format](/streaming/websocket) — most notably `swap_type` (string) vs `is_buy` (bool) here, and `dex` as the string name vs `dex` as the integer ID here.",
+        "description": "A single swap event from the raw swaps index. Same shape across `/swaps`, `/swaps/range`, `/swaps/whale`, `/swaps/{signature}`, `/swaps/trader/{wallet}`, `/swaps/token/{mint}`.\n\nNote that the streaming feeds (WebSocket and gRPC) use a *different* shape \u2014 see [WebSocket wire format](/streaming/websocket) \u2014 most notably `swap_type` (string) vs `is_buy` (bool) here, and `dex` as the string name vs `dex` as the integer ID here.",
         "properties": {
           "signature": {
             "type": "string",
@@ -207,7 +208,7 @@
           },
           "is_buy": {
             "type": "boolean",
-            "description": "`true` if SOL → token; `false` if token → SOL."
+            "description": "`true` if SOL \u2192 token; `false` if token \u2192 SOL."
           },
           "dex": {
             "$ref": "#/components/schemas/DexId"
@@ -241,23 +242,23 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Realized fill price in **lamports per atomic token unit** — the raw stored value, NOT decimals-adjusted SOL. To get SOL per whole token: `price_per_token * 10**quote_decimals / 1e9`. Matches the definition on `ScreenerResultV2.price_per_token`. If you want the decimals-adjusted price directly, use `pool_price` instead — reading this field as SOL-per-token overstates it by 10**(9 - quote_decimals) (1000x for a 6-decimal token)."
+            "description": "The price this trade executed at, in **lamports per atomic token unit** \u2014 it is exactly `sol_amount / token_amount`, computed from the trade's own two legs and nothing else. Scale it once for SOL per whole token: `price_per_token * 10**(quote_decimals - base_decimals)` (equivalently `price_per_token * 10**quote_decimals / 1e9`, since `base_decimals` is 9). Reading the raw value as SOL-per-token overstates it by 10**(9 - quote_decimals) \u2014 1000x for a 6-decimal token. Because it never touches pool reserves, this is the one price field that is correct on all ten venues and across all history; prefer it over `pool_price` whenever you need a price a trade could actually fill at. Matches the definition on `ScreenerResultV2.price_per_token`."
           },
           "pool_price": {
             "type": "number",
-            "description": "Pool mid-price after the swap, in **SOL per whole token** (already decimals-adjusted). This is the decimals-adjusted companion to `price_per_token`, which is raw lamports per atomic unit."
+            "description": "The ratio of the pool's **reported** SOL reserve to its **reported** token reserve, scaled to SOL per whole token and passed through as the venue published it. It is a reserve statistic, not a tradeable quote. On constant-product and bonding-curve pools it lands within about a fee of the executed price; on concentrated-liquidity pools (`raydium_clmm`, `orca`, `meteora_damm_v2`, `meteora_dlmm`) the reported reserves are whole-pool inventory rather than the liquidity at the active price, and on PumpSwap pools that migrated from the pump.fun bonding curve after mid-July 2026 the ratio understates the price by `(sol_reserve + 17.58) / sol_reserve`. Use `price_per_token` for the price a trade executed at. Per-venue measured gaps are in [Data coverage](/concepts/coverage)."
           },
           "price_impact_bps": {
             "type": "integer",
-            "description": "Difference between fill price and pre-swap mid, in basis points."
+            "description": "Reported by `pumpfun` and `pumpswap` only. On the other eight venues this is `0`, which means *not reported* \u2014 not zero impact. Where it is reported, the value is computed against the pool's own reserves at the time of the trade. On `pumpswap` that comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does NOT inherit the understatement described for `pool_price`. The same correction is applied on REST, WebSocket and gRPC, so the three surfaces agree for a given swap. It measures impact relative to the pool, not slippage against an external reference \u2014 for that, compare `price_per_token` to a reference you control."
           },
           "base_decimals": {
             "type": "integer",
-            "description": "Decimals of the *base* (SOL) side — typically 9."
+            "description": "Decimals of the *base* (SOL) side \u2014 9 on every venue."
           },
           "quote_decimals": {
             "type": "integer",
-            "description": "Decimals of the *quote* (token) side."
+            "description": "Decimals of the *quote* side, i.e. **the token's** own decimals despite the name. Commonly 6, but 9 and other values are normal \u2014 read it per row."
           },
           "virtual_sol_reserves": {
             "type": "integer",
@@ -271,7 +272,7 @@
           "real_sol_reserves": {
             "type": "integer",
             "format": "int64",
-            "description": "Actual reserves on the pool after the swap."
+            "description": "Pool reserves as reported alongside the swap. On the concentrated-liquidity venues these are whole-pool totals (TVL-like), not active-tick liquidity. On `meteora_pools` liquidity sits in shared dynamic vaults, so both reserve fields come back `0`."
           },
           "real_token_reserves": {
             "type": "integer",
@@ -312,7 +313,11 @@
           },
           "has_more": {
             "type": "boolean",
-            "description": "True if more rows match — increment `offset` to page."
+            "description": "True if more rows match \u2014 increment `offset` to page."
+          },
+          "price_semantics": {
+            "type": "string",
+            "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum \u2014 the wording may change as derivations change."
           }
         }
       },
@@ -469,21 +474,21 @@
               "number",
               "null"
             ],
-            "description": "Pool liquidity in SOL — the source-of-truth value behind `liquidity_usd`."
+            "description": "Pool liquidity in SOL \u2014 the source-of-truth value behind `liquidity_usd`."
           },
           "price_usd": {
             "type": "number"
           },
           "price_sol": {
             "type": "number",
-            "description": "Price in SOL — the source-of-truth value behind `price_usd`."
+            "description": "Price in SOL \u2014 the source-of-truth value behind `price_usd`."
           },
           "volume_usd": {
             "type": "number"
           },
           "volume_sol": {
             "type": "number",
-            "description": "Window volume in SOL — the source-of-truth value behind `volume_usd`."
+            "description": "Window volume in SOL \u2014 the source-of-truth value behind `volume_usd`."
           },
           "trending_score": {
             "type": "number",
@@ -495,23 +500,23 @@
             "properties": {
               "vol_velocity": {
                 "type": "number",
-                "description": "`ln(volume_sol) * 1.5` — log-scaled raw volume."
+                "description": "`ln(volume_sol) * 1.5` \u2014 log-scaled raw volume."
               },
               "unique_buyers": {
                 "type": "number",
-                "description": "`sqrt(unique_buyers) * 1.2` — keeps small coins competitive."
+                "description": "`sqrt(unique_buyers) * 1.2` \u2014 keeps small coins competitive."
               },
               "vol_acceleration": {
                 "type": "number",
-                "description": "`vol_now_sol / max(vol_prior_sol, 0.01)` — a raw, unbounded volume ratio (not log-scaled or clamped), matching the ClickHouse `tokens_trending_score` materialized view. The dominant momentum term; values can be large when volume spikes from a near-zero prior window."
+                "description": "`vol_now_sol / max(vol_prior_sol, 0.01)` \u2014 a raw, unbounded volume ratio (not log-scaled or clamped), matching the ClickHouse `tokens_trending_score` materialized view. The dominant momentum term; values can be large when volume spikes from a near-zero prior window."
               },
               "buyer_acceleration": {
                 "type": "number",
-                "description": "`unique_buyers_now / max(unique_buyers_prior, 1)` — a raw, unbounded ratio of unique buyers this window vs. the prior window."
+                "description": "`unique_buyers_now / max(unique_buyers_prior, 1)` \u2014 a raw, unbounded ratio of unique buyers this window vs. the prior window."
               },
               "dev_sell_penalty": {
                 "type": "number",
-                "description": "Reserved — currently always `0.0`. The creator-sell penalty is deferred to a later phase (like `holder_growth` and `top10_penalty`, which are `null` today)."
+                "description": "Reserved \u2014 currently always `0.0`. The creator-sell penalty is deferred to a later phase (like `holder_growth` and `top10_penalty`, which are `null` today)."
               },
               "holder_growth": {
                 "type": [
@@ -543,7 +548,7 @@
       },
       "PoolEvent": {
         "type": "object",
-        "description": "Liquidity-pool event other than a swap — LP deposit, LP withdraw, token burn, or a server-classified rug. The real-time push of these same events is the `pool_event` frame on the [`/ws/swaps`](/streaming/websocket) WebSocket: a large `lp_withdraw` is the live LP-removal signal, and `rug_detected` is its classified version (`RUGGED` / `LIQUIDITY_DRAINING`).",
+        "description": "Liquidity-pool event other than a swap \u2014 LP deposit, LP withdraw, token burn, or a server-classified rug. The real-time push of these same events is the `pool_event` frame on the [`/ws/swaps`](/streaming/websocket) WebSocket: a large `lp_withdraw` is the live LP-removal signal, and `rug_detected` is its classified version (`RUGGED` / `LIQUIDITY_DRAINING`).",
         "properties": {
           "signature": {
             "type": "string"
@@ -590,7 +595,7 @@
           "lp_token_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "DAMM v2 saturates this to u64::MAX — prefer `base_amount` + `quote_amount` for math."
+            "description": "DAMM v2 saturates this to u64::MAX \u2014 prefer `base_amount` + `quote_amount` for math."
           },
           "drained_pct": {
             "type": "number",
@@ -601,7 +606,7 @@
           },
           "classification": {
             "type": "string",
-            "description": "Set only on `rug_detected` events: `RUGGED` when >95% of liquidity was removed, `LIQUIDITY_DRAINING` when 50–95%. Empty otherwise."
+            "description": "Set only on `rug_detected` events: `RUGGED` when >95% of liquidity was removed, `LIQUIDITY_DRAINING` when 50\u201395%. Empty otherwise."
           },
           "pool_base_reserve_after": {
             "type": "integer",
@@ -616,13 +621,13 @@
           "lp_supply_after": {
             "type": "integer",
             "format": "int64",
-            "description": "Post-event total LP supply. Constant-product only — `0` for Meteora."
+            "description": "Post-event total LP supply. Constant-product only \u2014 `0` for Meteora."
           }
         }
       },
       "TokenAudit": {
         "type": "object",
-        "description": "On-chain authority and LP-burn checks for a token, served by a dedicated service (CT106) at the **root** path `/tokens/{mint}/audit` (not under `/api/v1`).\n\nA valid base58 mint that has not been indexed yet still returns **HTTP 200** with `indexed: false` and every flag/value `null` (the unindexed sentinel) — it does not 404. A malformed (non-base58) mint returns **HTTP 400**.",
+        "description": "On-chain authority and LP-burn checks for a token, served by a dedicated service (CT106) at the **root** path `/tokens/{mint}/audit` (not under `/api/v1`).\n\nA valid base58 mint that has not been indexed yet still returns **HTTP 200** with `indexed: false` and every flag/value `null` (the unindexed sentinel) \u2014 it does not 404. A malformed (non-base58) mint returns **HTTP 400**.",
         "required": [
           "mint",
           "indexed"
@@ -633,7 +638,7 @@
           },
           "indexed": {
             "type": "boolean",
-            "description": "`false` when the mint is valid but not yet indexed — in that case `mint_revoked`, `freeze_revoked`, `lp_burnt`, and `computed_at` are all `null` and `top10_pct.status` is `no_holder_data`. `true` once audit data has been computed."
+            "description": "`false` when the mint is valid but not yet indexed \u2014 in that case `mint_revoked`, `freeze_revoked`, `lp_burnt`, and `computed_at` are all `null` and `top10_pct.status` is `no_holder_data`. `true` once audit data has been computed."
           },
           "lp_burnt": {
             "type": [
@@ -654,7 +659,7 @@
                   "number",
                   "null"
                 ],
-                "description": "Fraction of LP secured, `0..1`. Precise when measured by the polling detector; `null` when only the real-time firehose event path observed the lock (a binary on-chain burn/lock event — exact share not measured). Never fabricated."
+                "description": "Fraction of LP secured, `0..1`. Precise when measured by the polling detector; `null` when only the real-time firehose event path observed the lock (a binary on-chain burn/lock event \u2014 exact share not measured). Never fabricated."
               },
               "mechanism": {
                 "type": [
@@ -858,14 +863,14 @@
               "number",
               "null"
             ],
-            "description": "Percent of supply still held by the creator wallet (0–100)."
+            "description": "Percent of supply still held by the creator wallet (0\u2013100)."
           },
           "bonding_pct": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Pump.fun bonding-curve progress (0–100); null for graduated/non-pump tokens."
+            "description": "Pump.fun bonding-curve progress (0\u2013100); null for graduated/non-pump tokens."
           },
           "top10_pct": {
             "$ref": "#/components/schemas/Top10Pct"
@@ -878,7 +883,7 @@
               "object",
               "null"
             ],
-            "description": "Creator wallet, source provenance, and recent launches. `null` when the creator is unknown (Phase 0 strict precedence — never falls back to largest holder)."
+            "description": "Creator wallet, source provenance, and recent launches. `null` when the creator is unknown (Phase 0 strict precedence \u2014 never falls back to largest holder)."
           },
           "change_pct": {
             "type": "object",
@@ -960,7 +965,7 @@
       },
       "ActorAggregates": {
         "type": "object",
-        "description": "Per-tag count + concentration of wallets currently holding the mint. Keys are tag names (`sniper`, `insider`, `smart_money`, `whale`, `kol`, `fresh`, `dev`, `bot`) — only tags with at least one matching holder appear. Use `fetch_url` to deep-link to the full list endpoint.",
+        "description": "Per-tag count + concentration of wallets currently holding the mint. Keys are tag names (`sniper`, `insider`, `smart_money`, `whale`, `kol`, `fresh`, `dev`, `bot`) \u2014 only tags with at least one matching holder appear. Use `fetch_url` to deep-link to the full list endpoint.",
         "additionalProperties": {
           "$ref": "#/components/schemas/ActorAggregate"
         }
@@ -973,7 +978,7 @@
           },
           "pct_of_circulating": {
             "type": "number",
-            "description": "Sum of these wallets' balances divided by total supply (0.0–1.0)."
+            "description": "Sum of these wallets' balances divided by total supply (0.0\u20131.0)."
           },
           "fetch_url": {
             "type": "string",
@@ -990,7 +995,7 @@
               "number",
               "null"
             ],
-            "description": "0.0–10.0; null when no input data is available yet."
+            "description": "0.0\u201310.0; null when no input data is available yet."
           },
           "level": {
             "type": [
@@ -1057,7 +1062,7 @@
           },
           "pct_of_circulating": {
             "type": "number",
-            "description": "0.0–1.0."
+            "description": "0.0\u20131.0."
           },
           "tags": {
             "type": "array",
@@ -1097,7 +1102,7 @@
       },
       "RiskResponse": {
         "type": "object",
-        "description": "Glass-box token risk: a 0–10 score plus the per-signal breakdown that produced it. See [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
+        "description": "Glass-box token risk: a 0\u201310 score plus the per-signal breakdown that produced it. See [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
         "properties": {
           "mint": {
             "type": "string"
@@ -1107,7 +1112,7 @@
               "number",
               "null"
             ],
-            "description": "0.0–10.0; `null` when status is `no_data`."
+            "description": "0.0\u201310.0; `null` when status is `no_data`."
           },
           "level": {
             "type": [
@@ -1142,7 +1147,7 @@
           },
           "max_raw": {
             "type": "integer",
-            "description": "53500 — the sum of every signal's weight."
+            "description": "53500 \u2014 the sum of every signal's weight."
           },
           "computed_at": {
             "type": "integer"
@@ -1161,7 +1166,7 @@
         "properties": {
           "code": {
             "type": "string",
-            "description": "Stable identifier — see /concepts/risk-score."
+            "description": "Stable identifier \u2014 see /concepts/risk-score."
           },
           "weight": {
             "type": "integer"
@@ -1174,7 +1179,7 @@
           },
           "contribution": {
             "type": "integer",
-            "description": "weight × graded_strength; equals `weight` for boolean signals, scaled for graded ones."
+            "description": "weight \u00d7 graded_strength; equals `weight` for boolean signals, scaled for graded ones."
           },
           "label": {
             "type": "string",
@@ -1232,7 +1237,7 @@
                 }
               }
             },
-            "description": "Wallet classification tags. **Not deduplicated** — one entry per `(tag, mint)`, so the same `tag` value can appear multiple times (once per mint it was derived from). A wallet active across many mints can return many entries."
+            "description": "Wallet classification tags. **Not deduplicated** \u2014 one entry per `(tag, mint)`, so the same `tag` value can appear multiple times (once per mint it was derived from). A wallet active across many mints can return many entries."
           },
           "computed_at": {
             "type": "integer",
@@ -1270,7 +1275,7 @@
               "string",
               "null"
             ],
-            "description": "Phase 0 strict precedence — null when unknown."
+            "description": "Phase 0 strict precedence \u2014 null when unknown."
           },
           "creator_source": {
             "type": [
@@ -1340,7 +1345,7 @@
             "properties": {
               "bonding_pct": {
                 "type": "number",
-                "description": "0.0–100.0; pumpfun real_sol_reserves / 85 SOL × 100."
+                "description": "0.0\u2013100.0; pumpfun real_sol_reserves / 85 SOL \u00d7 100."
               }
             }
           }
@@ -1452,7 +1457,7 @@
           },
           "rps_cap": {
             "type": "integer",
-            "description": "Burst cap = `rps_cap × rps_window_secs` per window."
+            "description": "Burst cap = `rps_cap \u00d7 rps_window_secs` per window."
           },
           "rps_window_secs": {
             "type": "integer",
@@ -1469,7 +1474,7 @@
           },
           "monthly_used": {
             "type": "integer",
-            "description": "Cumulative request count this calendar month. Informational only — no cap."
+            "description": "Cumulative request count this calendar month. Informational only \u2014 no cap."
           },
           "monthly_used_note": {
             "type": "string",
@@ -1589,7 +1594,7 @@
               "number",
               "null"
             ],
-            "description": "0.0 at mint → 1.0 at graduation. May be `null` if unknown."
+            "description": "0.0 at mint \u2192 1.0 at graduation. May be `null` if unknown."
           },
           "dex": {
             "type": [
@@ -1616,7 +1621,7 @@
       },
       "AthResponse": {
         "type": "object",
-        "description": "Per-mint all-time high. All ATH fields are nullable — they're null when the mint has no daily candles in `ohlcv_1d` yet.",
+        "description": "Per-mint all-time high. All ATH fields are nullable \u2014 they're null when the mint has no daily candles in `ohlcv_1d` yet.",
         "properties": {
           "mint": {
             "type": "string"
@@ -1633,7 +1638,7 @@
               "number",
               "null"
             ],
-            "description": "`ath_price_sol × current Pyth SOL/USD`. Today-equivalent USD value, not the USD price at the moment of the ATH."
+            "description": "`ath_price_sol \u00d7 current Pyth SOL/USD`. Today-equivalent USD value, not the USD price at the moment of the ATH."
           },
           "ath_ts_ms": {
             "type": [
@@ -1787,7 +1792,7 @@
                         "number",
                         "null"
                       ],
-                      "description": "`close × supply_atomic / 10^decimals`. Null when `marketCap=false` (default)."
+                      "description": "`close \u00d7 supply_atomic / 10^decimals`. Null when `marketCap=false` (default)."
                     }
                   }
                 }
@@ -1841,11 +1846,11 @@
           },
           "top10_pct": {
             "type": "number",
-            "description": "Share of total supply held by the top 10 holders, as a percentage (0–100)."
+            "description": "Share of total supply held by the top 10 holders, as a percentage (0\u2013100)."
           },
           "top100_pct": {
             "type": "number",
-            "description": "Share of total supply held by the top 100 holders, as a percentage (0–100)."
+            "description": "Share of total supply held by the top 100 holders, as a percentage (0\u2013100)."
           },
           "gini": {
             "type": [
@@ -1957,7 +1962,7 @@
       },
       "ActorChartSingleResponse": {
         "type": "object",
-        "description": "Response for a single-series actor chart endpoint (`/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`). Rows exist only for hours the mint traded — gaps are expected, not bugs. Forward-fill the last value for quiet hours. An empty `results` array carries a `coverage_note` explaining the no-backfill policy.",
+        "description": "Response for a single-series actor chart endpoint (`/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`). Rows exist only for hours the mint traded \u2014 gaps are expected, not bugs. Forward-fill the last value for quiet hours. An empty `results` array carries a `coverage_note` explaining the no-backfill policy.",
         "required": [
           "results",
           "computed_at"
@@ -1982,7 +1987,7 @@
       },
       "ActorChartCombinedPoint": {
         "type": "object",
-        "description": "One wide row from the combined actor-chart endpoint. Keys present depend on the `?series=` subset requested. `dev_held_pct` is a 0.0–1.0 fraction.",
+        "description": "One wide row from the combined actor-chart endpoint. Keys present depend on the `?series=` subset requested. `dev_held_pct` is a 0.0\u20131.0 fraction.",
         "required": [
           "ts_ms"
         ],
@@ -2010,13 +2015,13 @@
           "dev_held_pct": {
             "type": "number",
             "format": "float",
-            "description": "Developer's share of supply (0.0–1.0 fraction). Present when `dev` is in the requested series."
+            "description": "Developer's share of supply (0.0\u20131.0 fraction). Present when `dev` is in the requested series."
           }
         }
       },
       "ActorChartCombinedResponse": {
         "type": "object",
-        "description": "Response for the combined actor-chart endpoint (`/tokens/{mint}/actor-chart`). Wide rows — one object per timestamp with all requested series as keys. One call replaces up to four single-series requests.",
+        "description": "Response for the combined actor-chart endpoint (`/tokens/{mint}/actor-chart`). Wide rows \u2014 one object per timestamp with all requested series as keys. One call replaces up to four single-series requests.",
         "required": [
           "results",
           "computed_at"
@@ -2035,7 +2040,7 @@
           },
           "coverage_note": {
             "type": "string",
-            "description": "Present on empty results — no pre-launch backfill; charts grow forward from Phase 3 launch (2026-05-28)."
+            "description": "Present on empty results \u2014 no pre-launch backfill; charts grow forward from Phase 3 launch (2026-05-28)."
           }
         }
       },
@@ -2074,7 +2079,7 @@
               "number",
               "null"
             ],
-            "description": "Current market value in SOL (latest candle price × qty). `null` when price is unavailable."
+            "description": "Current market value in SOL (latest candle price \u00d7 qty). `null` when price is unavailable."
           },
           "current_value_usd": {
             "type": [
@@ -2088,7 +2093,7 @@
               "number",
               "null"
             ],
-            "description": "`current_value_sol − cost_basis_sol`. `null` when either value is unavailable."
+            "description": "`current_value_sol \u2212 cost_basis_sol`. `null` when either value is unavailable."
           },
           "price_stale": {
             "type": "boolean",
@@ -2132,7 +2137,7 @@
       },
       "HoldingsBasicResponse": {
         "type": "object",
-        "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index — no Shyft call, no USD values (SOL only). Fast (~30 ms). Only covers tokens traded through indexed DEXes. Unlike `/holdings`, entries omit `no_cost_basis` and any USD fields.",
+        "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index \u2014 no Shyft call, no USD values (SOL only). Fast (~30 ms). Only covers tokens traded through indexed DEXes. Unlike `/holdings`, entries omit `no_cost_basis` and any USD fields.",
         "required": [
           "wallet",
           "holdings"
@@ -2162,14 +2167,14 @@
                 },
                 "cost_basis_sol": {
                   "type": "number",
-                  "description": "FIFO cost basis in SOL. Always present — basic holdings are derived from the wallet's own indexed swaps."
+                  "description": "FIFO cost basis in SOL. Always present \u2014 basic holdings are derived from the wallet's own indexed swaps."
                 },
                 "current_value_sol": {
                   "type": [
                     "number",
                     "null"
                   ],
-                  "description": "Current value in SOL (`qty` × latest price); `null` when no recent price is available (`price_stale`)."
+                  "description": "Current value in SOL (`qty` \u00d7 latest price); `null` when no recent price is available (`price_stale`)."
                 },
                 "unrealized_pnl_sol": {
                   "type": [
@@ -2180,7 +2185,7 @@
                 },
                 "price_stale": {
                   "type": "boolean",
-                  "description": "`true` when no price ≤1h old was found for the mint (so `current_value_sol`/`unrealized_pnl_sol` are `null`)."
+                  "description": "`true` when no price \u22641h old was found for the mint (so `current_value_sol`/`unrealized_pnl_sol` are `null`)."
                 }
               }
             }
@@ -2215,7 +2220,7 @@
           },
           "is_buy": {
             "type": "boolean",
-            "description": "`true` if SOL → token; `false` if token → SOL."
+            "description": "`true` if SOL \u2192 token; `false` if token \u2192 SOL."
           },
           "sol_amount": {
             "type": "number",
@@ -2234,7 +2239,7 @@
               "number",
               "null"
             ],
-            "description": "FIFO realized PnL in SOL on this sell (`proceeds − matched_cost`). Always `null` on buys."
+            "description": "FIFO realized PnL in SOL on this sell (`proceeds \u2212 matched_cost`). Always `null` on buys."
           }
         }
       },
@@ -2289,11 +2294,11 @@
           },
           "value_usd": {
             "type": "number",
-            "description": "Portfolio value in USD. Uses the **current** SOL/USD rate for all historical points — Dexploit does not store a daily SOL/USD history. Apply your own historical SOL/USD to `value_sol` for accurate historical USD."
+            "description": "Portfolio value in USD. Uses the **current** SOL/USD rate for all historical points \u2014 Dexploit does not store a daily SOL/USD history. Apply your own historical SOL/USD to `value_sol` for accurate historical USD."
           },
           "provisional": {
             "type": "boolean",
-            "description": "Present and `true` only on `today` — the current day is computed live and has not been finalized."
+            "description": "Present and `true` only on `today` \u2014 the current day is computed live and has not been finalized."
           }
         }
       },
@@ -2372,7 +2377,7 @@
           },
           "win_rate": {
             "type": "number",
-            "description": "Fraction of sells that were profitable (0.0–1.0)."
+            "description": "Fraction of sells that were profitable (0.0\u20131.0)."
           },
           "sell_count": {
             "type": "integer",
@@ -2460,7 +2465,7 @@
           },
           "win_rate": {
             "type": "number",
-            "description": "Fraction of sells that were profitable (0.0–1.0)."
+            "description": "Fraction of sells that were profitable (0.0\u20131.0)."
           },
           "total_volume_sol": {
             "type": "number",
@@ -2523,19 +2528,19 @@
       },
       "RealizedBreakdown": {
         "type": "object",
-        "description": "Per-mode realized accounting (SOL). Present on glass-box responses or when `breakdown=1`. Note `raw` is **not** realized PnL — it is net cash-flow (Σ sells − Σ buys). Only `strict` and `adjusted` are cost-basis realized-PnL figures.",
+        "description": "Per-mode realized accounting (SOL). Present on glass-box responses or when `breakdown=1`. Note `raw` is **not** realized PnL \u2014 it is net cash-flow (\u03a3 sells \u2212 \u03a3 buys). Only `strict` and `adjusted` are cost-basis realized-PnL figures.",
         "properties": {
           "raw": {
             "type": "number",
-            "description": "Net cash-flow in SOL: Σ(SOL received from sells) − Σ(SOL spent on buys). **Not realized PnL** — it ignores cost basis and counts every buy (including zero-token buys), so it diverges from `strict`/`adjusted` whenever a position still holds open lots (Wave 6.5 / QW-9)."
+            "description": "Net cash-flow in SOL: \u03a3(SOL received from sells) \u2212 \u03a3(SOL spent on buys). **Not realized PnL** \u2014 it ignores cost basis and counts every buy (including zero-token buys), so it diverges from `strict`/`adjusted` whenever a position still holds open lots (Wave 6.5 / QW-9)."
           },
           "strict": {
             "type": "number",
-            "description": "Realized PnL in SOL under strict FIFO lot matching (`proceeds − matched_cost` on the matched portion of each sell)."
+            "description": "Realized PnL in SOL under strict FIFO lot matching (`proceeds \u2212 matched_cost` on the matched portion of each sell)."
           },
           "adjusted": {
             "type": "number",
-            "description": "Realized PnL in SOL under weighted-average cost basis (`proceeds − avg_cost × sell_qty`). The default `pnl_mode`."
+            "description": "Realized PnL in SOL under weighted-average cost basis (`proceeds \u2212 avg_cost \u00d7 sell_qty`). The default `pnl_mode`."
           }
         }
       },
@@ -2596,7 +2601,7 @@
           },
           "fastest_flip_seconds": {
             "type": "integer",
-            "description": "Shortest buy→sell round-trip in seconds (sentinel 0 = no flip)."
+            "description": "Shortest buy\u2192sell round-trip in seconds (sentinel 0 = no flip)."
           },
           "longest_hold_seconds": {
             "type": "integer"
@@ -2758,7 +2763,7 @@
       },
       "PnlV2Summary": {
         "type": "object",
-        "description": "Cost-basis PnL summary for a wallet (Phase 8 engine). All `*_sol` fields are SOL. `unrealized_sol` is read-time spot Σ(price−avg_cost)*balance; null-priced mints contribute 0. Wallets with no positions return zeros and an empty `positions` array.",
+        "description": "Cost-basis PnL summary for a wallet (Phase 8 engine). All `*_sol` fields are SOL. `unrealized_sol` is read-time spot \u03a3(price\u2212avg_cost)*balance; null-priced mints contribute 0. Wallets with no positions return zeros and an empty `positions` array.",
         "properties": {
           "wallet": {
             "type": "string"
@@ -2844,11 +2849,11 @@
           },
           "win_rate": {
             "type": "number",
-            "description": "Winning sells / total sells (0.0–1.0)."
+            "description": "Winning sells / total sells (0.0\u20131.0)."
           },
           "trade_count": {
             "type": "integer",
-            "description": "Σ total_sell_count."
+            "description": "\u03a3 total_sell_count."
           },
           "is_kol": {
             "type": "boolean"
@@ -2906,7 +2911,7 @@
       },
       "KolCalendarRow": {
         "type": "object",
-        "description": "One KOL row in the realized-only heatmap. `cells` is sparse — one cell per active day, carrying that day's realized DELTA.",
+        "description": "One KOL row in the realized-only heatmap. `cells` is sparse \u2014 one cell per active day, carrying that day's realized DELTA.",
         "properties": {
           "wallet": {
             "type": "string"
@@ -3080,7 +3085,7 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Price in **lamports per atomic token unit** (1 SOL = 1e9 lamports)."
+            "description": "Price in **lamports per atomic token unit** (1 SOL = 1e9 lamports). For SOL per whole token, scale by `10**(quote_decimals - base_decimals)` as on `Swap.price_per_token`."
           },
           "last_ts": {
             "type": "integer",
@@ -3113,7 +3118,7 @@
               "number",
               "null"
             ],
-            "description": "Pool/curve liquidity in SOL. A **number** when `liquidity_status` is `IN_CURVE`; **0** when `DRAINED` (curve reserves collapsed — LP-drain/rug); **null** for `POOL_DEPTH` (graduated/AMM pools, where curve liquidity is not the relevant measure)."
+            "description": "Pool/curve liquidity in SOL. A **number** when `liquidity_status` is `IN_CURVE`; **0** when `DRAINED` (curve reserves collapsed \u2014 LP-drain/rug); **null** for `POOL_DEPTH` (graduated/AMM pools, where curve liquidity is not the relevant measure)."
           },
           "liquidity_status": {
             "type": "string",
@@ -3199,7 +3204,7 @@
           },
           "price_per_token": {
             "type": "number",
-            "description": "Price in lamports per atomic token unit (1 SOL = 1e9 lamports)."
+            "description": "Price in lamports per atomic token unit (1 SOL = 1e9 lamports). Same definition as `Swap.price_per_token`."
           },
           "change_pct": {
             "type": "number"
@@ -3346,7 +3351,7 @@
               "type": "string"
             },
             "maxItems": 200,
-            "description": "Batch filter — restrict results to this set of mints (cap 200). Use this to fetch screener rows for a known list of tokens in one call. Any malformed entry returns `400 invalid parameter: invalid_filter:mints`."
+            "description": "Batch filter \u2014 restrict results to this set of mints (cap 200). Use this to fetch screener rows for a known list of tokens in one call. Any malformed entry returns `400 invalid parameter: invalid_filter:mints`."
           },
           "creator": {
             "type": "string",
@@ -3566,7 +3571,7 @@
                 "type": null
               }
             },
-            "description": "Deferred — currently produces a warning rather than filtering."
+            "description": "Deferred \u2014 currently produces a warning rather than filtering."
           }
         }
       },
@@ -3593,7 +3598,7 @@
     "/api/v1/pairs": {
       "get": {
         "summary": "List pools (pairs)",
-        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings — the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol` and `recent_volume_sol`, sorted by recent SOL volume — the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
+        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings \u2014 the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol` and `recent_volume_sol`, sorted by recent SOL volume \u2014 the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
         "operationId": "listPairs",
         "tags": [
           "Pairs"
@@ -3713,7 +3718,7 @@
     "/api/v1/candles": {
       "get": {
         "summary": "Historical candles for a pool",
-        "description": "Returns OHLCV bars for `pair_address` between `start` and `end`. Bars are built from real swap events — see [Swap-event OHLCV](/concepts/swap-event-ohlcv).\n\n**Requires `pair_address`.** Sending `mint`, `pair`, or `protocol` returns 400 with a pointer to /api/v1/pairs.",
+        "description": "Returns OHLCV bars for `pair_address` between `start` and `end`. Bars are built from real swap events \u2014 see [Swap-event OHLCV](/concepts/swap-event-ohlcv).\n\n**Requires `pair_address`.** Sending `mint`, `pair`, or `protocol` returns 400 with a pointer to /api/v1/pairs.",
         "operationId": "listCandles",
         "tags": [
           "Candles (OHLCV)"
@@ -3854,7 +3859,7 @@
     "/api/v1/candles/latest": {
       "get": {
         "summary": "Most recent candles for a pool",
-        "description": "Returns the most-recent N candles for `pair_address`.\n\n**Requires `pair_address`.** The legacy `protocol=&pair=` form is no longer accepted — sending `protocol`/`pair` (or `mint`) returns **HTTP 400** `invalid parameter: use pair_address` (discover the pool via [`/api/v1/pairs?token_address=`](#tag/pairs/get/api/v1/pairs)).",
+        "description": "Returns the most-recent N candles for `pair_address`.\n\n**Requires `pair_address`.** The legacy `protocol=&pair=` form is no longer accepted \u2014 sending `protocol`/`pair` (or `mint`) returns **HTTP 400** `invalid parameter: use pair_address` (discover the pool via [`/api/v1/pairs?token_address=`](#tag/pairs/get/api/v1/pairs)).",
         "operationId": "listLatestCandles",
         "tags": [
           "Candles (OHLCV)"
@@ -3924,7 +3929,7 @@
             }
           },
           "400": {
-            "description": "Missing `pair_address`, or sent the legacy `protocol`/`pair` form (→ `invalid parameter: use pair_address`).",
+            "description": "Missing `pair_address`, or sent the legacy `protocol`/`pair` form (\u2192 `invalid parameter: use pair_address`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -4326,6 +4331,14 @@
                   "$ref": "#/components/schemas/Swap"
                 }
               }
+            },
+            "headers": {
+              "x-price-semantics": {
+                "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum \u2014 the wording may change as derivations change. This route returns the bare swap object with no envelope, so the label is carried in this response header instead. NOTE: it is not exposed via Access-Control-Expose-Headers, so a browser cannot read it cross-origin; server-side callers see it normally.",
+                "schema": {
+                  "type": "string"
+                }
+              }
             }
           },
           "404": {
@@ -4344,7 +4357,7 @@
     "/swaps/trader/{wallet}": {
       "get": {
         "summary": "Swap history for a trader (with lifetime stats)",
-        "description": "All swaps a wallet has made, across pools and DEXs, plus the same `TraderStats` block returned by [/stats/trader/{wallet}](#tag/stats-trends/get/stats/trader/{wallet}) — saves a second round-trip when rendering a wallet page.",
+        "description": "All swaps a wallet has made, across pools and DEXs, plus the same `TraderStats` block returned by [/stats/trader/{wallet}](#tag/stats-trends/get/stats/trader/{wallet}) \u2014 saves a second round-trip when rendering a wallet page.",
         "operationId": "listTraderSwaps",
         "tags": [
           "Swaps"
@@ -4399,6 +4412,10 @@
                     },
                     "stats": {
                       "$ref": "#/components/schemas/TraderStats"
+                    },
+                    "price_semantics": {
+                      "type": "string",
+                      "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum \u2014 the wording may change as derivations change."
                     }
                   }
                 }
@@ -4411,7 +4428,7 @@
     "/swaps/token/{mint}": {
       "get": {
         "summary": "Swap history for a token (with lifetime stats)",
-        "description": "Returns swaps for a token across **every** pool we index, plus a `TokenStats` block. This is one of the few endpoints where token mint (not `pair_address`) is the right input — it intentionally aggregates. See [Pairs vs tokens](/concepts/pairs-vs-tokens).",
+        "description": "Returns swaps for a token across **every** pool we index, plus a `TokenStats` block. This is one of the few endpoints where token mint (not `pair_address`) is the right input \u2014 it intentionally aggregates. See [Pairs vs tokens](/concepts/pairs-vs-tokens).",
         "operationId": "listTokenSwaps",
         "tags": [
           "Swaps"
@@ -4466,6 +4483,10 @@
                     },
                     "stats": {
                       "$ref": "#/components/schemas/TokenStats"
+                    },
+                    "price_semantics": {
+                      "type": "string",
+                      "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum \u2014 the wording may change as derivations change."
                     }
                   }
                 }
@@ -4478,7 +4499,7 @@
     "/stats/global": {
       "get": {
         "summary": "Global lifetime stats",
-        "description": "Aggregate lifetime stats across the entire index. (Not a 24h window — these are cumulative since `data_inception` reported by [/api/v1/stats](#tag/stats-trends/get/api/v1/stats).)",
+        "description": "Aggregate lifetime stats across the entire index. (Not a 24h window \u2014 these are cumulative since `data_inception` reported by [/api/v1/stats](#tag/stats-trends/get/api/v1/stats).)",
         "operationId": "getGlobalStats",
         "tags": [
           "Stats & trends"
@@ -4564,7 +4585,7 @@
     "/trending": {
       "get": {
         "summary": "Trending tokens",
-        "description": "Tokens with the highest momentum over the requested window. The score compares the current window to the prior equal-length window, so a token that suddenly accelerates ranks above a steady high-volume token. Brand-new mints with no prior-window activity get a fast-riser boost. Pass `include_score=true` to expose the per-component `formula_breakdown` so you can re-sort client-side.\n\n**Rug filter:** tokens whose price collapsed by 90% or more inside the window are excluded by default — their activity is rug-watchers piling in, not organic demand. Set `include_rugged=true` to opt in.\n\n**Pagination:** use `offset` + `limit` to page through the scored list. The response carries `total` (how many candidates were scored before slicing), `offset`, and `limit` so you can detect end-of-list. Pricing/liquidity are USD via the Pyth SOL/USD oracle.",
+        "description": "Tokens with the highest momentum over the requested window. The score compares the current window to the prior equal-length window, so a token that suddenly accelerates ranks above a steady high-volume token. Brand-new mints with no prior-window activity get a fast-riser boost. Pass `include_score=true` to expose the per-component `formula_breakdown` so you can re-sort client-side.\n\n**Rug filter:** tokens whose price collapsed by 90% or more inside the window are excluded by default \u2014 their activity is rug-watchers piling in, not organic demand. Set `include_rugged=true` to opt in.\n\n**Pagination:** use `offset` + `limit` to page through the scored list. The response carries `total` (how many candidates were scored before slicing), `offset`, and `limit` so you can detect end-of-list. Pricing/liquidity are USD via the Pyth SOL/USD oracle.",
         "operationId": "listTrending",
         "tags": [
           "Stats & trends"
@@ -4599,7 +4620,7 @@
               "minimum": 1,
               "maximum": 200
             },
-            "description": "Page size — number of results to return."
+            "description": "Page size \u2014 number of results to return."
           },
           {
             "name": "offset",
@@ -4611,7 +4632,7 @@
               "minimum": 0,
               "maximum": 200
             },
-            "description": "Page offset — skip the first N scored results. Combined with `limit` for stable-cache-window pagination."
+            "description": "Page offset \u2014 skip the first N scored results. Combined with `limit` for stable-cache-window pagination."
           },
           {
             "name": "sector",
@@ -4770,7 +4791,7 @@
               "minimum": 1,
               "maximum": 500
             },
-            "description": "Per side — you get up to `limit` gainers AND up to `limit` losers."
+            "description": "Per side \u2014 you get up to `limit` gainers AND up to `limit` losers."
           }
         ],
         "responses": {
@@ -4847,7 +4868,7 @@
     "/api/v1/protocols": {
       "get": {
         "summary": "List supported DEX protocols",
-        "description": "Returns the lowercase snake_case names of every DEX Dexploit currently indexes. These are the values you'll pass as `protocol=` to [/api/v1/pairs](#tag/pairs/get/api/v1/pairs) and [/api/v1/top-movers](#tag/stats-trends/get/api/v1/top-movers), or as `dex=` to [/swaps](#tag/swaps/get/swaps).\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/tokens/{mint}/audit](#tag/tokens/get/tokens/{mint}/audit)).",
+        "description": "Returns the lowercase snake_case names of every DEX Dexploit currently indexes. These are the values you'll pass as `protocol=` to [/api/v1/pairs](#tag/pairs/get/api/v1/pairs) and [/api/v1/top-movers](#tag/stats-trends/get/api/v1/top-movers), or as `dex=` to [/swaps](#tag/swaps/get/swaps).\n\n**Public \u2014 no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/tokens/{mint}/audit](#tag/tokens/get/tokens/{mint}/audit)).",
         "operationId": "listProtocols",
         "security": [],
         "tags": [
@@ -4895,7 +4916,7 @@
     "/api/v1/stats": {
       "get": {
         "summary": "Aggregate platform stats",
-        "description": "Roll-up of the OHLCV index — how many candles, pools, mints, and supported timeframes; plus when the index started.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols) and [/tokens/{mint}/audit](#tag/tokens/get/tokens/{mint}/audit)).",
+        "description": "Roll-up of the OHLCV index \u2014 how many candles, pools, mints, and supported timeframes; plus when the index started.\n\n**Public \u2014 no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols) and [/tokens/{mint}/audit](#tag/tokens/get/tokens/{mint}/audit)).",
         "operationId": "getOhlcvStats",
         "security": [],
         "tags": [
@@ -5011,7 +5032,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Map of mint → TokenStats",
+            "description": "Map of mint \u2192 TokenStats",
             "content": {
               "application/json": {
                 "schema": {
@@ -5077,7 +5098,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Cursor — epoch ms; returns events strictly older than this."
+            "description": "Cursor \u2014 epoch ms; returns events strictly older than this."
           }
         ],
         "responses": {
@@ -5121,7 +5142,7 @@
     "/screener": {
       "post": {
         "summary": "Filter tokens (Phase-7 V2 screener)",
-        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
+        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** \u2014 `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped \u2014 see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` \u2014 when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) \u2192 **HTTP 400** with the enveloped body `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`.\n- **Unsupported filter** (e.g. `risk_score`) \u2192 stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
         "operationId": "runScreener",
         "tags": [
           "Screener"
@@ -5246,7 +5267,7 @@
             }
           },
           "400": {
-            "description": "Malformed address filter (`mint`, `mints[]`, or `creator` not valid base58). Unsupported filters like `risk_score` do **not** 400 — they stay 200 with a `warnings[]` note.",
+            "description": "Malformed address filter (`mint`, `mints[]`, or `creator` not valid base58). Unsupported filters like `risk_score` do **not** 400 \u2014 they stay 200 with a `warnings[]` note.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5287,7 +5308,7 @@
     "/tokens": {
       "get": {
         "summary": "Batch token metadata",
-        "description": "Resolve metadata + audit flags for up to 200 mints in one call. This is the right endpoint for hydrating a list view — don't loop over `/tokens/{mint}`.",
+        "description": "Resolve metadata + audit flags for up to 200 mints in one call. This is the right endpoint for hydrating a list view \u2014 don't loop over `/tokens/{mint}`.",
         "operationId": "listTokens",
         "tags": [
           "Tokens"
@@ -5370,7 +5391,7 @@
     "/tokens/{mint}/audit": {
       "get": {
         "summary": "On-chain audit flags",
-        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n- **Malformed** (non-base58) mint → `400`.",
+        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public \u2014 no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** \u2014 `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** \u2192 `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** \u2192 `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n- **Malformed** (non-base58) mint \u2192 `400`.",
         "operationId": "getTokenAudit",
         "security": [],
         "tags": [
@@ -5388,7 +5409,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Audit flags. `indexed: false` (with all-null flags) is the sentinel for a valid-but-unindexed mint — not an error.",
+            "description": "Audit flags. `indexed: false` (with all-null flags) is the sentinel for a valid-but-unindexed mint \u2014 not an error.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5446,7 +5467,7 @@
     },
     "/tokens/{mint}/intel": {
       "get": {
-        "summary": "Token intel — dashboard summary",
+        "summary": "Token intel \u2014 dashboard summary",
         "description": "Per-mint dashboard payload: actor aggregates, top-10 holder concentration, dev info, price/liquidity context, and an embedded Risk Score summary. Server-side cached ~60s.\n\nFor the full holder list use [`/tokens/{mint}/holders`](#tag/tokens/get/tokens/{mint}/holders); for actor lists deep-link via the `fetch_url` in each `actors[*]` entry; for the full per-signal Risk breakdown call [`/tokens/{mint}/risk`](#tag/tokens/get/tokens/{mint}/risk).",
         "operationId": "getTokenIntel",
         "tags": [
@@ -5540,7 +5561,7 @@
     "/tokens/{mint}/holders/top": {
       "get": {
         "summary": "Top 20 holders",
-        "description": "Same shape as `/tokens/{mint}/holders` but fixed at 20 rows and no cursor — ideal for a 'top holders' panel.",
+        "description": "Same shape as `/tokens/{mint}/holders` but fixed at 20 rows and no cursor \u2014 ideal for a 'top holders' panel.",
         "operationId": "listTokenHoldersTop",
         "tags": [
           "Tokens"
@@ -5827,7 +5848,7 @@
     "/tokens/{mint}/risk": {
       "get": {
         "summary": "Token risk score (glass-box)",
-        "description": "0.0–10.0 rug-pull risk score with the full per-signal breakdown that produced it. Glass-box — every signal that fired is in `signals[]` with its `code`, `weight`, `value`, and `contribution`. You can re-compute the score yourself: `min(10, sum(s.contribution for s in signals) * 10 / 5000)`.\n\nSee [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
+        "description": "0.0\u201310.0 rug-pull risk score with the full per-signal breakdown that produced it. Glass-box \u2014 every signal that fired is in `signals[]` with its `code`, `weight`, `value`, and `contribution`. You can re-compute the score yourself: `min(10, sum(s.contribution for s in signals) * 10 / 5000)`.\n\nSee [Risk Score algorithm](/concepts/risk-score) for the full signal taxonomy.",
         "operationId": "getTokenRisk",
         "tags": [
           "Tokens"
@@ -5859,7 +5880,7 @@
     "/tokens/{mint}/ath": {
       "get": {
         "summary": "Token all-time-high price",
-        "description": "Per-mint all-time high across every pair the mint has traded in. Computed continuously via a `maxState(close) + argMaxState(timestamp, close) + argMaxState(pair_address, close)` Aggregating MV over `ohlcv_1d`. `ath_price_usd` is the SOL ATH multiplied by the current Pyth SOL/USD price — it's a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
+        "description": "Per-mint all-time high across every pair the mint has traded in. Computed continuously via a `maxState(close) + argMaxState(timestamp, close) + argMaxState(pair_address, close)` Aggregating MV over `ohlcv_1d`. `ath_price_usd` is the SOL ATH multiplied by the current Pyth SOL/USD price \u2014 it's a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
         "operationId": "getTokenAth",
         "tags": [
           "Tokens"
@@ -5921,7 +5942,7 @@
     "/tokens/{mint}/bundlers": {
       "get": {
         "summary": "Bundler wallets for a mint (stub)",
-        "description": "Phase 2 placeholder. Real bundler detection ships in Phase 5 — once the wallet-tagger pipeline backfills the `bundler` tag, this endpoint will return a count and list of bundler wallets. Today it always returns `count: 0` with `status: \"tagger_pending\"` and `available_in: \"phase_5\"`.",
+        "description": "Phase 2 placeholder. Real bundler detection ships in Phase 5 \u2014 once the wallet-tagger pipeline backfills the `bundler` tag, this endpoint will return a count and list of bundler wallets. Today it always returns `count: 0` with `status: \"tagger_pending\"` and `available_in: \"phase_5\"`.",
         "operationId": "getTokensBundlers",
         "tags": [
           "Tokens"
@@ -6015,7 +6036,7 @@
     "/tokens/{mint}/snapshot-now": {
       "post": {
         "summary": "Trigger a holder-snapshot refresh",
-        "description": "Forces the `holder-snapshot` service to re-snapshot the mint's holder set out of band. This is a **trigger, not a read** — it enqueues a refresh and returns immediately with `queued: true` and an `estimated_seconds` hint; it does not return holder data and is never cached.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\nReturns `202 Accepted` once the refresh is queued.",
+        "description": "Forces the `holder-snapshot` service to re-snapshot the mint's holder set out of band. This is a **trigger, not a read** \u2014 it enqueues a refresh and returns immediately with `queued: true` and an `estimated_seconds` hint; it does not return holder data and is never cached.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\nReturns `202 Accepted` once the refresh is queued.",
         "operationId": "snapshotTokenNow",
         "tags": [
           "Tokens"
@@ -6067,7 +6088,7 @@
     "/tokens/sectors": {
       "get": {
         "summary": "List sectors",
-        "description": "Returns the catalogue of defined token sectors (AI, Dog, Frog, Food, Gaming, Political, Celebrity, Other meme, …), each with its `id`, display `name`, `emoji`, `description`, and the current `mint_count` of mints assigned to it. Use a sector `id` with [`/tokens/sectors/{sector}/mints`](#tag/tokens/get/tokens/sectors/{sector}/mints) to list its mints.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).",
+        "description": "Returns the catalogue of defined token sectors (AI, Dog, Frog, Food, Gaming, Political, Celebrity, Other meme, \u2026), each with its `id`, display `name`, `emoji`, `description`, and the current `mint_count` of mints assigned to it. Use a sector `id` with [`/tokens/sectors/{sector}/mints`](#tag/tokens/get/tokens/sectors/{sector}/mints) to list its mints.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).",
         "operationId": "listSectors",
         "tags": [
           "Tokens"
@@ -6109,7 +6130,7 @@
     "/tokens/sectors/{sector}/mints": {
       "get": {
         "summary": "Mints in a sector",
-        "description": "Returns the mints currently assigned to a sector. The `sector` path parameter is a sector `id` from [`/tokens/sectors`](#tag/tokens/get/tokens/sectors) (e.g. `ai`, `dog`, `frog`). An unknown or empty sector returns `200` with an empty `mints` array.\n\n**Public — no API key required.**",
+        "description": "Returns the mints currently assigned to a sector. The `sector` path parameter is a sector `id` from [`/tokens/sectors`](#tag/tokens/get/tokens/sectors) (e.g. `ai`, `dog`, `frog`). An unknown or empty sector returns `200` with an empty `mints` array.\n\n**Public \u2014 no API key required.**",
         "operationId": "listSectorMints",
         "tags": [
           "Tokens"
@@ -6176,7 +6197,7 @@
     "/tokens/multi/all": {
       "get": {
         "summary": "Newest tokens (Solana-Tracker alias)",
-        "description": "Identical to `/tokens/latest` — alias for API compatibility with Solana Tracker.",
+        "description": "Identical to `/tokens/latest` \u2014 alias for API compatibility with Solana Tracker.",
         "operationId": "listTokensMultiAll",
         "tags": [
           "Tokens"
@@ -6325,7 +6346,7 @@
     "/price/multi": {
       "get": {
         "summary": "Batched price lookup",
-        "description": "Latest ohlcv_1m close × Pyth SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
+        "description": "Latest ohlcv_1m close \u00d7 Pyth SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
         "operationId": "getPriceMulti",
         "tags": [
           "Price"
@@ -6362,7 +6383,7 @@
     "/price/history": {
       "get": {
         "summary": "Historical price series for a token",
-        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically — pass `?token={mint}` and the handler picks the busiest pool. For explicit pair-level access use [GET /api/v1/candles](/api-reference/openapi/get/api/v1/candles).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution → MV mapping.",
+        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically \u2014 pass `?token={mint}` and the handler picks the busiest pool. For explicit pair-level access use [GET /api/v1/candles](/api-reference/openapi/get/api/v1/candles).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution \u2192 MV mapping.",
         "operationId": "getPriceHistory",
         "tags": [
           "Price"
@@ -6461,7 +6482,7 @@
     "/price/history/timestamp": {
       "get": {
         "summary": "Price at-or-before a timestamp",
-        "description": "Returns the single most-recent 1m candle at or before `timestamp` (Unix ms) for the token's top-volume pair. Lookback window is 60 seconds — older queries return 404.\n\nResolution is fixed at `1m` (the highest-precision MV).",
+        "description": "Returns the single most-recent 1m candle at or before `timestamp` (Unix ms) for the token's top-volume pair. Lookback window is 60 seconds \u2014 older queries return 404.\n\nResolution is fixed at `1m` (the highest-precision MV).",
         "operationId": "getPriceHistoryTimestamp",
         "tags": [
           "Price"
@@ -6544,7 +6565,7 @@
     "/price/history/range": {
       "get": {
         "summary": "Aggregated OHLCV over an arbitrary range",
-        "description": "Single aggregated OHLCV row spanning `[from, to]` (Unix ms) for the token's top pair. Internally reads candles at the requested `resolution` (default `1m`) and rolls them up: `open` = first candle open, `close` = last candle close, `high`/`low` = max/min across the range, `volume_sol` = sum, `sample_count` = number of candles aggregated.\n\nReturns 400 if the window expands to more than 10,000 candles at the chosen resolution — bump to a coarser resolution or shrink the window.",
+        "description": "Single aggregated OHLCV row spanning `[from, to]` (Unix ms) for the token's top pair. Internally reads candles at the requested `resolution` (default `1m`) and rolls them up: `open` = first candle open, `close` = last candle close, `high`/`low` = max/min across the range, `volume_sol` = sum, `sample_count` = number of candles aggregated.\n\nReturns 400 if the window expands to more than 10,000 candles at the chosen resolution \u2014 bump to a coarser resolution or shrink the window.",
         "operationId": "getPriceHistoryRange",
         "tags": [
           "Price"
@@ -6652,7 +6673,7 @@
     "/chart/{token}": {
       "get": {
         "summary": "Chart-ready candle series with market cap",
-        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close × current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply=true` is accepted but currently ignored — historical supply tracking from `tokens_supply_history` ships in Phase 5. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.",
+        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close \u00d7 current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply=true` is accepted but currently ignored \u2014 historical supply tracking from `tokens_supply_history` ships in Phase 5. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.",
         "operationId": "getChart",
         "tags": [
           "Price"
@@ -6771,7 +6792,7 @@
     "/holders/chart/{token}": {
       "get": {
         "summary": "Holder-count time series for a token",
-        "description": "Returns the distinct holder count for a token sampled once per hour (or per 6h/1d bucket). Data is event-driven — a row exists only for hours the mint traded. Quiet hours produce gaps, not zeros; frontends should forward-fill the last value.\n\nNo pre-launch backfill: history starts at Phase 3 launch (2026-05-28) and grows forward. Empty mints return `results: []` with a `coverage_note`.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** (point-in-time count, not a flow).\n\nData freshness is ~3–5 seconds after a trade.",
+        "description": "Returns the distinct holder count for a token sampled once per hour (or per 6h/1d bucket). Data is event-driven \u2014 a row exists only for hours the mint traded. Quiet hours produce gaps, not zeros; frontends should forward-fill the last value.\n\nNo pre-launch backfill: history starts at Phase 3 launch (2026-05-28) and grows forward. Empty mints return `results: []` with a `coverage_note`.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** (point-in-time count, not a flow).\n\nData freshness is ~3\u20135 seconds after a trade.",
         "operationId": "getHoldersChart",
         "tags": [
           "Time-series charts"
@@ -7065,7 +7086,7 @@
     "/bundlers/chart/{token}": {
       "get": {
         "summary": "Bundler-count time series for a token (stub)",
-        "description": "Returns the bundler wallet count for a token over time. **All values are 0 until Phase 5** — the bundler tagger has not shipped yet. The response always includes a `coverage_note` explaining this.\n\nThe endpoint is available now so you can wire up your UI and swap in real data when Phase 5 ships without a contract change.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}). No pre-launch backfill.",
+        "description": "Returns the bundler wallet count for a token over time. **All values are 0 until Phase 5** \u2014 the bundler tagger has not shipped yet. The response always includes a `coverage_note` explaining this.\n\nThe endpoint is available now so you can wire up your UI and swap in real data when Phase 5 ships without a contract change.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}). No pre-launch backfill.",
         "operationId": "getBundlersChart",
         "tags": [
           "Time-series charts"
@@ -7163,7 +7184,7 @@
     "/tokens/{mint}/actor-chart": {
       "get": {
         "summary": "Combined actor time series (holders, snipers, insiders, dev)",
-        "description": "Returns wide rows with up to four actor series in a single call — **one request instead of four**. Each row has `ts_ms` plus whatever series you requested as keys.\n\nUse `?series=holders,snipers,insiders,dev` (comma-separated) to request a subset. Default: all four. The `dev` series returns as `dev_held_pct` (a 0.0–1.0 fraction of supply held by the deployer).\n\nSame sparsity and freshness semantics as the single-series endpoints: rows exist only for hours the mint traded; forward-fill for display. No pre-launch backfill — history starts at Phase 3 launch (2026-05-28).\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** for each series.",
+        "description": "Returns wide rows with up to four actor series in a single call \u2014 **one request instead of four**. Each row has `ts_ms` plus whatever series you requested as keys.\n\nUse `?series=holders,snipers,insiders,dev` (comma-separated) to request a subset. Default: all four. The `dev` series returns as `dev_held_pct` (a 0.0\u20131.0 fraction of supply held by the deployer).\n\nSame sparsity and freshness semantics as the single-series endpoints: rows exist only for hours the mint traded; forward-fill for display. No pre-launch backfill \u2014 history starts at Phase 3 launch (2026-05-28).\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** for each series.",
         "operationId": "getActorChart",
         "tags": [
           "Time-series charts"
@@ -7226,7 +7247,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Combined actor series — wide rows",
+            "description": "Combined actor series \u2014 wide rows",
             "content": {
               "application/json": {
                 "schema": {
@@ -7271,7 +7292,7 @@
     "/credits": {
       "get": {
         "summary": "RPS-tier usage snapshot",
-        "description": "Returns your tier, RPS cap, current 60-second window usage, monthly_used (informational only — no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
+        "description": "Returns your tier, RPS cap, current 60-second window usage, monthly_used (informational only \u2014 no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
         "operationId": "getCredits",
         "tags": [
           "Account"
@@ -7347,7 +7368,7 @@
     "/wallets/{wallet}/tags": {
       "get": {
         "summary": "Wallet classification tags",
-        "description": "Returns the set of tags Dexploit's wallet-intel pipeline has applied to a wallet (e.g. `sniper`, `insider`, `whale`, `smart_money`). Tags are computed asynchronously — `computed_at: 0` means we haven't profiled this wallet yet.",
+        "description": "Returns the set of tags Dexploit's wallet-intel pipeline has applied to a wallet (e.g. `sniper`, `insider`, `whale`, `smart_money`). Tags are computed asynchronously \u2014 `computed_at: 0` means we haven't profiled this wallet yet.",
         "operationId": "getWalletTags",
         "tags": [
           "Wallet intel"
@@ -7379,7 +7400,7 @@
     "/deployer/{wallet}": {
       "get": {
         "summary": "Tokens deployed by a wallet",
-        "description": "Lists mints the wallet has deployed, newest first. Reads from the `tokens_by_creator` ReplacingMergeTree (sourced from `tokens.creator`). Results are hydrated into the same `TokenRow` shape as [POST /tokens/multi](/api-reference/openapi/post/tokens/multi).\n\nWhen there are no results, the response includes `coverage_note` explaining that creator capture began on 2026-05-26 (Phase 0) — older mints may be missing. See [Data coverage](/concepts/coverage).",
+        "description": "Lists mints the wallet has deployed, newest first. Reads from the `tokens_by_creator` ReplacingMergeTree (sourced from `tokens.creator`). Results are hydrated into the same `TokenRow` shape as [POST /tokens/multi](/api-reference/openapi/post/tokens/multi).\n\nWhen there are no results, the response includes `coverage_note` explaining that creator capture began on 2026-05-26 (Phase 0) \u2014 older mints may be missing. See [Data coverage](/concepts/coverage).",
         "operationId": "getDeployer",
         "tags": [
           "Wallet intel"
@@ -7452,7 +7473,7 @@
     "/wallets/{w}/holdings": {
       "get": {
         "summary": "On-chain holdings with cost-basis overlay",
-        "description": "Returns the wallet's current on-chain SPL token holdings sourced from Shyft's `all_tokens` API, with FIFO cost-basis and unrealized PnL overlaid where Dexploit has swap history.\n\nTokens acquired via airdrop or off-platform transfers will appear with `no_cost_basis: true` and `cost_basis_sol: null`.\n\nWhen Shyft is temporarily unavailable the endpoint degrades to FIFO-derived holdings and sets `holdings_source: \"fifo_fallback\"` — it never returns 5xx on a Shyft outage.\n\nResponse is cached 30 seconds per wallet. See [Wallet portfolio](/concepts/wallet-portfolio) for a full explanation of the two holdings sources.",
+        "description": "Returns the wallet's current on-chain SPL token holdings sourced from Shyft's `all_tokens` API, with FIFO cost-basis and unrealized PnL overlaid where Dexploit has swap history.\n\nTokens acquired via airdrop or off-platform transfers will appear with `no_cost_basis: true` and `cost_basis_sol: null`.\n\nWhen Shyft is temporarily unavailable the endpoint degrades to FIFO-derived holdings and sets `holdings_source: \"fifo_fallback\"` \u2014 it never returns 5xx on a Shyft outage.\n\nResponse is cached 30 seconds per wallet. See [Wallet portfolio](/concepts/wallet-portfolio) for a full explanation of the two holdings sources.",
         "operationId": "getWalletHoldings",
         "tags": [
           "Wallet portfolio"
@@ -7465,7 +7486,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "dex",
@@ -7524,7 +7545,7 @@
     "/wallets/{w}/holdings/basic": {
       "get": {
         "summary": "Fast FIFO-derived holdings (no Shyft)",
-        "description": "Returns holdings derived entirely from Dexploit's own swap index using FIFO lot matching. No external Shyft call — typically ~30 ms.\n\nOnly covers tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Tokens acquired via airdrop or off-platform will not appear. No USD values.\n\nUse this endpoint when you need a quick snapshot and completeness is less important than latency. Uncached.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio) for the trade-off between this endpoint and `/holdings`.",
+        "description": "Returns holdings derived entirely from Dexploit's own swap index using FIFO lot matching. No external Shyft call \u2014 typically ~30 ms.\n\nOnly covers tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Tokens acquired via airdrop or off-platform will not appear. No USD values.\n\nUse this endpoint when you need a quick snapshot and completeness is less important than latency. Uncached.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio) for the trade-off between this endpoint and `/holdings`.",
         "operationId": "getWalletHoldingsBasic",
         "tags": [
           "Wallet portfolio"
@@ -7537,7 +7558,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "dex",
@@ -7546,7 +7567,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one or more DEXes — a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `0,3`). See `DexId` for the id↔name mapping."
+            "description": "Filter to one or more DEXes \u2014 a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `0,3`). See `DexId` for the id\u2194name mapping."
           }
         ],
         "responses": {
@@ -7609,7 +7630,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "limit",
@@ -7629,7 +7650,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Cursor — Unix epoch milliseconds. Returns trades strictly older than this timestamp. Use `next_before` from the previous response."
+            "description": "Cursor \u2014 Unix epoch milliseconds. Returns trades strictly older than this timestamp. Use `next_before` from the previous response."
           },
           {
             "name": "from_token",
@@ -7724,7 +7745,7 @@
     "/wallets/{w}/chart": {
       "get": {
         "summary": "Daily portfolio value chart",
-        "description": "Returns a daily portfolio-value series for the wallet. The chart is assembled on-demand with a cron-free model:\n\n1. **Closed days** are read from the store and returned as-is — they are immutable once written.\n2. **Gaps** (days between the last stored point and yesterday) are filled lazily: the FIFO engine replays the wallet's swaps to reconstruct end-of-day holdings, prices them against `ohlcv_1d` closes, and persists the result before returning.\n3. **Today** is always computed live and returned as `today` with `provisional: true` — never persisted.\n\n`value_usd` uses the **current** SOL/USD rate from the Pyth oracle for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#cron-free-chart-freshness) for the full freshness model.",
+        "description": "Returns a daily portfolio-value series for the wallet. The chart is assembled on-demand with a cron-free model:\n\n1. **Closed days** are read from the store and returned as-is \u2014 they are immutable once written.\n2. **Gaps** (days between the last stored point and yesterday) are filled lazily: the FIFO engine replays the wallet's swaps to reconstruct end-of-day holdings, prices them against `ohlcv_1d` closes, and persists the result before returning.\n3. **Today** is always computed live and returned as `today` with `provisional: true` \u2014 never persisted.\n\n`value_usd` uses the **current** SOL/USD rate from the Pyth oracle for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#cron-free-chart-freshness) for the full freshness model.",
         "operationId": "getWalletChart",
         "tags": [
           "Wallet portfolio"
@@ -7737,7 +7758,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "window",
@@ -7803,7 +7824,7 @@
     "/wallets/{w}/pnl/basic": {
       "get": {
         "summary": "FIFO realized and unrealized PnL",
-        "description": "Returns FIFO realized + unrealized PnL for the wallet over the specified window. Lot-based matching: buy lots pushed in time order, each sell matches against the earliest open lots and realizes `proceeds − cost_matched`.\n\nThe response always includes a `warning` field:\n\n> `basic FIFO realized PnL; full cost-basis (cross-wallet, tax-lot, transfer-aware) ships in Phase 8`\n\nThis is intentional — FIFO is a good approximation for single-wallet trading but is not suitable for tax calculations or cross-wallet strategies. Full PnL ships in Phase 8.\n\nResponse cached 60 seconds.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#pnl-basic-fifo-realized-pnl).",
+        "description": "Returns FIFO realized + unrealized PnL for the wallet over the specified window. Lot-based matching: buy lots pushed in time order, each sell matches against the earliest open lots and realizes `proceeds \u2212 cost_matched`.\n\nThe response always includes a `warning` field:\n\n> `basic FIFO realized PnL; full cost-basis (cross-wallet, tax-lot, transfer-aware) ships in Phase 8`\n\nThis is intentional \u2014 FIFO is a good approximation for single-wallet trading but is not suitable for tax calculations or cross-wallet strategies. Full PnL ships in Phase 8.\n\nResponse cached 60 seconds.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#pnl-basic-fifo-realized-pnl).",
         "operationId": "getWalletPnlBasic",
         "tags": [
           "Wallet portfolio"
@@ -7816,7 +7837,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "window",
@@ -7891,7 +7912,7 @@
     "/wallets/{w}/sol-balance": {
       "get": {
         "summary": "Native SOL balance",
-        "description": "Returns the wallet's current native SOL balance via Shyft's `getBalance` JSON-RPC call, plus USD conversion via the Pyth oracle.\n\nWhen Shyft is unavailable, `sol_balance` is `null` and the response still returns 200 — it never 500s on a Shyft blip. Response cached 30 seconds.",
+        "description": "Returns the wallet's current native SOL balance via Shyft's `getBalance` JSON-RPC call, plus USD conversion via the Pyth oracle.\n\nWhen Shyft is unavailable, `sol_balance` is `null` and the response still returns 200 \u2014 it never 500s on a Shyft blip. Response cached 30 seconds.",
         "operationId": "getWalletSolBalance",
         "tags": [
           "Wallet portfolio"
@@ -7904,7 +7925,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           }
         ],
         "responses": {
@@ -7967,7 +7988,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "window",
@@ -8042,7 +8063,7 @@
     "/pump-lifecycle": {
       "get": {
         "summary": "Pump.fun token lifecycle events",
-        "description": "Stream of mint-create / bonding-progress / graduation events for pump.fun tokens. Filter by lifecycle `status`. The **only valid values** are `new` (recent mints), `completing` / `graduating` (bonding curve near 100%), and `migrated` (already on pumpswap). Any other value — including `graduated` or `rugged` — returns **HTTP 400** `{\"error\":\"invalid_filter:status:<value>\"}`.\n\nFor a real-time push of these events, join the `latest` / `graduating` / `graduated` discovery rooms on the main [WebSocket: swaps](/streaming/websocket) feed.",
+        "description": "Stream of mint-create / bonding-progress / graduation events for pump.fun tokens. Filter by lifecycle `status`. The **only valid values** are `new` (recent mints), `completing` / `graduating` (bonding curve near 100%), and `migrated` (already on pumpswap). Any other value \u2014 including `graduated` or `rugged` \u2014 returns **HTTP 400** `{\"error\":\"invalid_filter:status:<value>\"}`.\n\nFor a real-time push of these events, join the `latest` / `graduating` / `graduated` discovery rooms on the main [WebSocket: swaps](/streaming/websocket) feed.",
         "operationId": "listPumpLifecycle",
         "tags": [
           "Pump lifecycle"
@@ -8062,7 +8083,7 @@
               ],
               "default": "new"
             },
-            "description": "Lifecycle phase. `new` = recent mints; `completing` / `graduating` = bonding curve near 100%; `migrated` = already on pumpswap. Any other value → 400 `invalid_filter:status:<value>`."
+            "description": "Lifecycle phase. `new` = recent mints; `completing` / `graduating` = bonding curve near 100%; `migrated` = already on pumpswap. Any other value \u2192 400 `invalid_filter:status:<value>`."
           },
           {
             "name": "limit",
@@ -8082,7 +8103,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Cursor — epoch seconds; returns events strictly older than this."
+            "description": "Cursor \u2014 epoch seconds; returns events strictly older than this."
           }
         ],
         "responses": {
@@ -8107,7 +8128,7 @@
                         "integer",
                         "null"
                       ],
-                      "description": "Pass this back as `before` for the next page. Stays non-null on the final page of data — it only becomes `null` after a follow-up request that returns an empty `events[]`."
+                      "description": "Pass this back as `before` for the next page. Stays non-null on the final page of data \u2014 it only becomes `null` after a follow-up request that returns an empty `events[]`."
                     }
                   }
                 }
@@ -8236,7 +8257,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "pnl_mode",
@@ -8251,7 +8272,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "responses": {
@@ -8314,7 +8335,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "status",
@@ -8400,7 +8421,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           },
           {
             "name": "breakdown",
@@ -8501,7 +8522,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "token",
@@ -8525,7 +8546,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "responses": {
@@ -8597,7 +8618,7 @@
     "/v2/pnl/wallets/{wallet}/history": {
       "get": {
         "summary": "Daily PnL history series",
-        "description": "Compute-on-read daily PnL series. `from`/`to` are inclusive UTC `YYYY-MM-DD`. Sparse — one point per active day. Malformed dates return `400`. Cached 30s.",
+        "description": "Compute-on-read daily PnL series. `from`/`to` are inclusive UTC `YYYY-MM-DD`. Sparse \u2014 one point per active day. Malformed dates return `400`. Cached 30s.",
         "operationId": "getPnlV2History",
         "tags": [
           "Wallet PnL (v2)"
@@ -8610,7 +8631,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "from",
@@ -8643,7 +8664,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "responses": {
@@ -8736,7 +8757,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "from",
@@ -8769,7 +8790,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "responses": {
@@ -8939,7 +8960,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "from",
@@ -8972,7 +8993,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "responses": {
@@ -9135,7 +9156,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "pnl_mode",
@@ -9150,7 +9171,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "responses": {
@@ -9339,7 +9360,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           }
         ],
         "responses": {
@@ -9572,7 +9593,7 @@
     "/v2/pnl/tokens/{token}/traders": {
       "get": {
         "summary": "Token traders by realized PnL",
-        "description": "Traders of a token ranked by realized PnL (mode-selected, full breakdown included). `total` is the true total under LIMIT. `platform` and `dex` are accepted but ignored — each adds an entry to `warnings`. Cached 30s.",
+        "description": "Traders of a token ranked by realized PnL (mode-selected, full breakdown included). `total` is the true total under LIMIT. `platform` and `dex` are accepted but ignored \u2014 each adds an entry to `warnings`. Cached 30s.",
         "operationId": "getPnlV2TokenTraders",
         "tags": [
           "Wallet PnL (v2)"
@@ -9600,7 +9621,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           },
           {
             "name": "exclude_arbitrage",
@@ -9731,7 +9752,7 @@
     "/v2/pnl/positions/batch": {
       "post": {
         "summary": "Batch positions by (wallet, mint) pairs",
-        "description": "Fetch many (wallet, mint) positions in one call. De-dups internally but aligns output to the **original** input order (duplicates echo the same object). `realized_breakdown` always present. Uncached. 1–200 pairs; empty → 400, >200 → 400.",
+        "description": "Fetch many (wallet, mint) positions in one call. De-dups internally but aligns output to the **original** input order (duplicates echo the same object). `realized_breakdown` always present. Uncached. 1\u2013200 pairs; empty \u2192 400, >200 \u2192 400.",
         "operationId": "postPnlV2PositionsBatch",
         "tags": [
           "Wallet PnL (v2)"
@@ -9750,7 +9771,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "requestBody": {
@@ -9854,7 +9875,7 @@
     "/v2/pnl/wallets/{wallet}/positions/batch": {
       "post": {
         "summary": "Batch positions for one wallet across mints",
-        "description": "Positions for one wallet across many mints (`WHERE wallet=? AND mint IN(...)`). Aligned to the input `mints` (`null` for missing). `realized_breakdown` always present. 1–100 mints; empty → 400, >100 → 400.",
+        "description": "Positions for one wallet across many mints (`WHERE wallet=? AND mint IN(...)`). Aligned to the input `mints` (`null` for missing). `realized_breakdown` always present. 1\u2013100 mints; empty \u2192 400, >100 \u2192 400.",
         "operationId": "postPnlV2WalletPositionsBatch",
         "tags": [
           "Wallet PnL (v2)"
@@ -9867,7 +9888,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Wallet address (base58, 32–44 characters)."
+            "description": "Wallet address (base58, 32\u201344 characters)."
           },
           {
             "name": "pnl_mode",
@@ -9882,7 +9903,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "requestBody": {
@@ -9979,7 +10000,7 @@
     "/v2/pnl/tokens/{token}/positions/batch": {
       "post": {
         "summary": "Batch positions for one token across wallets",
-        "description": "Positions for one token across many wallets (`WHERE mint=? AND wallet IN(...)`). Each row mirrors the `/traders` per-row object (wallet-keyed). Aligned to input `wallets` (`null` for missing). 1–200 wallets; empty → 400, >200 → 400.",
+        "description": "Positions for one token across many wallets (`WHERE mint=? AND wallet IN(...)`). Each row mirrors the `/traders` per-row object (wallet-keyed). Aligned to input `wallets` (`null` for missing). 1\u2013200 wallets; empty \u2192 400, >200 \u2192 400.",
         "operationId": "postPnlV2TokenPositionsBatch",
         "tags": [
           "Wallet PnL (v2)"
@@ -10007,7 +10028,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "requestBody": {
@@ -10104,7 +10125,7 @@
     "/v2/pnl/wallets/batch": {
       "post": {
         "summary": "Batch wallet PnL summaries",
-        "description": "Per-wallet PnL summaries (`WHERE wallet IN(...)` grouped per wallet). Each `summaries` element is byte-identical to the single `GET /v2/pnl/wallets/{wallet}` body. Aligned to input `wallets` (`null` for a wallet with zero positions). 1–100 wallets; empty → 400, >100 → 400.",
+        "description": "Per-wallet PnL summaries (`WHERE wallet IN(...)` grouped per wallet). Each `summaries` element is byte-identical to the single `GET /v2/pnl/wallets/{wallet}` body. Aligned to input `wallets` (`null` for a wallet with zero positions). 1\u2013100 wallets; empty \u2192 400, >100 \u2192 400.",
         "operationId": "postPnlV2WalletsBatch",
         "tags": [
           "Wallet PnL (v2)"
@@ -10123,7 +10144,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           }
         ],
         "requestBody": {
@@ -10262,7 +10283,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           },
           {
             "name": "limit",
@@ -10377,7 +10398,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           },
           {
             "name": "exclude_arbitrage",
@@ -10521,7 +10542,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           },
           {
             "name": "exclude_arbitrage",
@@ -10646,7 +10667,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Inclusive start date (UTC, `YYYY-MM-DD`). Defaults to `to`−30d."
+            "description": "Inclusive start date (UTC, `YYYY-MM-DD`). Defaults to `to`\u221230d."
           },
           {
             "name": "to",
@@ -10670,7 +10691,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           },
           {
             "name": "top_n",
@@ -10765,7 +10786,7 @@
     "/v2/pnl/leaderboard/kols/date": {
       "get": {
         "summary": "Top KOLs on a single day",
-        "description": "Top KOLs ranked by realized PnL on one UTC day. `win_rate`/`trade_count` are intentionally omitted (not per-day derivable). Malformed date → `400`. Cached 300s.",
+        "description": "Top KOLs ranked by realized PnL on one UTC day. `win_rate`/`trade_count` are intentionally omitted (not per-day derivable). Malformed date \u2192 `400`. Cached 300s.",
         "operationId": "getLeaderboardKolsDate",
         "tags": [
           "Leaderboards & KOLs"
@@ -10793,7 +10814,7 @@
               ],
               "default": "adjusted"
             },
-            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (Σ sells − Σ buys), not realized PnL. Unknown values fall back to `adjusted`."
+            "description": "PnL accounting mode. `strict` (FIFO) and `adjusted` (weighted-avg cost) are realized-PnL figures; `raw` is **net cash-flow** (\u03a3 sells \u2212 \u03a3 buys), not realized PnL. Unknown values fall back to `adjusted`."
           },
           {
             "name": "top_n",
@@ -10935,7 +10956,7 @@
     "/search": {
       "get": {
         "summary": "Flat query-string screener alias",
-        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical **top-level** body to `POST /screener` — `{ results, total_matches, limit, offset, warnings }`, no `{success, data, error}` wrapper — and the same `x-cache` / `x-total-matches-exact` headers.\n\nInherits the screener error contract: a malformed `mint`/`creator` (non-base58) → **HTTP 400** `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`; an unsupported filter (e.g. `minRiskScore`/`maxRiskScore`) stays **200** with a `warnings[]` note.",
+        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical **top-level** body to `POST /screener` \u2014 `{ results, total_matches, limit, offset, warnings }`, no `{success, data, error}` wrapper \u2014 and the same `x-cache` / `x-total-matches-exact` headers.\n\nInherits the screener error contract: a malformed `mint`/`creator` (non-base58) \u2192 **HTTP 400** `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`; an unsupported filter (e.g. `minRiskScore`/`maxRiskScore`) stays **200** with a `warnings[]` note.",
         "operationId": "getSearch",
         "tags": [
           "Screener"
@@ -11371,7 +11392,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Min risk score (deferred → warning)."
+            "description": "Min risk score (deferred \u2192 warning)."
           },
           {
             "name": "maxRiskScore",
@@ -11380,7 +11401,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Max risk score (deferred → warning)."
+            "description": "Max risk score (deferred \u2192 warning)."
           },
           {
             "name": "minVolume",
@@ -11808,7 +11829,7 @@
     "/rugs": {
       "get": {
         "summary": "Recent rugs (all venues)",
-        "description": "Most-recent liquidity-rug / drain events across **all venues**, newest first, over a **7-day rolling window**. Reads the `rug_detected` rows the rug classifier persists. `drained_pct` is a **0..1 fraction** (not a percentage) and `lp_sol_pulled` is **already in SOL** (lamports ÷ 1e9). The live-only `reason`/`graduated` fields are **not** on this REST shape — use the [`rugs` WebSocket room](/streaming/websocket#the-global-rugs-room) for those. **Requires an API key** (header `X-API-Key`, or `?api_key=` / `Authorization: Bearer`).",
+        "description": "Most-recent liquidity-rug / drain events across **all venues**, newest first, over a **7-day rolling window**. Reads the `rug_detected` rows the rug classifier persists. `drained_pct` is a **0..1 fraction** (not a percentage) and `lp_sol_pulled` is **already in SOL** (lamports \u00f7 1e9). The live-only `reason`/`graduated` fields are **not** on this REST shape \u2014 use the [`rugs` WebSocket room](/streaming/websocket#the-global-rugs-room) for those. **Requires an API key** (header `X-API-Key`, or `?api_key=` / `Authorization: Bearer`).",
         "operationId": "getRecentRugs",
         "tags": [
           "Rugs"
@@ -11880,16 +11901,16 @@
                               "RUGGED",
                               "LIQUIDITY_DRAINING"
                             ],
-                            "description": "`RUGGED` = a graduated/AMM pool drained past the rug threshold (>95%); `LIQUIDITY_DRAINING` = a large (50–95%) drain that isn't a full rug."
+                            "description": "`RUGGED` = a graduated/AMM pool drained past the rug threshold (>95%); `LIQUIDITY_DRAINING` = a large (50\u201395%) drain that isn't a full rug."
                           },
                           "drained_pct": {
                             "type": "number",
                             "format": "float",
-                            "description": "Fraction of pool liquidity removed, **0..1** (NOT a 0–100 percentage). e.g. `0.97` = 97%."
+                            "description": "Fraction of pool liquidity removed, **0..1** (NOT a 0\u2013100 percentage). e.g. `0.97` = 97%."
                           },
                           "lp_sol_pulled": {
                             "type": "number",
-                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you — do **not** divide again)."
+                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you \u2014 do **not** divide again)."
                           },
                           "signature": {
                             "type": "string",
@@ -11947,7 +11968,7 @@
     "/tokens/{mint}/rugs": {
       "get": {
         "summary": "Rug history for one mint",
-        "description": "Rug / liquidity-drain history for a single mint, newest first (no 7-day bound — uses the `token_mint` sort key). Same row shape as `GET /rugs`: `drained_pct` is a **0..1 fraction**, `lp_sol_pulled` is **already in SOL**. The live-only `reason`/`graduated` fields are WS-only. **Requires an API key.**",
+        "description": "Rug / liquidity-drain history for a single mint, newest first (no 7-day bound \u2014 uses the `token_mint` sort key). Same row shape as `GET /rugs`: `drained_pct` is a **0..1 fraction**, `lp_sol_pulled` is **already in SOL**. The live-only `reason`/`graduated` fields are WS-only. **Requires an API key.**",
         "operationId": "getTokenRugs",
         "tags": [
           "Rugs"
@@ -12009,16 +12030,16 @@
                               "RUGGED",
                               "LIQUIDITY_DRAINING"
                             ],
-                            "description": "`RUGGED` = a graduated/AMM pool drained past the rug threshold (>95%); `LIQUIDITY_DRAINING` = a large (50–95%) drain that isn't a full rug."
+                            "description": "`RUGGED` = a graduated/AMM pool drained past the rug threshold (>95%); `LIQUIDITY_DRAINING` = a large (50\u201395%) drain that isn't a full rug."
                           },
                           "drained_pct": {
                             "type": "number",
                             "format": "float",
-                            "description": "Fraction of pool liquidity removed, **0..1** (NOT a 0–100 percentage). e.g. `0.97` = 97%."
+                            "description": "Fraction of pool liquidity removed, **0..1** (NOT a 0\u2013100 percentage). e.g. `0.97` = 97%."
                           },
                           "lp_sol_pulled": {
                             "type": "number",
-                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you — do **not** divide again)."
+                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you \u2014 do **not** divide again)."
                           },
                           "signature": {
                             "type": "string",

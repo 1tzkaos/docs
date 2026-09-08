@@ -42,6 +42,18 @@ for page in pages:
     body = md.read_text()
     # Strip YAML frontmatter
     body = re.sub(r'^---\n.*?\n---\n', '', body, count=1, flags=re.DOTALL)
+    # Inline /snippets imports so the flattened text keeps the shared content
+    for name, snippet in re.findall(
+        r"^import\s+(\w+)\s+from\s+['\"](/snippets/[^'\"]+)['\"];?\s*$",
+        body, flags=re.MULTILINE):
+        sp = pathlib.Path(snippet.lstrip("/"))
+        if not sp.exists():
+            sys.exit(f"missing snippet {snippet} imported by {page}")
+        text = re.sub(r'^---\n.*?\n---\n', '', sp.read_text(), count=1, flags=re.DOTALL)
+        body = re.sub(rf"^<{name}\s*/>\s*$", lambda _m: text.rstrip("\n"),
+                      body, flags=re.MULTILINE)
+        body = re.sub(rf"^import\s+{name}\s+from\s+['\"]{re.escape(snippet)}['\"];?\s*\n",
+                      '', body, flags=re.MULTILINE)
     sys.stdout.write(f"\n\n---\n\n# {page}\n\n")
     sys.stdout.write(body)
 PY

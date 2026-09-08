@@ -3,6 +3,8 @@ title: "Swap-event OHLCV"
 description: "How Dexploit builds candles. The short version: from real trades, not from polled pool state."
 ---
 
+import WhichPriceField from '/snippets/which-price-field.mdx';
+
 Most Solana OHLCV APIs poll pool *account state* every block or two and build a candle from those snapshots. The price comes from `reserves_a / reserves_b`, the volume comes from differencing reserves between snapshots.
 
 Dexploit doesn't do that. We process every swap event from the [Yellowstone gRPC stream](https://github.com/rpcpool/yellowstone-grpc) as it arrives, normalize it across protocols (Pump.fun, PumpSwap, Raydium, Meteora), and aggregate the events into bars.
@@ -46,6 +48,14 @@ Building from events instead of state changes a few things you can rely on:
   - `volume_sol` is **lamports** — divide by `1e9` to get SOL (`12340000000` → `12.34 SOL`).
   - `volume_token` is the token's base units — divide by `10 ** quote_decimals` for the human-readable amount.
 </Note>
+
+## Prices on a candle
+
+`open`, `high`, `low`, and `close` are in **SOL per whole token**, already
+decimals-adjusted. They are computed when the bar closes and served back exactly
+as stored — a bar is never re-derived at read time.
+
+<WhichPriceField />
 
 ## Comparison with the account-update model
 
