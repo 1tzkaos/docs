@@ -28,7 +28,7 @@ wss://ws.dexploit.dev/ws/ohlcv?api_key=ohlcv_live_sk_<your_key>
 After the connection is up the server sends a hello frame:
 
 ```json
-{ "client_id": "8caba129-bdab-…", "data_inception": "2026-05-02T00:03:00Z", "status": "connected" }
+{ "client_id": "8caba129-bdab-…", "data_inception": "2026-06-03T00:15:00Z", "status": "connected" }
 ```
 
 Then send a `subscribe`. **Both `pair_addresses` and `timeframes` are required** — the server will reply with `{"error": "invalid subscribe: timeframes empty"}` (or similar) if either is missing.
