@@ -8,6 +8,15 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The coverage page's gap disclosure is generated from the live index by
+# scripts/gen-data-gaps.py, and its output (snippets/data-gaps.mdx) is
+# committed. Regenerating it needs database reachability, so it is OPT-IN:
+# without REGEN_DATA_GAPS=1 this build uses the committed snippet and stays
+# deterministic, which is what lets CI diff its output against llms-full.txt.
+if [[ "${REGEN_DATA_GAPS:-0}" == "1" ]]; then
+  python3 scripts/gen-data-gaps.py >&2
+fi
+
 # Header lifted verbatim from llms.txt (everything up to the first blank line)
 sed -n '1,/^$/p' llms.txt
 echo ""
@@ -54,6 +63,9 @@ for page in pages:
                       body, flags=re.MULTILINE)
         body = re.sub(rf"^import\s+{name}\s+from\s+['\"]{re.escape(snippet)}['\"];?\s*\n",
                       '', body, flags=re.MULTILINE)
+    # MDX comments are authoring notes, not content — drop them so generated
+    # snippets don't leak "do not edit by hand" banners into the LLM text.
+    body = re.sub(r'^\{/\*.*?\*/\}\n', '', body, flags=re.DOTALL | re.MULTILINE)
     sys.stdout.write(f"\n\n---\n\n# {page}\n\n")
     sys.stdout.write(body)
 PY

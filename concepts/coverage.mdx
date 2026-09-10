@@ -4,8 +4,15 @@ description: "What's in our index, when it started, and where the gaps are."
 ---
 
 import WhichPriceField from '/snippets/which-price-field.mdx';
+import DataGaps from '/snippets/data-gaps.mdx';
 
-Dexploit's index begins on **2026-05-26** — the day [Phase 0](/concepts/risk-score#phase-0)'s gRPC-firehose mint capture went live. Endpoints that depend on data captured by that pipeline will return a `coverage_note` field when results are empty.
+Different parts of the index start on different dates, and some hours are missing
+outright. Both are measured below rather than asserted — the tables in the next two
+sections are generated from the live index, so they cannot drift from what the API
+returns. Endpoints that depend on [Phase 0](/concepts/risk-score#phase-0) mint capture
+also return a `coverage_note` field when results are empty.
+
+<DataGaps />
 
 ## Supported venues
 

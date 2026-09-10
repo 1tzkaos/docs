@@ -4969,7 +4969,7 @@
                             "null"
                           ],
                           "format": "date-time",
-                          "description": "Oldest bar in the index."
+                          "description": "Oldest bar held on any timeframe, read from the candle tables at request time. Timeframes expire on different schedules, so a finer timeframe may start later than this \u2014 see [Data coverage](/concepts/coverage) for the retention ladder."
                         },
                         "newest_candle": {
                           "type": [
@@ -4981,7 +4981,7 @@
                         "data_inception": {
                           "type": "string",
                           "format": "date-time",
-                          "description": "When Dexploit started ingesting Solana swaps."
+                          "description": "When the candle index begins. Sourced from the same measurement as `oldest_candle`, so the two never disagree. Raw swap history reaches further back than the candles \u2014 see [Data coverage](/concepts/coverage)."
                         },
                         "partial": {
                           "type": "boolean",
