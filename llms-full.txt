@@ -1460,8 +1460,7 @@ A burn carries a **different** field set. There is **no `pool_address`** and **n
   "lp_sol_pulled": 4200000000,
   "drained_pct": 0.97,
   "classification": "RUGGED",
-  "reason": "lp_withdraw",
-  "graduated": true
+  "reason": "lp_withdraw"
 }
 ```
 
@@ -1477,7 +1476,6 @@ A burn carries a **different** field set. There is **no `pool_address`** and **n
 | `drained_pct` | `f32` (0..1) | Fraction of pool liquidity removed. |
 | `classification` | `string` | `"RUGGED"` when >95% of liquidity was removed; `"LIQUIDITY_DRAINING"` when 50–95%. |
 | `reason` | `string` | `"lp_withdraw"` or `"lp_burn"` — which action triggered the classification. |
-| `graduated` | `bool` | Whether the mint had already graduated/migrated off the pump.fun bonding curve when the drain landed. The graduation/migration window itself is excluded, so a `rug_detected` is a post-migration (or never-pumped) AMM drain. |
 
 ### Filter scope for pool events
 
@@ -1520,7 +1518,7 @@ Unless noted, every room delivers the **room-mode wrapper** — `{ "type": "mess
 | Latest mints | `latest` | New-mint discovery — one `data` per `mints.observed` event as a token is first seen. |
 | Graduating | `graduating` | Tokens crossing the bonding-curve completion threshold (the `mints.completing` lifecycle event). |
 | Graduated | `graduated` | Tokens that migrated to a tradeable AMM pool (the `mints.graduated` lifecycle event). |
-| Rugs (global) | `rugs` | Every `rug_detected` across all venues — the **full `RugRecord`** (`classification`, `drained_pct`, `lp_sol_pulled` in **lamports**, `dex`, plus `reason` + `graduated`). See below. |
+| Rugs (global) | `rugs` | Every `rug_detected` across all venues — the **full `RugRecord`** (`classification`, `drained_pct`, `lp_sol_pulled` in **lamports**, `dex`, plus `reason`). See below. |
 | Token safety | `safety:{mint}` | The mint's full actor/safety snapshot (holder/sniper/insider/bundler counts, top-holder %, dev-held %, …), re-pushed on-change (~3–5 s coalesced). |
 | Price bars | `price:{addr}:{tf}` | Live OHLCV bar updates for `addr` (a **mint OR pool**) at timeframe `tf`. `tf` ∈ `1s 30s 1m 5m 15m 1h 4h 1d`. A mint-keyed room interleaves the mint's pairs (each frame carries `pair_address`). |
 | Wallet trades | `wallet:{wallet}` | Every `swap` where `wallet` is the trader (a live per-wallet trade tape). |
@@ -1540,7 +1538,14 @@ Unless noted, every room delivers the **room-mode wrapper** — `{ "type": "mess
 { "type": "join", "room": "rugs" }
 ```
 
-The `rugs` room fans out the **full `RugRecord`** for every `rug_detected` — the same object the [`rug_detected` field table](#rug-detected-rugrecord-the-classified-signal) describes, including **`reason` and `graduated`** (and the `dex` venue id). This is a superset of what the REST `GET /rugs` feed (under **Rugs** in the [API reference](/api-reference)) returns — REST **omits `reason` and `graduated`** (they live only on the NATS wire), so use the room when you need them live:
+<Note>
+  A `graduated` boolean used to ship on this record. It was removed: it was derived as
+  "the venue is PumpSwap", which is false for most rugged pools (they are created directly
+  on PumpSwap rather than graduating from the pump.fun bonding curve), and the classifier
+  holds no complete graduation history to derive it from honestly.
+</Note>
+
+The `rugs` room fans out the **full `RugRecord`** for every `rug_detected` — the same object the [`rug_detected` field table](#rug-detected-rugrecord-the-classified-signal) describes, including **`reason`** (and the `dex` venue id). This is a superset of what the REST `GET /rugs` feed (under **Rugs** in the [API reference](/api-reference)) returns — REST **omits `reason`** (it lives only on the NATS wire), so use the room when you need it live:
 
 ```json
 {
@@ -1554,8 +1559,7 @@ The `rugs` room fans out the **full `RugRecord`** for every `rug_detected` — t
     "classification": "RUGGED",
     "drained_pct": 0.97,
     "lp_sol_pulled": 4200000000,
-    "reason": "lp_withdraw",
-    "graduated": true
+    "reason": "lp_withdraw"
   }
 }
 ```
@@ -1622,7 +1626,7 @@ safe.
 For backfill and gap-filling, the same events are queryable over REST and MCP:
 
 - REST: [`GET /pool-events?token=<mint>&limit=N&before=<ts_ms>`](/api-reference) — paginated LP/burn history (cursor is epoch **ms**).
-- REST: `GET /rugs` (under **Rugs** in the [API reference](/api-reference)) — recent `rug_detected` events across all venues (7-day window, paged; requires an API key). `drained_pct` is a **0..1** fraction and `lp_sol_pulled` is **already in SOL** — but `reason`/`graduated` are **WS-only** (use the [`rugs` room](#the-global-rugs-room) for those).
+- REST: `GET /rugs` (under **Rugs** in the [API reference](/api-reference)) — recent `rug_detected` events across all venues (7-day window, paged; requires an API key). `drained_pct` is a **0..1** fraction and `lp_sol_pulled` is **already in SOL** — but `reason` is **WS-only** (use the [`rugs` room](#the-global-rugs-room) for it).
 - REST: `GET /tokens/{mint}/rugs` — rug history for a single mint.
 - MCP: the `list_pool_events` tool wraps the same pool-events endpoint.
 
