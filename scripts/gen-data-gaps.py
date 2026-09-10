@@ -26,6 +26,7 @@ import json
 import os
 import pathlib
 import sys
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -61,6 +62,12 @@ SHYFT_RETENTION_HOURS = 90
 # Per-venue hourly census. `absent` counts hours between a venue's first and
 # last indexed hour that carry no rows at all; hours before a venue was added
 # are never counted against it.
+#
+# COST: this is a full scan of `pump_swaps` — 3.2 B rows, 1.33 TiB, ~17 s wall,
+# measured 2026-09-10. It reads only `dex` and `timestamp`, so ClickHouse touches
+# two columns rather than the row, which is what keeps it to seconds. It is still
+# far too heavy for a request path or a timer: keep `REGEN_DATA_GAPS` OFF on every
+# scheduled and CI path and run this by hand when a backfill lands.
 Q_CENSUS = """
 WITH hourly AS (
   SELECT dex, toStartOfHour(timestamp) AS h, count() AS n
@@ -156,11 +163,48 @@ TIMEFRAME_LABELS = {
 }
 
 
+def split_credentials(url: str) -> tuple[str, dict[str, str]]:
+    """Move `user:pass@` out of the URL and into ClickHouse's auth headers.
+
+    `urllib` does NOT strip userinfo from a URL: it takes `user:pass@host` as
+    the whole hostname and dies in DNS resolution with a bare
+    `Name or service not known`. Dropping the credentials instead is worse than
+    failing — the request then authenticates as `default`, which on this cluster
+    is locked down, so you get an authentication error that looks like a
+    password problem rather than a URL-parsing one.
+
+    Both accepted spellings therefore end up in headers or query string:
+
+        http://user:pass@host:8123/            -> headers (handled here)
+        http://host:8123/?user=..&password=..  -> untouched, already in the query
+    """
+    parts = urllib.parse.urlsplit(url)
+    headers: dict[str, str] = {}
+    netloc = parts.netloc
+    if "@" in netloc:
+        userinfo, _, hostport = netloc.rpartition("@")
+        user, _, password = userinfo.partition(":")
+        if user:
+            headers["X-ClickHouse-User"] = urllib.parse.unquote(user)
+        if password:
+            headers["X-ClickHouse-Key"] = urllib.parse.unquote(password)
+        netloc = hostport
+    endpoint = urllib.parse.urlunsplit(
+        (parts.scheme, netloc, parts.path, parts.query, parts.fragment)
+    )
+    # Belt and braces: if any userinfo survived, fail loudly rather than let
+    # urllib turn it into a hostname and report a confusing DNS error.
+    if "@" in urllib.parse.urlsplit(endpoint).netloc:
+        raise SystemExit(f"could not strip credentials from CLICKHOUSE_URL: {endpoint}")
+    return endpoint, headers
+
+
 def query(url: str, sql: str) -> list[dict]:
     """Run one SELECT and return its rows. Any non-SELECT is refused here."""
     if not sql.lstrip().upper().startswith(("SELECT", "WITH")):
         raise ValueError("gen-data-gaps issues read-only queries only")
-    req = urllib.request.Request(url, data=sql.encode(), method="POST")
+    endpoint, headers = split_credentials(url)
+    req = urllib.request.Request(endpoint, data=sql.encode(), method="POST", headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=300) as resp:
             return json.loads(resp.read().decode())["data"]
@@ -377,7 +421,11 @@ def main() -> int:
     snippet = render(census, gaps, ladder, generated_at)
     out_path = root / args.output
     out_path.write_text(snippet)
-    print(f"wrote {out_path.relative_to(root)} ({len(gaps)} gap windows)", file=sys.stderr)
+    try:
+        shown = out_path.relative_to(root)
+    except ValueError:
+        shown = out_path  # --output outside the repo (a dry run)
+    print(f"wrote {shown} ({len(gaps)} gap windows)", file=sys.stderr)
 
     if args.json:
         pathlib.Path(args.json).write_text(
