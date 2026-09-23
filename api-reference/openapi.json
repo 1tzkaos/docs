@@ -964,12 +964,14 @@
           },
           "status": {
             "type": "string",
-            "description": "Snake-case status of the top-10 computation. `value`/`computed_at` are non-null only when `ready`.",
+            "description": "Snake-case status of the top-10 computation. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `no_pool_data`: the mint's pool addresses are not known yet, so the pool's LP wallet cannot be excluded. Withheld rather than reported as ~100%. Specific to `/tokens/{mint}/audit`; `/tokens/{mint}/concentration` does not emit it.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
             "enum": [
               "ready",
               "no_holder_data",
               "no_pool_data",
-              "computing"
+              "computing",
+              "no_supply",
+              "stale_holder_data"
             ]
           },
           "computed_at": {
@@ -1165,7 +1167,7 @@
           },
           "max_raw": {
             "type": "integer",
-            "description": "53500 — the sum of every signal's weight."
+            "description": "The sum of every signal's weight: 57500 today (13 signals). The same on every response; read it rather than hard-coding it, since it changes when a signal is added."
           },
           "computed_at": {
             "type": "integer"
@@ -3117,7 +3119,7 @@
           },
           "volume_sol": {
             "type": "number",
-            "description": "Volume for the window named by `volumeWindow`, for this mint.\n\n**Default when `volumeWindow` is absent: `24h`.** This is the same on every path that serves the field — `POST /screener`, its `GET /search` alias, and the text-search path — so the number means the same thing wherever you read it. It is also the field the screener sorts by when you do not pass `sort`, so the default window and the default ordering agree.\n\nOnly `5m`, `1h` and `24h` are stored. `15m` and `6h` are accepted for compatibility, resolve to the nearest stored window (`1h` and `24h` respectively), and add an `unsupported_window:<value>` entry to `warnings[]` — the response is still a 200. An unrecognised value resolves to `24h` with the same warning.\n\nThe `volume_sol` range filter is applied to this same resolved column, so a `minVolume`/`maxVolume` bound always constrains the window you are shown rather than a different one.\n\n> **Operational note (temporary, remove when Dexploit-Swaps#868 is fixed).** The `5m` and `1h` windows are **not currently populated** — every mint reports `0` for them. Only `24h` carries data today. This is a data-pipeline defect, not a filter behaviour: a `0` from those windows means \"not written\", not \"no volume traded\". Measured 2026-09-16 against 82,561 live mints, of which 0 had a positive `5m` or `1h` value."
+            "description": "Volume for the window named by `volumeWindow`, for this mint.\n\n**Default when `volumeWindow` is absent: `24h`.** This is the same on every path that serves the field — `POST /screener`, its `GET /search` alias, and the text-search path — so the number means the same thing wherever you read it. It is also the field the screener sorts by when you do not pass `sort`, so the default window and the default ordering agree.\n\nOnly `5m`, `1h` and `24h` are stored. `15m` and `6h` are accepted for compatibility, resolve to the nearest stored window (`1h` and `24h` respectively), and add an `unsupported_window:<value>` entry to `warnings[]` — the response is still a 200. An unrecognised value resolves to `24h` with the same warning.\n\nThe `volume_sol` range filter is applied to this same resolved column, so a `minVolume`/`maxVolume` bound always constrains the window you are shown rather than a different one."
           },
           "price_per_token": {
             "type": "number",
@@ -3237,7 +3239,7 @@
           },
           "volume_sol": {
             "type": "number",
-            "description": "Volume for the window named by `volumeWindow`, for this mint.\n\n**Default when `volumeWindow` is absent: `24h`.** This is the same on every path that serves the field — `POST /screener`, its `GET /search` alias, and the text-search path — so the number means the same thing wherever you read it. It is also the field the screener sorts by when you do not pass `sort`, so the default window and the default ordering agree.\n\nOnly `5m`, `1h` and `24h` are stored. `15m` and `6h` are accepted for compatibility, resolve to the nearest stored window (`1h` and `24h` respectively), and add an `unsupported_window:<value>` entry to `warnings[]` — the response is still a 200. An unrecognised value resolves to `24h` with the same warning.\n\nThe `volume_sol` range filter is applied to this same resolved column, so a `minVolume`/`maxVolume` bound always constrains the window you are shown rather than a different one.\n\n> **Operational note (temporary, remove when Dexploit-Swaps#868 is fixed).** The `5m` and `1h` windows are **not currently populated** — every mint reports `0` for them. Only `24h` carries data today. This is a data-pipeline defect, not a filter behaviour: a `0` from those windows means \"not written\", not \"no volume traded\". Measured 2026-09-16 against 82,561 live mints, of which 0 had a positive `5m` or `1h` value."
+            "description": "Volume for the window named by `volumeWindow`, for this mint.\n\n**Default when `volumeWindow` is absent: `24h`.** This is the same on every path that serves the field — `POST /screener`, its `GET /search` alias, and the text-search path — so the number means the same thing wherever you read it. It is also the field the screener sorts by when you do not pass `sort`, so the default window and the default ordering agree.\n\nOnly `5m`, `1h` and `24h` are stored. `15m` and `6h` are accepted for compatibility, resolve to the nearest stored window (`1h` and `24h` respectively), and add an `unsupported_window:<value>` entry to `warnings[]` — the response is still a 200. An unrecognised value resolves to `24h` with the same warning.\n\nThe `volume_sol` range filter is applied to this same resolved column, so a `minVolume`/`maxVolume` bound always constrains the window you are shown rather than a different one."
           },
           "price_per_token": {
             "type": "number",
@@ -3301,7 +3303,7 @@
                 "type": "number"
               }
             },
-            "description": "Bound the window volume. `window` selects which stored window the bound applies to and **defaults to `24h`** when omitted, matching `results[].volume_sol`; the bound and the value you are shown are always the same column. Stored windows are `5m`, `1h` and `24h`; `15m` and `6h` resolve to `1h` and `24h` and add `unsupported_window:<value>` to `warnings[]`.\n\n> **Operational note (temporary, remove when Dexploit-Swaps#868 is fixed).** The `5m` and `1h` windows are **not currently populated** — every mint reports `0` for them. Only `24h` carries data today. This is a data-pipeline defect, not a filter behaviour: a `0` from those windows means \"not written\", not \"no volume traded\". Measured 2026-09-16 against 82,561 live mints, of which 0 had a positive `5m` or `1h` value."
+            "description": "Bound the window volume. `window` selects which stored window the bound applies to and **defaults to `24h`** when omitted, matching `results[].volume_sol`; the bound and the value you are shown are always the same column. Stored windows are `5m`, `1h` and `24h`; `15m` and `6h` resolve to `1h` and `24h` and add `unsupported_window:<value>` to `warnings[]`."
           },
           "age_hours": {
             "type": "object",
@@ -5429,7 +5431,7 @@
     "/tokens/{mint}/audit": {
       "get": {
         "summary": "On-chain audit flags",
-        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n- **Malformed** (non-base58) mint → `400`.",
+        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n\n`top10_pct.status` can be any of six values (see `Top10Pct`). Everything except `ready` means the value is withheld, not zero. `no_pool_data` is specific to this endpoint: it is returned when the mint's pool addresses are unknown, rather than publishing a share that counts the pool's LP wallet.\n- **Malformed** (non-base58) mint → `400`.",
         "operationId": "getTokenAudit",
         "security": [],
         "tags": [
@@ -7352,7 +7354,7 @@
     "/subscription": {
       "get": {
         "summary": "Current subscription status",
-        "description": "Alias of `/api/v1/billing/subscription`. JWT-authenticated (dashboard session); not callable with an API key. Returns the active Stripe subscription tier + period info.",
+        "description": "API-key alias of `/api/v1/billing/subscription`: authenticate with your API key, as for `/credits`. A dashboard session token (JWT) is not accepted here; it belongs on `/api/v1/billing/subscription`, which in turn does not accept an API key. Returns the active Stripe subscription tier + period info.",
         "operationId": "getSubscription",
         "tags": [
           "Account"
@@ -11473,7 +11475,7 @@
                 "24h"
               ]
             },
-            "description": "Which volume window `results[].volume_sol` reports, and which column a `minVolume`/`maxVolume` bound is applied to.\n\n**Defaults to `24h`** when omitted. Stored windows are `5m`, `1h` and `24h`; `15m` and `6h` are accepted and resolve to `1h` and `24h` respectively, adding `unsupported_window:<value>` to `warnings[]`.\n\nThis parameter is read independently of `minVolume`/`maxVolume` — it governs the returned value even when you pass no volume bound at all.\n\n> **Operational note (temporary, remove when Dexploit-Swaps#868 is fixed).** The `5m` and `1h` windows are **not currently populated** — every mint reports `0` for them. Only `24h` carries data today. This is a data-pipeline defect, not a filter behaviour: a `0` from those windows means \"not written\", not \"no volume traded\". Measured 2026-09-16 against 82,561 live mints, of which 0 had a positive `5m` or `1h` value."
+            "description": "Which volume window `results[].volume_sol` reports, and which column a `minVolume`/`maxVolume` bound is applied to.\n\n**Defaults to `24h`** when omitted. Stored windows are `5m`, `1h` and `24h`; `15m` and `6h` are accepted and resolve to `1h` and `24h` respectively, adding `unsupported_window:<value>` to `warnings[]`.\n\nThis parameter is read independently of `minVolume`/`maxVolume` — it governs the returned value even when you pass no volume bound at all."
           },
           {
             "name": "minChangePct",
