@@ -2015,7 +2015,7 @@
           "dev_held_pct": {
             "type": "number",
             "format": "float",
-            "description": "Developer's share of supply (0.0–1.0 fraction). Present when `dev` is in the requested series."
+            "description": "Developer's share of supply, as a **percent** (0-100), capped at 100. Present when `dev` is in the requested series. **Changed in Dexploit-Swaps#987**: this was a 0.0-1.0 fraction, which made it disagree with `top10_pct` on the same point and with `/screener` and `/search` (Dexploit-Swaps#944). Every `dev_held_pct` the API serves is now 0-100."
           }
         }
       },
