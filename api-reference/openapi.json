@@ -8220,65 +8220,138 @@
         }
       }
     },
-    "/health": {
+    "/api/v1/health": {
       "get": {
         "summary": "Liveness probe",
-        "description": "Returns 200 if the API process is alive. Requires authentication like every other endpoint.",
+        "description": "Liveness check. Returns 200 whenever the API process is up, with the state of its database connection in `db`. It does not check data freshness; use `GET /ready` for that. No authentication required.",
         "operationId": "getHealth",
         "tags": [
           "Health"
         ],
         "responses": {
           "200": {
-            "description": "OK",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "type": "string",
-                  "example": "ok"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid API key",
+            "description": "The process is up.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "description": "Always `healthy` when the process answers."
+                    },
+                    "db": {
+                      "type": "string",
+                      "enum": [
+                        "connected",
+                        "disconnected"
+                      ],
+                      "description": "Whether the API's database answered a test query."
+                    },
+                    "version": {
+                      "type": "string",
+                      "description": "API version."
+                    },
+                    "git_sha": {
+                      "type": "string",
+                      "description": "Short commit the running build was made from."
+                    },
+                    "built_at": {
+                      "type": "string",
+                      "description": "UTC build time."
+                    }
+                  }
                 }
               }
             }
           }
-        }
+        },
+        "security": []
       }
     },
     "/ready": {
       "get": {
         "summary": "Readiness probe",
-        "description": "Returns 200 if dependencies (ClickHouse, cache) are healthy; 503 otherwise. Requires authentication.",
+        "description": "Readiness check: is swap ingestion fresh? Returns 200 with `status: ready` when the newest indexed swap is at most `max_lag_secs` old, and 503 otherwise. Suitable for load-balancer and uptime probes. No authentication required.",
         "operationId": "getReady",
         "tags": [
           "Health"
         ],
         "responses": {
           "200": {
-            "description": "Ready"
-          },
-          "401": {
-            "description": "Missing or invalid API key",
+            "description": "Ingestion is fresh (`status: ready`).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "stale",
+                        "unknown",
+                        "unready"
+                      ]
+                    },
+                    "ingestion_lag_secs": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "Seconds since the newest indexed swap. Null when no swap landed in the last hour."
+                    },
+                    "max_lag_secs": {
+                      "type": "integer",
+                      "description": "The freshness threshold."
+                    },
+                    "reason": {
+                      "type": "string",
+                      "description": "Present on `unready` only."
+                    }
+                  }
                 }
               }
             }
           },
           "503": {
-            "description": "Dependency unavailable"
+            "description": "Not ready. `status` says why: `stale` (ingestion is behind), `unknown` (the lag could not be measured), or `unready` with a `reason` (the check itself was unreachable).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "ready",
+                        "stale",
+                        "unknown",
+                        "unready"
+                      ]
+                    },
+                    "ingestion_lag_secs": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ],
+                      "description": "Seconds since the newest indexed swap. Null when no swap landed in the last hour."
+                    },
+                    "max_lag_secs": {
+                      "type": "integer",
+                      "description": "The freshness threshold."
+                    },
+                    "reason": {
+                      "type": "string",
+                      "description": "Present on `unready` only."
+                    }
+                  }
+                }
+              }
+            }
           }
-        }
+        },
+        "security": []
       }
     },
     "/v2/pnl/wallets/{wallet}": {
