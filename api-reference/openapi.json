@@ -655,11 +655,29 @@
             "description": "Structured LP-lock signal. `null` when there is no structured signal yet (same meaning as a `null` `lp_burnt`). When present it distinguishes *how* the LP is secured and how confident we are.",
             "properties": {
               "secured_pct": {
-                "type": [
-                  "number",
-                  "null"
+                "type": "object",
+                "description": "Share of LP secured, as `{ value, status }` (changed 2026-09-23 from a bare number, #709). `status: \"ready\"` carries the polling detector's measured fraction in `value` (`0..1`). `status: \"unknown\"` means no trustworthy share exists, and `value` is `null`: either only the real-time event path observed the lock (a binary on-chain burn/lock event, with no share measured), or the stored fraction contradicted `mechanism` (e.g. `burned` beside `0`) and is withheld rather than published. Never fabricated. Read `status` before treating `value`.",
+                "required": [
+                  "value",
+                  "status"
                 ],
-                "description": "Fraction of LP secured, `0..1`. Precise when measured by the polling detector; `null` when only the real-time firehose event path observed the lock (a binary on-chain burn/lock event — exact share not measured). Never fabricated."
+                "properties": {
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "Fraction of LP secured, `0..1`, when `status` is `ready`; otherwise `null`."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "unknown"
+                    ],
+                    "description": "`ready` = `value` is a measured fraction; `unknown` = no trustworthy share, `value` is `null`."
+                  }
+                }
               },
               "mechanism": {
                 "type": [
