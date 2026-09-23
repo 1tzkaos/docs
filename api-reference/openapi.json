@@ -1800,38 +1800,6 @@
           }
         }
       },
-      "BundlersStubResponse": {
-        "type": "object",
-        "description": "Phase 2 stub. Real bundler detection ships in Phase 5; this endpoint currently always returns `count: 0` and `status: \"tagger_pending\"`.",
-        "properties": {
-          "mint": {
-            "type": "string"
-          },
-          "count": {
-            "type": "integer",
-            "enum": [
-              0
-            ],
-            "description": "Always 0 until Phase 5 ships."
-          },
-          "status": {
-            "type": "string",
-            "enum": [
-              "tagger_pending"
-            ]
-          },
-          "available_in": {
-            "type": "string",
-            "enum": [
-              "phase_5"
-            ]
-          },
-          "computed_at": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
       "ConcentrationResponse": {
         "type": "object",
         "description": "Holder-concentration metrics for a mint from its latest `holder-snapshot`. `gini` is `null` (and the percentage fields are `0`) when the mint has no snapshot data yet.",
@@ -3584,6 +3552,55 @@
               "desc"
             ],
             "default": "desc"
+          }
+        }
+      },
+      "BundlersResponse": {
+        "type": "object",
+        "description": "Bundler wallets tagged for a mint. Lifetime-tagged: no current-balance filter.",
+        "required": [
+          "mint",
+          "count",
+          "bundlers",
+          "computed_at"
+        ],
+        "properties": {
+          "mint": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "description": "True total of distinct wallets tagged `bundler` for this mint — not the page size, so it can exceed `bundlers.length`."
+          },
+          "bundlers": {
+            "type": "array",
+            "description": "Most recently tagged first, truncated to `limit`.",
+            "items": {
+              "type": "object",
+              "required": [
+                "wallet",
+                "tagged_at"
+              ],
+              "properties": {
+                "wallet": {
+                  "type": "string",
+                  "description": "Base58 wallet address."
+                },
+                "tagged_at": {
+                  "type": "integer",
+                  "format": "int64",
+                  "description": "Unix ms of the most recent `bundler` tag for this wallet on this mint."
+                }
+              }
+            }
+          },
+          "coverage_note": {
+            "type": "string",
+            "description": "Present only when `count` is 0. Bundler tagging began 2026-05-28; mints first observed before then read 0 until re-observed."
+          },
+          "computed_at": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       }
@@ -5577,7 +5594,7 @@
     "/tokens/{mint}/snipers": {
       "get": {
         "summary": "Snipers holding this mint",
-        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /snipers/chart/{token}`](/api-reference/endpoint/get-snipers-chart), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
+        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /snipers/chart/{token}`](/api-reference/time-series-charts/sniper-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
         "operationId": "listTokenSnipers",
         "tags": [
           "Tokens"
@@ -5637,7 +5654,7 @@
     "/tokens/{mint}/insiders": {
       "get": {
         "summary": "Insiders holding this mint",
-        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /insiders/chart/{token}`](/api-reference/endpoint/get-insiders-chart), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
+        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /insiders/chart/{token}`](/api-reference/time-series-charts/insider-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
         "operationId": "listTokenInsiders",
         "tags": [
           "Tokens"
@@ -5916,8 +5933,8 @@
     },
     "/tokens/{mint}/bundlers": {
       "get": {
-        "summary": "Bundler wallets for a mint (stub)",
-        "description": "Phase 2 placeholder. Real bundler detection ships in Phase 5 — once the wallet-tagger pipeline backfills the `bundler` tag, this endpoint will return a count and list of bundler wallets. Today it always returns `count: 0` with `status: \"tagger_pending\"` and `available_in: \"phase_5\"`.\n\n**Currently-holding only.** Compare [`GET /bundlers/chart/{token}`](/api-reference/endpoint/get-bundlers-chart), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
+        "summary": "Bundler wallets for a mint",
+        "description": "Wallets tagged `bundler` for this mint — wallets that acquired the token in the same bundled transaction batch at launch.\n\nReturns the tagged wallets (most recently tagged first) and `count`, the **true total** of distinct tagged wallets for the mint rather than the page size — so `count` can exceed `bundlers.length` (`limit` defaults to 100, max 500). A `coverage_note` is included only when `count` is 0: bundler tagging began 2026-05-28, and mints first observed before then read 0 until re-observed.\n\n**Lifetime-tagged, not currently-holding.** Unlike [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint) and [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), this route does not join current balances, so a wallet stays listed after selling out and `count` cannot fall.\n\nCompare [`GET /bundlers/chart/{token}`](/api-reference/time-series-charts/bundler-count-time-series-for-a-token-stub), which returns `0` in every bucket regardless of this count — that series is not yet wired to the tag data (Dexploit-Swaps#940). A non-empty list here beside a flat-zero chart is expected today.",
         "operationId": "getTokensBundlers",
         "tags": [
           "Tokens"
@@ -5930,6 +5947,18 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Max wallets to return. Clamped to 1..500.",
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "minimum": 1,
+              "maximum": 500
+            }
           }
         ],
         "responses": {
@@ -5938,7 +5967,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BundlersStubResponse"
+                  "$ref": "#/components/schemas/BundlersResponse"
                 }
               }
             }
@@ -6358,7 +6387,7 @@
     "/price/history": {
       "get": {
         "summary": "Historical price series for a token",
-        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically — pass `?token={mint}` and the handler picks the busiest pool. For explicit pair-level access use [GET /api/v1/candles](/api-reference/openapi/get/api/v1/candles).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution → MV mapping.",
+        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically — pass `?token={mint}` and the handler picks the busiest pool. For explicit pair-level access use [GET /api/v1/candles](/api-reference/candles-ohlcv/historical-candles-for-a-pool).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution → MV mapping.",
         "operationId": "getPriceHistory",
         "tags": [
           "Price"
@@ -6865,7 +6894,7 @@
     "/snipers/chart/{token}": {
       "get": {
         "summary": "Sniper-count time series for a token",
-        "description": "Returns the sniper wallet count for a token over time. Snipers are wallets that bought within the first few blocks of a mint's launch, as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `sniper` for the mint, from the `wallet_tag_mint_counts` aggregate. It is independent of current balance, so it **cannot fall** — a value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/snipers`](/api-reference/endpoint/get-token-snipers), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThe per-bucket value cannot be balance-gated: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten the series.",
+        "description": "Returns the sniper wallet count for a token over time. Snipers are wallets that bought within the first few blocks of a mint's launch, as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `sniper` for the mint. The served value is the hourly snapshot in `token_actor_history`, which the wallet-intel pipeline computes from the `wallet_tag_mint_counts` aggregate with no balance join — so it is independent of current balance and **cannot fall**. A value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThis series cannot be balance-gated retroactively: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten it. A currently-holding count over time is possible as a **new** column written going forward — that would be a separate metric, not a redefinition of this one.",
         "operationId": "getSnipersChart",
         "tags": [
           "Time-series charts"
@@ -6963,7 +6992,7 @@
     "/insiders/chart/{token}": {
       "get": {
         "summary": "Insider-count time series for a token",
-        "description": "Returns the insider wallet count for a token over time. Insiders are wallets with an informational edge at launch (pre-launch buys, team/dev-adjacent activity), as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `insider` for the mint, from the `wallet_tag_mint_counts` aggregate. It is independent of current balance, so it **cannot fall** — a value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/insiders`](/api-reference/endpoint/get-token-insiders), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThe per-bucket value cannot be balance-gated: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten the series.",
+        "description": "Returns the insider wallet count for a token over time. Insiders are wallets with an informational edge at launch (pre-launch buys, team/dev-adjacent activity), as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `insider` for the mint. The served value is the hourly snapshot in `token_actor_history`, which the wallet-intel pipeline computes from the `wallet_tag_mint_counts` aggregate with no balance join — so it is independent of current balance and **cannot fall**. A value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThis series cannot be balance-gated retroactively: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten it. A currently-holding count over time is possible as a **new** column written going forward — that would be a separate metric, not a redefinition of this one.",
         "operationId": "getInsidersChart",
         "tags": [
           "Time-series charts"
@@ -7061,7 +7090,7 @@
     "/bundlers/chart/{token}": {
       "get": {
         "summary": "Bundler-count time series for a token (stub)",
-        "description": "Returns the bundler wallet count for a token over time. **All values are 0 until Phase 5** — the bundler tagger has not shipped yet. The response always includes a `coverage_note` explaining this.\n\nThe endpoint is available now so you can wire up your UI and swap in real data when Phase 5 ships without a contract change.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}). No pre-launch backfill.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `bundler` for the mint, from the `wallet_tag_mint_counts` aggregate. It is independent of current balance, so it **cannot fall** — a value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/bundlers`](/api-reference/endpoint/get-token-bundlers), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThe per-bucket value cannot be balance-gated: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten the series.",
+        "description": "**Every value in this series is `0`, for every mint.** The handler emits one zero-valued point per hour that exists for the mint, so the x-axis lines up with the other actor charts, plus a `coverage_note`.\n\nThat `coverage_note` currently reads *\"bundler tagger ships in Phase 5; values are 0 until then\"*, and is **out of date**. Bundler tagging shipped 2026-05-28 and the per-hour `bundler_count` behind this route is populated for most mints; this endpoint does not read it yet (Dexploit-Swaps#940). Read the zeros as \"not wired up\", not as \"no bundlers\".\n\nFor a real bundler count today use [`GET /tokens/{mint}/bundlers`](/api-reference/tokens/bundler-wallets-for-a-mint), which returns the true total of tagged wallets for the mint. The response shape here will not change when the series is wired up, so a UI built against it now keeps working.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token). No pre-launch backfill.",
         "operationId": "getBundlersChart",
         "tags": [
           "Time-series charts"
@@ -7375,7 +7404,7 @@
     "/deployer/{wallet}": {
       "get": {
         "summary": "Tokens deployed by a wallet",
-        "description": "Lists mints the wallet has deployed, newest first. Reads from the `tokens_by_creator` ReplacingMergeTree (sourced from `tokens.creator`). Results are hydrated into the same `TokenRow` shape as [POST /tokens/multi](/api-reference/openapi/post/tokens/multi).\n\nWhen there are no results, the response includes `coverage_note` explaining that creator capture began on 2026-05-26 (Phase 0) — older mints may be missing. See [Data coverage](/concepts/coverage).",
+        "description": "Lists mints the wallet has deployed, newest first. Reads from the `tokens_by_creator` ReplacingMergeTree (sourced from `tokens.creator`). Results are hydrated into the same `TokenRow` shape as [POST /tokens/multi](/api-reference/tokens/batched-token-lookup).\n\nWhen there are no results, the response includes `coverage_note` explaining that creator capture began on 2026-05-26 (Phase 0) — older mints may be missing. See [Data coverage](/concepts/coverage).",
         "operationId": "getDeployer",
         "tags": [
           "Wallet intel"
