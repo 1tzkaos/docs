@@ -170,12 +170,14 @@ Keys are hashed (SHA-256) at rest. You see the full key once at generation. Lost
 
 Pricing is capped requests-per-second with unlimited monthly volume — pick a tier that matches your sustained throughput.
 
-| Tier | Price | Sustained RPS | 60-second burst window |
-| --- | --- | --- | --- |
-| Free | $0 | 20 | 1,200 reqs |
-| Developer | $50/mo | 100 | 6,000 reqs |
-| Pro | $199/mo | 500 | 30,000 reqs |
-| Enterprise | Custom | unlimited | unlimited |
+| Tier | Price | Requests per second |
+| --- | --- | --- |
+| Free | $0 | 20 |
+| Developer | $50/mo | 100 |
+| Pro | $199/mo | 500 |
+| Enterprise | Custom | unlimited |
+
+The cap is strict per second: requests are counted in fixed one-second windows, with no burst allowance above the cap. See [Quotas & errors](/concepts/quotas-errors#rate-limits).
 
 Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
 
@@ -191,10 +193,9 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
 {
   "tier": "free",
   "rps_cap": 20,
-  "rps_window_secs": 60,
+  "rps_window_secs": 1,
   "current_window_used": 7,
-  "current_window_remaining": 1193,
-  "current_window_reset_secs": 23,
+  "current_window_remaining": 13,
   "monthly_used": 4321,
   "monthly_used_note": "informational; no monthly cap on Dexploit",
   "tier_features": {
@@ -546,14 +547,14 @@ All paths share the same host, `https://api.dexploit.dev`, and the same `Authori
 
 Dexploit's pricing model is **capped requests-per-second, unlimited monthly usage.** Pick a tier that matches your sustained throughput; there is no monthly volume to budget against.
 
-| Tier | Sustained RPS | 60-second burst window |
-| --- | --- | --- |
-| Free | 20 | 1,200 reqs |
-| Developer | 100 | 6,000 reqs |
-| Pro | 500 | 30,000 reqs |
-| Enterprise | unlimited | unlimited |
+| Tier | Requests per second |
+| --- | --- |
+| Free | 20 |
+| Developer | 100 |
+| Pro | 500 |
+| Enterprise | unlimited |
 
-The burst window is the smoothing knob: a Free-tier client can issue up to 1,200 requests in a single second as long as the rolling 60-second sum stays under 1,200. Indexers and backfill jobs benefit from this; steady-state polling never sees the burst headroom.
+The cap is strict per second. Requests are counted in fixed one-second windows (`rps_window_secs: 1` in [`/credits`](#inspecting-your-usage)), and the first request over the cap within a second gets a 429. There is no burst allowance above it: a Free-tier client gets 20 requests in any one second, not more by staying quiet the rest of the minute.
 
 ## Inspecting your usage
 
@@ -563,10 +564,9 @@ Call `GET /credits` at any time to see your current tier, RPS cap, requests used
 {
   "tier": "free",
   "rps_cap": 20,
-  "rps_window_secs": 60,
+  "rps_window_secs": 1,
   "current_window_used": 7,
-  "current_window_remaining": 1193,
-  "current_window_reset_secs": 23,
+  "current_window_remaining": 13,
   "monthly_used": 4321,
   "monthly_used_note": "informational; no monthly cap on Dexploit",
   "tier_features": {
@@ -580,7 +580,7 @@ Call `GET /credits` at any time to see your current tier, RPS cap, requests used
 
 ## Rate limiting
 
-When you exceed your tier's RPS cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Back off and retry. Use [`GET /credits`](#inspecting-your-usage) to read your current-window usage and the seconds until it resets (`current_window_reset_secs`).
+When you exceed your tier's RPS cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Back off and retry. Windows are one second long, so a short backoff is enough; [`GET /credits`](#inspecting-your-usage) shows the current window's usage.
 
 ## Tier-locked features
 
@@ -620,7 +620,7 @@ Exceeding the cap returns `RESOURCE_EXHAUSTED`. The `wallet_tags` filter is Pro+
 | --- | --- | --- | --- |
 | `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
 | `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
-| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in current window. | Back off and retry; check `current_window_reset_secs` from `/credits`. |
+| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in the current one-second window. | Back off briefly and retry; windows are one second long. |
 | `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
 | `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |

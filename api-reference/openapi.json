@@ -1475,20 +1475,20 @@
           },
           "rps_cap": {
             "type": "integer",
-            "description": "Burst cap = `rps_cap × rps_window_secs` per window."
+            "description": "Requests allowed per window (`rps_window_secs`). Enterprise reports 4294967295 (uncapped)."
           },
           "rps_window_secs": {
             "type": "integer",
-            "example": 60
+            "description": "Length of the rate-limit window in seconds. Always 1: the cap is strict per second.",
+            "example": 1
           },
           "current_window_used": {
-            "type": "integer"
+            "type": "integer",
+            "description": "Requests counted in the current one-second window."
           },
           "current_window_remaining": {
-            "type": "integer"
-          },
-          "current_window_reset_secs": {
-            "type": "integer"
+            "type": "integer",
+            "description": "`rps_cap` minus `current_window_used`."
           },
           "monthly_used": {
             "type": "integer",
@@ -7330,7 +7330,7 @@
     "/credits": {
       "get": {
         "summary": "RPS-tier usage snapshot",
-        "description": "Returns your tier, RPS cap, current 60-second window usage, monthly_used (informational only — no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
+        "description": "Returns your tier, RPS cap, usage in the current one-second window, monthly_used (informational only — no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
         "operationId": "getCredits",
         "tags": [
           "Account"
