@@ -1839,29 +1839,46 @@
       },
       "ConcentrationResponse": {
         "type": "object",
-        "description": "Holder-concentration metrics for a mint from its latest `holder-snapshot`. `gini` is `null` (and the percentage fields are `0`) when the mint has no snapshot data yet.",
+        "description": "Holder-concentration metrics for a mint from its latest `holder-snapshot`. Every numeric field is nullable, and they are withheld INDEPENDENTLY — a field is `null` when the cohort it describes cannot be computed coherently, because the service withholds a number rather than publish one it knows is wrong. `holder_balances` rows are never evicted, so a mint can have a trustworthy top 10 and a long tail of stale rows that together exceed supply: USDC on 2026-08-14 had a pool-excluded held sum of 107.6% of stored supply while its top 10 was 20.5%. `status` reports the verdict for the TOP-10 cohort only — the headline metric `/audit`, `/intel` and `/risk` also publish — so `top100_pct` or `gini` can be `null` while `status` is `ready`.",
         "properties": {
           "mint": {
             "type": "string"
           },
           "top10_pct": {
-            "type": "number",
-            "description": "Share of total supply held by the top 10 holders, as a percentage (0–100)."
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Share of total supply held by the top 10 holders, as a percentage (0–100). `null` when this cohort has no usable data or its balances are incoherent against stored supply; `status` says which."
           },
           "top100_pct": {
-            "type": "number",
-            "description": "Share of total supply held by the top 100 holders, as a percentage (0–100)."
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Share of total supply held by the top 100 holders, as a percentage (0–100). Judged INDEPENDENTLY of `top10_pct` — this can be `null` while `top10_pct` is a number and `status` is `ready`, because the wider cohort picks up more stale rows."
           },
           "gini": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Gini coefficient of the holder distribution (0 = perfectly even, 1 = fully concentrated). `null` when no snapshot data is available."
+            "description": "Gini coefficient of the holder distribution (0 = perfectly even, 1 = fully concentrated). Judged against the WHOLE pool-excluded balance vector, which is the input it reads — so it is `null` whenever that vector is incoherent, independently of `status` and of either percentage field."
           },
           "total_holders": {
             "type": "integer",
-            "description": "Total number of holders in the latest snapshot."
+            "description": "Number of holder rows in the latest snapshot. A row COUNT stays meaningful when the balances do not, so it is published even where the percentage fields are withheld."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "stale_holder_data",
+              "no_supply",
+              "no_holder_data",
+              "computing"
+            ],
+            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `computing` = a snapshot is in progress. Read this before treating a `null` as zero or as 'no holders'."
           },
           "snapshot_ts": {
             "type": "integer",
