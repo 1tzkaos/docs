@@ -3154,7 +3154,7 @@
           },
           "dev_held_pct": {
             "type": "number",
-            "description": "Creator-held share of supply, as a **percent** (0-100), capped at 100 (a creator cannot hold more than supply). Was a 0-1 fraction before Dexploit-Swaps#944."
+            "description": "Creator-held share of supply, as a **percent** (0-100). Was a 0-1 fraction before Dexploit-Swaps#944. Unlike the three fields above this one is capped: it is clamped against supply before scaling, so it cannot exceed 100."
           },
           "insider_count": {
             "type": "integer",
@@ -3162,7 +3162,7 @@
           },
           "insider_pct": {
             "type": "number",
-            "description": "Insider share of holders, as a **percent** (0-100). `insider_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944."
+            "description": "Insider share of holders, as a **percent**. `insider_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944. Can exceed 100 for the same reason as `bundler_pct`."
           },
           "sniper_count": {
             "type": "integer",
@@ -3170,7 +3170,7 @@
           },
           "sniper_pct": {
             "type": "number",
-            "description": "Sniper share of holders, as a **percent** (0-100). `sniper_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944."
+            "description": "Sniper share of holders, as a **percent**. `sniper_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944. Can exceed 100 for the same reason as `bundler_pct`."
           },
           "bundler_count": {
             "type": "integer",
@@ -3178,7 +3178,7 @@
           },
           "bundler_pct": {
             "type": "number",
-            "description": "Bundler share of holders, as a **percent** (0-100). `bundler_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944; every `*_pct` field on this object is now the same 0-100 scale."
+            "description": "Bundler share of holders, as a **percent**. `bundler_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944. **Can exceed 100**: `bundler_count` is counted independently of `holder_count`, and where the holder snapshot undercounts (Dexploit-Swaps#980) the ratio goes above 1 — values up to ~3,500 are present in stored history."
           },
           "graduated_ts": {
             "type": "integer",
