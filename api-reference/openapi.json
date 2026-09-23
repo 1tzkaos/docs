@@ -4420,7 +4420,8 @@
               "default": 100,
               "minimum": 1,
               "maximum": 1000
-            }
+            },
+            "description": "Maximum swaps per page. A full page can hold a few more than this: it always ends on a whole group of swaps that share one timestamp and slot, so paging with `cursor` never skips one."
           },
           {
             "name": "offset",
@@ -4430,6 +4431,19 @@
               "type": "integer",
               "default": 0,
               "minimum": 0
+            },
+            "deprecated": true,
+            "description": "Not supported on this route: any value above 0 returns 400. Page with `cursor` instead."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Keyset cursor, `<ts_ms>:<slot>`. Pass the previous response's `next_cursor` to get the next, older page; omit it for the newest page. A malformed value returns 400.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+:[0-9]+$",
+              "example": "1790201347000:449834465"
             }
           }
         ],
@@ -4456,11 +4470,18 @@
                     "price_semantics": {
                       "type": "string",
                       "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change."
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "description": "Pass as `cursor` to get the next page. Present whenever this page is full, and absent once a page reaches the end of the history. The page after the last full page can be empty."
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid parameter: an `offset` above 0, or a malformed `cursor`."
           }
         }
       }
@@ -4491,7 +4512,8 @@
               "default": 100,
               "minimum": 1,
               "maximum": 1000
-            }
+            },
+            "description": "Maximum swaps per page. A full page can hold a few more than this: it always ends on a whole group of swaps that share one timestamp and slot, so paging with `cursor` never skips one."
           },
           {
             "name": "offset",
@@ -4501,6 +4523,19 @@
               "type": "integer",
               "default": 0,
               "minimum": 0
+            },
+            "deprecated": true,
+            "description": "Not supported on this route: any value above 0 returns 400. Page with `cursor` instead."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "Keyset cursor, `<ts_ms>:<slot>`. Pass the previous response's `next_cursor` to get the next, older page; omit it for the newest page. A malformed value returns 400.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]+:[0-9]+$",
+              "example": "1790201347000:449834465"
             }
           }
         ],
@@ -4527,11 +4562,18 @@
                     "price_semantics": {
                       "type": "string",
                       "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change."
+                    },
+                    "next_cursor": {
+                      "type": "string",
+                      "description": "Pass as `cursor` to get the next page. Present whenever this page is full, and absent once a page reaches the end of the history. The page after the last full page can be empty."
                     }
                   }
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid parameter: an `offset` above 0, or a malformed `cursor`."
           }
         }
       }
