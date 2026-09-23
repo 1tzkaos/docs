@@ -8288,10 +8288,7 @@
                     "status": {
                       "type": "string",
                       "enum": [
-                        "ready",
-                        "stale",
-                        "unknown",
-                        "unready"
+                        "ready"
                       ]
                     },
                     "ingestion_lag_secs": {
@@ -8304,10 +8301,6 @@
                     "max_lag_secs": {
                       "type": "integer",
                       "description": "The freshness threshold."
-                    },
-                    "reason": {
-                      "type": "string",
-                      "description": "Present on `unready` only."
                     }
                   }
                 }
@@ -8324,7 +8317,6 @@
                     "status": {
                       "type": "string",
                       "enum": [
-                        "ready",
                         "stale",
                         "unknown",
                         "unready"
