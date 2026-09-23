@@ -3100,7 +3100,8 @@
             "type": "number"
           },
           "change_pct": {
-            "type": "number"
+            "type": "number",
+            "description": "Price change over the selected window, as a **percent**: `(close - open) / open * 100`, taken from the dominant pool. **null** when unmeasurable (no open, or no prior price to compare against) — null is not 0."
           },
           "buys": {
             "type": "integer",
@@ -3152,28 +3153,32 @@
             "description": "Top-10 (pool-excluded) share of supply. **null** (not 0) when holder data is unavailable."
           },
           "dev_held_pct": {
-            "type": "number"
+            "type": "number",
+            "description": "Creator-held share of supply, as a **percent** (0-100), capped at 100 (a creator cannot hold more than supply). Was a 0-1 fraction before Dexploit-Swaps#944."
           },
           "insider_count": {
             "type": "integer",
             "description": "uint32."
           },
           "insider_pct": {
-            "type": "number"
+            "type": "number",
+            "description": "Insider share of holders, as a **percent** (0-100). `insider_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944."
           },
           "sniper_count": {
             "type": "integer",
             "description": "uint32."
           },
           "sniper_pct": {
-            "type": "number"
+            "type": "number",
+            "description": "Sniper share of holders, as a **percent** (0-100). `sniper_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944."
           },
           "bundler_count": {
             "type": "integer",
             "description": "uint32."
           },
           "bundler_pct": {
-            "type": "number"
+            "type": "number",
+            "description": "Bundler share of holders, as a **percent** (0-100). `bundler_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944; every `*_pct` field on this object is now the same 0-100 scale."
           },
           "graduated_ts": {
             "type": "integer",
