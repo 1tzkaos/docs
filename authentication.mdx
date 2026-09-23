@@ -34,12 +34,14 @@ Keys are hashed (SHA-256) at rest. You see the full key once at generation. Lost
 
 Pricing is capped requests-per-second with unlimited monthly volume — pick a tier that matches your sustained throughput.
 
-| Tier | Price | Sustained RPS | 60-second burst window |
-| --- | --- | --- | --- |
-| Free | $0 | 20 | 1,200 reqs |
-| Developer | $50/mo | 100 | 6,000 reqs |
-| Pro | $199/mo | 500 | 30,000 reqs |
-| Enterprise | Custom | unlimited | unlimited |
+| Tier | Price | Requests per second |
+| --- | --- | --- |
+| Free | $0 | 20 |
+| Developer | $50/mo | 100 |
+| Pro | $199/mo | 500 |
+| Enterprise | Custom | unlimited |
+
+The cap is strict per second: requests are counted in fixed one-second windows, with no burst allowance above the cap. See [Quotas & errors](/concepts/quotas-errors#rate-limits).
 
 Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
 
@@ -55,10 +57,9 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
 {
   "tier": "free",
   "rps_cap": 20,
-  "rps_window_secs": 60,
+  "rps_window_secs": 1,
   "current_window_used": 7,
-  "current_window_remaining": 1193,
-  "current_window_reset_secs": 23,
+  "current_window_remaining": 13,
   "monthly_used": 4321,
   "monthly_used_note": "informational; no monthly cap on Dexploit",
   "tier_features": {
