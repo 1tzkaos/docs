@@ -556,7 +556,7 @@
           "slot": {
             "type": "integer"
           },
-          "timestamp": {
+          "timestamp_ms": {
             "type": "integer",
             "description": "Unix epoch milliseconds."
           },
@@ -578,7 +578,7 @@
           "token_mint": {
             "type": "string"
           },
-          "actor": {
+          "user": {
             "type": "string",
             "description": "Wallet that emitted the event."
           },
