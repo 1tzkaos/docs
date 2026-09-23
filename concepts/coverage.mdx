@@ -7,10 +7,12 @@ import WhichPriceField from '/snippets/which-price-field.mdx';
 import DataGaps from '/snippets/data-gaps.mdx';
 
 Different parts of the index start on different dates, and some hours are missing
-outright. Both are measured below rather than asserted — the tables in the next two
-sections are generated from the live index, so they cannot drift from what the API
-returns. Endpoints that depend on [Phase 0](/concepts/risk-score#phase-0) mint capture
-also return a `coverage_note` field when results are empty.
+outright. Both are measured below rather than asserted: the tables in the next two
+sections are generated from the live index by a script. They are a snapshot, not a live
+view. The snapshot's time is shown at the top, and nothing refreshes it between runs, so
+a window may have been filled, or a new one opened, since then. Endpoints that depend on
+[Phase 0](/concepts/risk-score#phase-0) mint capture also return a `coverage_note` field
+when results are empty.
 
 <DataGaps />
 
