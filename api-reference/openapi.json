@@ -5577,7 +5577,7 @@
     "/tokens/{mint}/snipers": {
       "get": {
         "summary": "Snipers holding this mint",
-        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).",
+        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /snipers/chart/{token}`](/api-reference/endpoint/get-snipers-chart), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
         "operationId": "listTokenSnipers",
         "tags": [
           "Tokens"
@@ -5637,7 +5637,7 @@
     "/tokens/{mint}/insiders": {
       "get": {
         "summary": "Insiders holding this mint",
-        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).",
+        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /insiders/chart/{token}`](/api-reference/endpoint/get-insiders-chart), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
         "operationId": "listTokenInsiders",
         "tags": [
           "Tokens"
@@ -5917,7 +5917,7 @@
     "/tokens/{mint}/bundlers": {
       "get": {
         "summary": "Bundler wallets for a mint (stub)",
-        "description": "Phase 2 placeholder. Real bundler detection ships in Phase 5 — once the wallet-tagger pipeline backfills the `bundler` tag, this endpoint will return a count and list of bundler wallets. Today it always returns `count: 0` with `status: \"tagger_pending\"` and `available_in: \"phase_5\"`.",
+        "description": "Phase 2 placeholder. Real bundler detection ships in Phase 5 — once the wallet-tagger pipeline backfills the `bundler` tag, this endpoint will return a count and list of bundler wallets. Today it always returns `count: 0` with `status: \"tagger_pending\"` and `available_in: \"phase_5\"`.\n\n**Currently-holding only.** Compare [`GET /bundlers/chart/{token}`](/api-reference/endpoint/get-bundlers-chart), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
         "operationId": "getTokensBundlers",
         "tags": [
           "Tokens"
@@ -6865,7 +6865,7 @@
     "/snipers/chart/{token}": {
       "get": {
         "summary": "Sniper-count time series for a token",
-        "description": "Returns the sniper wallet count for a token over time. Snipers are wallets that bought within the first few blocks of a mint's launch, as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.",
+        "description": "Returns the sniper wallet count for a token over time. Snipers are wallets that bought within the first few blocks of a mint's launch, as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `sniper` for the mint, from the `wallet_tag_mint_counts` aggregate. It is independent of current balance, so it **cannot fall** — a value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/snipers`](/api-reference/endpoint/get-token-snipers), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThe per-bucket value cannot be balance-gated: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten the series.",
         "operationId": "getSnipersChart",
         "tags": [
           "Time-series charts"
@@ -6963,7 +6963,7 @@
     "/insiders/chart/{token}": {
       "get": {
         "summary": "Insider-count time series for a token",
-        "description": "Returns the insider wallet count for a token over time. Insiders are wallets with an informational edge at launch (pre-launch buys, team/dev-adjacent activity), as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.",
+        "description": "Returns the insider wallet count for a token over time. Insiders are wallets with an informational edge at launch (pre-launch buys, team/dev-adjacent activity), as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `insider` for the mint, from the `wallet_tag_mint_counts` aggregate. It is independent of current balance, so it **cannot fall** — a value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/insiders`](/api-reference/endpoint/get-token-insiders), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThe per-bucket value cannot be balance-gated: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten the series.",
         "operationId": "getInsidersChart",
         "tags": [
           "Time-series charts"
@@ -7061,7 +7061,7 @@
     "/bundlers/chart/{token}": {
       "get": {
         "summary": "Bundler-count time series for a token (stub)",
-        "description": "Returns the bundler wallet count for a token over time. **All values are 0 until Phase 5** — the bundler tagger has not shipped yet. The response always includes a `coverage_note` explaining this.\n\nThe endpoint is available now so you can wire up your UI and swap in real data when Phase 5 ships without a contract change.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}). No pre-launch backfill.",
+        "description": "Returns the bundler wallet count for a token over time. **All values are 0 until Phase 5** — the bundler tagger has not shipped yet. The response always includes a `coverage_note` explaining this.\n\nThe endpoint is available now so you can wire up your UI and swap in real data when Phase 5 ships without a contract change.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/openapi/get/holders/chart/{token}). No pre-launch backfill.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `bundler` for the mint, from the `wallet_tag_mint_counts` aggregate. It is independent of current balance, so it **cannot fall** — a value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/bundlers`](/api-reference/endpoint/get-token-bundlers), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThe per-bucket value cannot be balance-gated: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten the series.",
         "operationId": "getBundlersChart",
         "tags": [
           "Time-series charts"
