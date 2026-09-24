@@ -49,14 +49,14 @@ stream.on("data", (swap) => console.log(swap));
 
 ## Tier caps
 
-| Tier | Max concurrent SwapStream connections | `wallet_tags` filter |
+| Tier | Max concurrent streams per key | `wallet_tags` filter |
 |---|---|---|
 | Free | 1 | ignored (see below) |
 | Developer | 10 | ignored |
 | Pro | 50 | allowed |
 | Enterprise | unlimited | allowed |
 
-Exceeding the cap returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`.
+The cap is one allowance per key, shared with `PriceStream` and the `/ws` WebSocket (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). Exceeding it returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`.
 
 ### `wallet_tags` tier gating
 

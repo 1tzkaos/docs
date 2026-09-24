@@ -102,18 +102,20 @@ This keeps client code simple — same response shape, an extra flag — and let
 
 Currently tier-locked endpoints: `/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`.
 
-## gRPC stream caps
+## Streaming caps
 
-The `dexploit.v1.SwapStream` service caps concurrent connections per tier:
+Each API key has one allowance of concurrent streams, set by its tier. Every open stream on every transport counts against it: a gRPC `dexploit.v1.SwapStream` stream, a gRPC `dexploit.v1.PriceStream` stream, and a `/ws` or `/ws/swaps` WebSocket.
 
-| Tier | Max concurrent SwapStream connections |
+| Tier | Max concurrent streams per key |
 |---|---|
 | Free | 1 |
 | Developer | 10 |
 | Pro | 50 |
 | Enterprise | unlimited |
 
-Exceeding the cap returns `RESOURCE_EXHAUSTED`. The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
+Opening a stream past the cap fails: gRPC returns `RESOURCE_EXHAUSTED` (`stream cap exceeded; tier=… cap=…`), and a WebSocket is closed with code `1013`. A slot is freed as soon as its stream closes.
+
+The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
 ## Error codes
 

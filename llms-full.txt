@@ -601,18 +601,20 @@ This keeps client code simple — same response shape, an extra flag — and let
 
 Currently tier-locked endpoints: `/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`.
 
-## gRPC stream caps
+## Streaming caps
 
-The `dexploit.v1.SwapStream` service caps concurrent connections per tier:
+Each API key has one allowance of concurrent streams, set by its tier. Every open stream on every transport counts against it: a gRPC `dexploit.v1.SwapStream` stream, a gRPC `dexploit.v1.PriceStream` stream, and a `/ws` or `/ws/swaps` WebSocket.
 
-| Tier | Max concurrent SwapStream connections |
+| Tier | Max concurrent streams per key |
 |---|---|
 | Free | 1 |
 | Developer | 10 |
 | Pro | 50 |
 | Enterprise | unlimited |
 
-Exceeding the cap returns `RESOURCE_EXHAUSTED`. The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
+Opening a stream past the cap fails: gRPC returns `RESOURCE_EXHAUSTED` (`stream cap exceeded; tier=… cap=…`), and a WebSocket is closed with code `1013`. A slot is freed as soon as its stream closes.
+
+The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
 ## Error codes
 
@@ -2006,6 +2008,8 @@ x-api-key: ohlcv_live_sk_<your_key>
 
 Server reflection is enabled, so `grpcurl grpc.dexploit.dev:443 list` resolves the service set (`dexploit.v1.PriceStream`, `dexploit.v1.SwapStream`) without the `.proto`.
 
+Each `Subscribe` stream counts against your key's concurrent-stream allowance, which it shares with `SwapStream` and the `/ws` WebSocket: Free 1, Developer 10, Pro 50, Enterprise unlimited. One more stream past the cap returns `RESOURCE_EXHAUSTED`. See [Streaming caps](/concepts/quotas-errors#streaming-caps).
+
 ## Service definition
 
 `PriceStream` has a single server-streaming RPC, `Subscribe`. The request selects which protocols to receive; an empty list streams all of them.
@@ -2168,14 +2172,14 @@ stream.on("data", (swap) => console.log(swap));
 
 ## Tier caps
 
-| Tier | Max concurrent SwapStream connections | `wallet_tags` filter |
+| Tier | Max concurrent streams per key | `wallet_tags` filter |
 |---|---|---|
 | Free | 1 | ignored (see below) |
 | Developer | 10 | ignored |
 | Pro | 50 | allowed |
 | Enterprise | unlimited | allowed |
 
-Exceeding the cap returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`.
+The cap is one allowance per key, shared with `PriceStream` and the `/ws` WebSocket (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). Exceeding it returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`.
 
 ### `wallet_tags` tier gating
 
