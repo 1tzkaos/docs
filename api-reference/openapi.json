@@ -3657,6 +3657,34 @@
             "format": "int64"
           }
         }
+      },
+      "SwapsApiError": {
+        "type": "object",
+        "description": "The error body of the swaps routes (`/swaps/...`), which is flat, unlike the `ErrorEnvelope` of the other APIs. Authentication and rate-limit errors (401, 429) come from the gateway and use `ErrorEnvelope`.",
+        "required": [
+          "error",
+          "message"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "not_found",
+              "invalid_parameter",
+              "database_error",
+              "internal_error"
+            ],
+            "description": "Machine-readable error kind."
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable detail. Not a stable format."
+          }
+        },
+        "example": {
+          "error": "not_found",
+          "message": "Swap not found: 43nGAPtVqZxiar6cbdqBg4DRTkG6gM2EsPzPz1igqWkLraYDZcygonrGXkAynXkFr8QocyG4BnefMBzVXMkbDYX2"
+        }
       }
     }
   },
@@ -4412,7 +4440,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
+                  "$ref": "#/components/schemas/SwapsApiError"
                 }
               }
             }
@@ -4507,7 +4535,14 @@
             }
           },
           "400": {
-            "description": "Invalid parameter: an `offset` above 0, or a malformed `cursor`."
+            "description": "Invalid parameter: an `offset` above 0, or a malformed `cursor`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapsApiError"
+                }
+              }
+            }
           }
         }
       }
@@ -4599,7 +4634,14 @@
             }
           },
           "400": {
-            "description": "Invalid parameter: an `offset` above 0, or a malformed `cursor`."
+            "description": "Invalid parameter: an `offset` above 0, or a malformed `cursor`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapsApiError"
+                }
+              }
+            }
           }
         }
       }
