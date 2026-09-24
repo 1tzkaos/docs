@@ -3672,7 +3672,8 @@
               "not_found",
               "invalid_parameter",
               "database_error",
-              "internal_error"
+              "internal_error",
+              "service_unavailable"
             ],
             "description": "Machine-readable error kind."
           },
@@ -4437,6 +4438,25 @@
           },
           "404": {
             "description": "Signature not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapsApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The lookup ran out of its time budget, so whether the swap exists is unknown (`error: service_unavailable`). Retry after the `Retry-After` interval. A 404 means the signature was looked up and is not there; a timeout is never reported as a 404.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "example": 5
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
