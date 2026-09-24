@@ -45,6 +45,8 @@ A `partial_data` score is a true lower bound — every signal in `missing_signal
 
 The risk block embedded in `/tokens/{mint}/intel` carries the same `status`, `missing_signals` and `unavailable_signals`.
 
+The seven holder-derived signals (`single_holder_50pct`, `top10_high`, `top10_very_high`, `snipers_pct_high`, `insiders_pct_high`, `dev_held_high`, `dev_held_very_high`) need a **complete holder census** of the mint. Until the mint has one, they sit in `missing_signals[]` rather than being evaluated over a partial holder set. That happens when the mint has never been censused, when the last census missed holders, or when it is too large to scan. A partial set would read a holder it never saw as holding 0%. If the check of the census itself fails, the seven are listed in `unavailable_signals[]` instead: retry.
+
 ## Signals
 
 Twelve signals across six categories. "Graded" signals scale their contribution with the magnitude of the underlying value (e.g. `dev_held_high` contributes more when the creator holds 30% vs 6%).
