@@ -888,7 +888,7 @@
               "number",
               "null"
             ],
-            "description": "Pump.fun bonding-curve progress (0–100); null for graduated/non-pump tokens."
+            "description": "Pump.fun bonding-curve progress, or `null`. Three outcomes, not two:\n\n- **`0`–`100`** — the mint is still on the pump.fun bonding curve. Progress is `real_sol_reserves / 85 SOL × 100`, taken from the mint's most recent trade, when that trade is on pump.fun, and clamped to `0`–`100`.\n- **`100.0`** — the mint has **graduated** off the curve; its most recent trade was on PumpSwap, Raydium or another venue. Graduated mints deliberately read `100.0`, not `null` (Dexploit-Swaps#951).\n- **`null`** — the mint's address does not end in `pump`, **or** its most recent trade in the **last 24 hours**, on any venue, reported zero SOL reserves, or it has not traded in the last 24 hours. A graduated mint that has gone quiet for a day therefore reads `null` rather than `100.0`, so `null` does not by itself mean \"not a pump.fun token\"."
           },
           "top10_pct": {
             "$ref": "#/components/schemas/Top10Pct"
