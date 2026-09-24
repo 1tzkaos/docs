@@ -451,7 +451,7 @@
       },
       "TrendingResult": {
         "type": "object",
-        "description": "One token in a /trending response. Volume and liquidity are in USD via the Pyth SOL/USD oracle.",
+        "description": "One token in a /trending response. Volume and liquidity are in USD via Dexploit's SOL/USD rate, derived from on-chain SOL/stablecoin swaps.",
         "properties": {
           "mint": {
             "type": "string"
@@ -1658,7 +1658,7 @@
               "number",
               "null"
             ],
-            "description": "`ath_price_sol × current Pyth SOL/USD`. Today-equivalent USD value, not the USD price at the moment of the ATH."
+            "description": "`ath_price_sol × current SOL/USD`. Today-equivalent USD value, not the USD price at the moment of the ATH."
           },
           "ath_ts_ms": {
             "type": [
@@ -2091,7 +2091,7 @@
               "number",
               "null"
             ],
-            "description": "Current market value in USD via the Pyth SOL/USD oracle. `null` when price or oracle is unavailable."
+            "description": "Current market value in USD via Dexploit's SOL/USD rate. `null` when price or oracle is unavailable."
           },
           "unrealized_pnl_sol": {
             "type": [
@@ -2393,21 +2393,21 @@
               "number",
               "null"
             ],
-            "description": "Realized PnL in USD via the Pyth oracle. `null` when oracle unavailable."
+            "description": "Realized PnL in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
           },
           "unrealized_usd": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Unrealized PnL in USD via the Pyth oracle. `null` when oracle unavailable."
+            "description": "Unrealized PnL in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
           },
           "oracle": {
             "type": [
               "object",
               "null"
             ],
-            "description": "Pyth SOL/USD oracle snapshot used for USD conversion."
+            "description": "SOL/USD rate snapshot used for USD conversion."
           },
           "warning": {
             "type": "string",
@@ -2438,7 +2438,7 @@
               "number",
               "null"
             ],
-            "description": "SOL balance converted to USD via the Pyth oracle. `null` when balance or oracle is unavailable."
+            "description": "SOL balance converted to USD via Dexploit's SOL/USD rate. `null` when balance or oracle is unavailable."
           },
           "computed_at": {
             "type": "integer",
@@ -2511,7 +2511,7 @@
           "object",
           "null"
         ],
-        "description": "Pyth SOL/USD oracle snapshot used for USD conversion. `null` when the oracle is unavailable.",
+        "description": "SOL/USD rate snapshot used for USD conversion, derived from on-chain SOL/stablecoin swaps. `null` when the rate is unavailable or stale.",
         "properties": {
           "price": {
             "type": "number",
@@ -2519,7 +2519,7 @@
           },
           "confidence": {
             "type": "number",
-            "description": "Pyth confidence interval around `price`."
+            "description": "Uncertainty around `price`, in USD (±): half the disagreement between the stablecoin markets the rate was derived from, with a small floor."
           },
           "published_at": {
             "type": "integer",
@@ -2527,7 +2527,7 @@
           },
           "source": {
             "type": "string",
-            "description": "Oracle source identifier (e.g. `pyth`)."
+            "description": "Oracle source identifier. Currently `dexploit-swaps-derived`: the rate is computed from Dexploit's own indexed swaps."
           }
         }
       },
@@ -2635,7 +2635,7 @@
               "number",
               "null"
             ],
-            "description": "Realized PnL in USD via the Pyth oracle."
+            "description": "Realized PnL in USD via Dexploit's SOL/USD rate."
           },
           "unrealized_usd": {
             "type": [
@@ -4689,7 +4689,7 @@
     "/trending": {
       "get": {
         "summary": "Trending tokens",
-        "description": "Tokens with the highest momentum over the requested window. The score compares the current window to the prior equal-length window, so a token that suddenly accelerates ranks above a steady high-volume token. Brand-new mints with no prior-window activity get a fast-riser boost. Pass `include_score=true` to expose the per-component `formula_breakdown` so you can re-sort client-side.\n\n**Rug filter:** tokens whose price collapsed by 90% or more inside the window are excluded by default — their activity is rug-watchers piling in, not organic demand. Set `include_rugged=true` to opt in.\n\n**Pagination:** use `offset` + `limit` to page through the scored list. The response carries `total` (how many candidates were scored before slicing), `offset`, and `limit` so you can detect end-of-list. Pricing/liquidity are USD via the Pyth SOL/USD oracle.",
+        "description": "Tokens with the highest momentum over the requested window. The score compares the current window to the prior equal-length window, so a token that suddenly accelerates ranks above a steady high-volume token. Brand-new mints with no prior-window activity get a fast-riser boost. Pass `include_score=true` to expose the per-component `formula_breakdown` so you can re-sort client-side.\n\n**Rug filter:** tokens whose price collapsed by 90% or more inside the window are excluded by default — their activity is rug-watchers piling in, not organic demand. Set `include_rugged=true` to opt in.\n\n**Pagination:** use `offset` + `limit` to page through the scored list. The response carries `total` (how many candidates were scored before slicing), `offset`, and `limit` so you can detect end-of-list. Pricing/liquidity are USD via Dexploit's SOL/USD rate.",
         "operationId": "listTrending",
         "tags": [
           "Stats & trends"
@@ -5987,7 +5987,7 @@
     "/tokens/{mint}/ath": {
       "get": {
         "summary": "Token all-time-high price",
-        "description": "Per-mint all-time high across every pair the mint has traded in. Computed continuously via a `maxState(close) + argMaxState(timestamp, close) + argMaxState(pair_address, close)` Aggregating MV over `ohlcv_1d`. `ath_price_usd` is the SOL ATH multiplied by the current Pyth SOL/USD price — it's a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
+        "description": "Per-mint all-time high across every pair the mint has traded in. Computed continuously via a `maxState(close) + argMaxState(timestamp, close) + argMaxState(pair_address, close)` Aggregating MV over `ohlcv_1d`. `ath_price_usd` is the SOL ATH multiplied by the current SOL/USD rate — it's a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
         "operationId": "getTokenAth",
         "tags": [
           "Tokens"
@@ -6465,7 +6465,7 @@
     "/price/multi": {
       "get": {
         "summary": "Batched price lookup",
-        "description": "Latest ohlcv_1m close × Pyth SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
+        "description": "Latest ohlcv_1m close × SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
         "operationId": "getPriceMulti",
         "tags": [
           "Price"
@@ -7864,7 +7864,7 @@
     "/wallets/{w}/chart": {
       "get": {
         "summary": "Daily portfolio value chart",
-        "description": "Returns a daily portfolio-value series for the wallet. The chart is assembled on-demand with a cron-free model:\n\n1. **Closed days** are read from the store and returned as-is — they are immutable once written.\n2. **Gaps** (days between the last stored point and yesterday) are filled lazily: the FIFO engine replays the wallet's swaps to reconstruct end-of-day holdings, prices them against `ohlcv_1d` closes, and persists the result before returning.\n3. **Today** is always computed live and returned as `today` with `provisional: true` — never persisted.\n\n`value_usd` uses the **current** SOL/USD rate from the Pyth oracle for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#cron-free-chart-freshness) for the full freshness model.",
+        "description": "Returns a daily portfolio-value series for the wallet. The chart is assembled on-demand with a cron-free model:\n\n1. **Closed days** are read from the store and returned as-is — they are immutable once written.\n2. **Gaps** (days between the last stored point and yesterday) are filled lazily: the FIFO engine replays the wallet's swaps to reconstruct end-of-day holdings, prices them against `ohlcv_1d` closes, and persists the result before returning.\n3. **Today** is always computed live and returned as `today` with `provisional: true` — never persisted.\n\n`value_usd` uses the **current** SOL/USD rate for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#cron-free-chart-freshness) for the full freshness model.",
         "operationId": "getWalletChart",
         "tags": [
           "Wallet portfolio"
@@ -8031,7 +8031,7 @@
     "/wallets/{w}/sol-balance": {
       "get": {
         "summary": "Native SOL balance",
-        "description": "Returns the wallet's current native SOL balance via Shyft's `getBalance` JSON-RPC call, plus USD conversion via the Pyth oracle.\n\nWhen Shyft is unavailable, `sol_balance` is `null` and the response still returns 200 — it never 500s on a Shyft blip. Response cached 30 seconds.",
+        "description": "Returns the wallet's current native SOL balance via Shyft's `getBalance` JSON-RPC call, plus USD conversion via Dexploit's SOL/USD rate.\n\nWhen Shyft is unavailable, `sol_balance` is `null` and the response still returns 200 — it never 500s on a Shyft blip. Response cached 30 seconds.",
         "operationId": "getWalletSolBalance",
         "tags": [
           "Wallet portfolio"
@@ -8428,7 +8428,7 @@
     "/v2/pnl/wallets/{wallet}": {
       "get": {
         "summary": "Wallet cost-basis PnL summary",
-        "description": "Phase 8 cost-basis PnL summary for a wallet: realized + read-time-spot unrealized SOL, open/closed position counts, USD via Pyth, and a compact per-position list. Empty wallets return zeros and an empty `positions` array.\n\nCached 5s when any position traded in the last 5 minutes, otherwise 30s.",
+        "description": "Phase 8 cost-basis PnL summary for a wallet: realized + read-time-spot unrealized SOL, open/closed position counts, USD via Dexploit's SOL/USD rate, and a compact per-position list. Empty wallets return zeros and an empty `positions` array.\n\nCached 5s when any position traded in the last 5 minutes, otherwise 30s.",
         "operationId": "getPnlV2Wallet",
         "tags": [
           "Wallet PnL (v2)"
