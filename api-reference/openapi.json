@@ -3199,7 +3199,11 @@
             ]
           },
           "trending_score": {
-            "type": "number"
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The token's trending score: the same value `GET /trending` ranks by. It is present whatever the request sorts or filters by. `null` only for a token that has no score yet."
           }
         }
       },
