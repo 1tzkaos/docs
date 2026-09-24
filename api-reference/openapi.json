@@ -5193,7 +5193,8 @@
               "default": 100,
               "minimum": 1,
               "maximum": 500
-            }
+            },
+            "description": "Maximum events per page. A page can hold a few more than this: it always ends on a whole group of events that share one timestamp, so paging with `before` never skips one."
           },
           {
             "name": "before",
@@ -5202,7 +5203,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Cursor — epoch ms; returns events strictly older than this."
+            "description": "Cursor — epoch ms; returns events strictly older than this. To fetch the next page, pass the `timestamp_ms` of the last event on the current page."
           }
         ],
         "responses": {
@@ -5220,10 +5221,12 @@
                       }
                     },
                     "total": {
-                      "type": "integer"
+                      "type": "integer",
+                      "description": "Number of events in this page — not the number of matching events."
                     },
                     "has_more": {
-                      "type": "boolean"
+                      "type": "boolean",
+                      "description": "True if older events exist. Fetch them by passing the last event's `timestamp_ms` as `before`."
                     }
                   }
                 }
