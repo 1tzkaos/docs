@@ -34,6 +34,17 @@ The `level` field bands the numeric score into four categories for UI:
 
 A `partial_data` score is a true lower bound — every signal in `missing_signals[]` is one that *could* have added to the score had its input been available.
 
+### A failed read is not missing data
+
+`missing_signals[]` holds two different things: signals whose input does not exist yet, and signals whose read **failed** (a database error or timeout). The second kind is also listed in `unavailable_signals[]`, which is always present:
+
+| `unavailable_signals` | Meaning | What to do |
+|---|---|---|
+| `[]` | Every read succeeded. Anything in `missing_signals` is data that does not exist yet. | Use the response. |
+| non-empty | Those signals could not be read this time. They are not scored as passed. | Retry. The response is sent `Cache-Control: no-store`, so a retry is not served from a cache. |
+
+The risk block embedded in `/tokens/{mint}/intel` carries the same `status`, `missing_signals` and `unavailable_signals`.
+
 ## Signals
 
 Twelve signals across six categories. "Graded" signals scale their contribution with the magnitude of the underlying value (e.g. `dev_held_high` contributes more when the creator holds 30% vs 6%).
