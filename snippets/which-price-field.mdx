@@ -57,9 +57,10 @@ Per-venue numbers are in [Data coverage](/concepts/coverage).
 
 ### `price_impact_bps` is `null` where it wasn't computed
 
-`price_impact_bps` is **nullable on every surface**. REST (`/swaps*` and `/swaps/{signature}`), GraphQL
-(`Int`, previously `Int!`), WebSocket and gRPC all return `null` where no impact was computed. None of
-them returns `0` for that case, so a `0` is a real reading.
+`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`),
+GraphQL (`Int`, previously `Int!`) and WebSocket all return `null` where no impact was computed. (The gRPC
+streams don't carry the field.) None of them returns `0` for that case, so on REST and GraphQL a `0` is a
+real reading. The WebSocket exception is below.
 
 It's computed on these venues:
 
@@ -77,7 +78,7 @@ It's `null`:
 
 In rare cases a stream frame carries `0` for a swap that REST and GraphQL serve as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
 
-On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, GraphQL, WebSocket and gRPC, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST and GraphQL clamp `price_impact_bps` to the Int16 range (±32,767), while the WebSocket and gRPC feeds carry the full value, so above that rail they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
+On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, GraphQL and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST and GraphQL clamp `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
 
 ### For a price series, use candles
 
