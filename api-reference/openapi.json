@@ -1847,14 +1847,14 @@
               "number",
               "null"
             ],
-            "description": "Share of total supply held by the top 100 holders, as a percentage (0–100). Judged INDEPENDENTLY of `top10_pct` — this can be `null` while `top10_pct` is a number and `status` is `ready`, because the wider cohort picks up more stale rows."
+            "description": "Share of total supply held by the top 100 holders, as a percentage (0–100). Judged INDEPENDENTLY of `top10_pct` — this can be `null` while `top10_pct` is a number and `status` is `ready`, because the wider cohort picks up more stale rows. `field_status.top100_pct` says why it is `null`."
           },
           "gini": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Gini coefficient of the holder distribution (0 = perfectly even, 1 = fully concentrated). Judged against the WHOLE pool-excluded balance vector, which is the input it reads — so it is `null` whenever that vector is incoherent, independently of `status` and of either percentage field."
+            "description": "Gini coefficient of the holder distribution (0 = perfectly even, 1 = fully concentrated). Judged against the WHOLE pool-excluded balance vector, which is the input it reads — so it is `null` whenever that vector is incoherent, independently of `status` and of either percentage field. `field_status.gini` says why it is `null`."
           },
           "total_holders": {
             "type": "integer",
@@ -1875,8 +1875,52 @@
             "type": "integer",
             "format": "int64",
             "description": "Unix epoch seconds for the snapshot the metrics were computed from."
+          },
+          "unavailable": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "top10_pct",
+                "top100_pct",
+                "gini"
+              ]
+            },
+            "description": "The balance-derived fields whose READ FAILED on this request, by name: the same meaning `unavailable` has on `/tokens/{mint}/intel`. Always present; `[]` when no read failed. A listed field is `null` because a read failed (its `field_status` is `computing`), and the whole response is sent `Cache-Control: no-store`; ask again. A field withheld for a fact about the token's data (`stale_holder_data`, `no_supply`, `no_holder_data`, `insufficient_holders`) is also `null`, but is NOT listed here: `field_status` says why."
+          },
+          "field_status": {
+            "type": "object",
+            "description": "Why each balance-derived field is, or is not, published. `ready` means the field is a number; every other value means it is `null`, and says why. `status` only covers the top-10 cohort, so this is how a `null` `top100_pct` or `gini` beside `status: ready` explains itself. For example, USDC can serve `status: ready`, `gini: null`, `field_status.gini: stale_holder_data`, `unavailable: []` when its full holder vector sums above stored supply: a fact about its data, not a failed read.",
+            "properties": {
+              "top10_pct": {
+                "$ref": "#/components/schemas/ConcentrationFieldStatus"
+              },
+              "top100_pct": {
+                "$ref": "#/components/schemas/ConcentrationFieldStatus"
+              },
+              "gini": {
+                "$ref": "#/components/schemas/ConcentrationFieldStatus"
+              }
+            },
+            "required": [
+              "top10_pct",
+              "top100_pct",
+              "gini"
+            ]
           }
         }
+      },
+      "ConcentrationFieldStatus": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "stale_holder_data",
+          "no_supply",
+          "no_holder_data",
+          "insufficient_holders",
+          "computing"
+        ],
+        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again."
       },
       "SnapshotNowResponse": {
         "type": "object",
