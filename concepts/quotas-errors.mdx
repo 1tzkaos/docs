@@ -29,6 +29,7 @@ For example, `/screener` returns `{ results, total_matches, limit, offset, warni
 
 - Most endpoints: `{ "success": false, "error": { "code": "...", "message": "..." } }`.
 - The `/screener` and `/search` filter-validation 400 returns `error` as a **string**: `{ "success": false, "data": null, "error": "invalid parameter: invalid_filter:mint|creator|mints" }`. A malformed `mint`, `mints[]`, or `creator` triggers this 400; an *unsupported* filter (e.g. `risk_score`) instead stays **200** and adds a note to the `warnings[]` array.
+- `/tokens/{mint}/intel` and `/tokens/{mint}/risk` also return `error` as a **string**, for their 400 (malformed `mint`), 404 (unknown mint) and 503 (the lookup failed; retry): `{ "success": false, "data": null, "error": "not found: mint not found: <mint>" }`. A failed lookup is never reported as a 404; `/tokens/{mint}/risk` answers 504 if its lookup times out.
 
 Streaming protocols (WebSocket, gRPC) use protocol-native error frames — see the [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) pages.
 
