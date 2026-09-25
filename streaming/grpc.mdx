@@ -29,6 +29,8 @@ x-api-key: ohlcv_live_sk_<your_key>
 
 Server reflection is enabled, so `grpcurl grpc.dexploit.dev:443 list` resolves the service set (`dexploit.v1.PriceStream`, `dexploit.v1.SwapStream`) without the `.proto`.
 
+Each `Subscribe` stream counts against your key's concurrent-stream allowance, which it shares with `SwapStream` and the `/ws` WebSocket: Free 1, Developer 10, Pro 50, Enterprise unlimited. A stream past the cap on the server that receives it returns `RESOURCE_EXHAUSTED`. The allowance is counted per streaming server today, so while your streams are spread across servers you may be allowed more than your cap; do not rely on that, it will be enforced across all servers. See [Streaming caps](/concepts/quotas-errors#streaming-caps).
+
 ## Service definition
 
 `PriceStream` has a single server-streaming RPC, `Subscribe`. The request selects which protocols to receive; an empty list streams all of them.
