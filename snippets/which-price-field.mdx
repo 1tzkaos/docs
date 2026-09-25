@@ -55,13 +55,30 @@ That same property is why it isn't a price you can trade against:
 
 Per-venue numbers are in [Data coverage](/concepts/coverage).
 
-### `price_impact_bps` is reported by two venues
+### `price_impact_bps` is `null` where it wasn't computed
 
-`pumpfun` and `pumpswap` report it. On the other eight venues REST returns `0`
-and the streaming feeds return `null`, and both mean **not reported** — not
-*zero impact*.
+`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`),
+GraphQL (`Int`, previously `Int!`) and WebSocket all return `null` where no impact was computed. (The gRPC
+streams don't carry the field.) None of them returns `0` for that case, so on REST and GraphQL a `0` is a
+real reading. The WebSocket exception is below.
 
-Where it is reported, the value is computed against the pool's own reserves at the time of the trade. On `pumpswap` that comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, WebSocket and gRPC, so the three surfaces agree for a given swap up to one documented limit: REST clamps `price_impact_bps` to the Int16 range (±32,767), while the WebSocket and gRPC feeds carry the full value, so above that rail the two surfaces differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
+It's computed on these venues:
+
+| Venues | How | A `0` means |
+| --- | --- | --- |
+| `pumpfun`, `pumpswap` | Against the pool's own reserves at the time of the trade (virtual reserves on `pumpfun`, real reserves on `pumpswap`), truncated toward zero. On `pumpfun` it's measured against the curve after the trade, so it reads zero or negative. | The impact was under 1 bp. |
+| `orca`, `raydium_amm`, `raydium_cpmm`, `raydium_clmm`, `meteora_dlmm`, `meteora_damm_v2` | The executed price against the pool's price just **before** the trade, with the pool's fee included, rounded to the nearest bp. Positive means the price moved against the trader. | These venues don't return `0`: every pool charges at least 1 bp, and the fee is part of the value. |
+
+It's `null`:
+
+- on `meteora_dbc` and `meteora_pools`;
+- on the six venues in the second row, for swaps from before that venue started computing it, and for swaps that couldn't be priced;
+- on trades made by pump.fun's own Mayhem program (`agent_trade = 2`), and on older zero-fee `pumpfun` trades by the same program from before `agent_trade` existed;
+- on **dust trades**, where the smaller leg (`sol_amount` or `token_amount`, in base units) is under **10,000**. At that size one unit of integer rounding moves the executed price by more than 1 bp, so any number would be rounding noise.
+
+In rare cases a stream frame carries `0` for a swap that REST and GraphQL serve as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
+
+On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, GraphQL and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST and GraphQL clamp `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
 
 ### For a price series, use candles
 
