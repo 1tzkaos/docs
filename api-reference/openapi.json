@@ -908,7 +908,7 @@
                 "$ref": "#/components/schemas/Top10Pct"
               }
             ],
-            "description": "Never `null`. When its read FAILS, `status` is `computing` (the same value as a genuinely pending computation) and `\"top10_pct\"` is in `unavailable`; that is the only way to tell the two apart."
+            "description": "Never `null`. On `/intel`, `status` is `computing` only when the read FAILED, and `\"top10_pct\"` is then in `unavailable`. Data that isn't available yet is `no_holder_data`. The `computing` status described on `Top10Pct` (transient, such as a backfill running) applies to `/tokens/{mint}/audit` and `/tokens/{mint}/concentration`, not to `/intel`."
           },
           "actors": {
             "anyOf": [
