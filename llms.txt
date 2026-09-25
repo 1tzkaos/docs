@@ -82,7 +82,7 @@
 - [GET /wallets/{w}/trades](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/trades): cursor-paginated trade history, newest first, with per-trade pnl_delta_sol
 - [GET /wallets/{w}/chart](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/chart): daily portfolio value series; closed days immutable, today always live with provisional:true
 - [GET /wallets/{w}/pnl/basic](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/pnl/basic): FIFO realized + unrealized PnL; always includes warning pointing to Phase 8 for full PnL
-- [GET /wallets/{w}/sol-balance](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/sol-balance): native SOL balance + USD via Pyth; null on Shyft error, never 5xx
+- [GET /wallets/{w}/sol-balance](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/sol-balance): native SOL balance + USD via Dexploit's SOL/USD rate; null on Shyft error, never 5xx
 - [GET /wallets/{w}/stats](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/stats): best/worst trade, win-rate, total volume over a configurable window
 
 ### Wallet PnL (v2)
