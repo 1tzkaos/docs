@@ -1952,8 +1952,11 @@
             "description": "Gini coefficient of the holder distribution (0 = perfectly even, 1 = fully concentrated). Judged against the WHOLE pool-excluded balance vector, which is the input it reads — so it is `null` whenever that vector is incoherent, independently of `status` and of either percentage field. `field_status.gini` says why it is `null`."
           },
           "total_holders": {
-            "type": "integer",
-            "description": "Number of holder rows in the latest snapshot. A row COUNT stays meaningful when the balances do not, so it is published even where the percentage fields are withheld."
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Number of holder rows in the latest snapshot. A row COUNT stays meaningful when the balances do not, so it is published even where the percentage fields are withheld. `null` when `status` is `no_holder_data` or `computing`, where the count itself is unknown."
           },
           "status": {
             "type": "string",
@@ -1964,7 +1967,7 @@
               "no_holder_data",
               "computing"
             ],
-            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `computing` = a snapshot is in progress. Read this before treating a `null` as zero or as 'no holders'."
+            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
           },
           "snapshot_ts": {
             "type": "integer",
@@ -6426,7 +6429,7 @@
     "/tokens/{mint}/concentration": {
       "get": {
         "summary": "Holder concentration",
-        "description": "Holder-concentration metrics for a mint, sourced from the latest `holder-snapshot` for the token: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** a valid base58 mint with no snapshot data yet returns `200` with `gini: null`, the percentage fields `0`, and `total_holders: 0`. The endpoint does not 404.",
+        "description": "Holder-concentration metrics for a mint, sourced from the latest `holder-snapshot` for the token: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** the endpoint does not 404.\n\n- A malformed `mint` (not 32–44 base58 characters) returns `400`.\n- A valid mint with no snapshot yet returns `200` with `status: \"no_holder_data\"`, and `total_holders`, `top10_pct`, `top100_pct` and `gini` all `null`; `field_status` gives `no_holder_data` for each. \"No data\" is never reported as `0`% or `0` holders.\n- When the holder data cannot be read just now (a transient database error), the response is `200` with `status: \"computing\"`, the same four fields `null`, all three percentage fields listed in `unavailable`, and `Cache-Control: no-store`. Ask again.",
         "operationId": "getTokenConcentration",
         "tags": [
           "Tokens"
