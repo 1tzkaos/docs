@@ -239,7 +239,7 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 ```
 
 - **Migrate:** branch on `error.code` ([the codes](/concepts/quotas-errors#error-codes)) instead of parsing the `error` string. The message text of a 4xx is unchanged.
-- **Every error of these endpoints is now the envelope.** That includes the ones that had an empty body (a 400 over a batch cap, a 500, an unknown path, a wrong method) or a plain-text body (a query parameter that does not parse).
+- **Every error of these endpoints is now the envelope.** That includes the ones that had an empty body (a 400 over a batch cap, a 500, an unknown path, a wrong method) or a plain-text body (a query parameter that does not parse, or a `/graphql` request body that is not valid JSON).
 - **New codes:** a missing query parameter is `MISSING_PARAM`, and a wrong HTTP method is a 405 `METHOD_NOT_ALLOWED`.
 - **A 5xx message is now generic.** It no longer carries the internal cause; retry on `UNAVAILABLE`, `GATEWAY_TIMEOUT` or `INTERNAL`.
 - **A malformed mint is a 400.** On `/tokens/{mint}/holders`, `/holders/top`, `/snipers`, `/insiders`, `/smart-money` and `/whales` it is a 400 `INVALID_PARAM` on every tier; before, it was an empty 200.
@@ -2508,6 +2508,10 @@ curl -X POST -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
   https://api.dexploit.dev/graphql \
   -d '{"query":"{ __schema { types { name } } }"}'
 ```
+
+## Errors
+
+An error inside a well-formed query comes back as HTTP `200` with the GraphQL `errors` array. A request body that is not valid JSON is rejected before it runs, with HTTP `400` and the REST [error envelope](/concepts/quotas-errors#response-envelope) (`INVALID_PARAM`).
 
 ## When to use GraphQL vs REST
 

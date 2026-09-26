@@ -101,6 +101,10 @@ curl -X POST -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
   -d '{"query":"{ __schema { types { name } } }"}'
 ```
 
+## Errors
+
+An error inside a well-formed query comes back as HTTP `200` with the GraphQL `errors` array. A request body that is not valid JSON is rejected before it runs, with HTTP `400` and the REST [error envelope](/concepts/quotas-errors#response-envelope) (`INVALID_PARAM`).
+
 ## When to use GraphQL vs REST
 
 | Need | Use |
