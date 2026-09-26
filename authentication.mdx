@@ -71,17 +71,16 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
 
 ## Error responses
 
-Errors are always enveloped. The default shape carries `error` as a **string** alongside `data: null`:
+Errors are always enveloped, with `error` as an object:
 
 ```json
 {
   "success": false,
-  "data": null,
-  "error": "Missing or invalid API key"
+  "error": { "code": "UNAUTHORIZED", "message": "unauthorized" }
 }
 ```
 
-Some endpoint families instead wrap `error` as an **object** (`{ code, message }`) — the legacy `/api/v1/*` and raw `/stats/*` / `/swaps/*` families. Handle both: read `error` as either a string or an object. See [Quotas & errors](/concepts/quotas-errors#response-envelope) for the per-family breakdown.
+Branch on `error.code`; `error.message` is for humans. A few families are not on this shape yet: `/swaps/*` and `/stats/*` send `error` as a string code with a sibling `message`, and `/tokens/{mint}/concentration` sends `error` as a string. If `error` is a string, treat it as the message. See [Quotas & errors](/concepts/quotas-errors#response-envelope) for the per-family breakdown.
 
 | Status | Meaning |
 | --- | --- |
