@@ -6452,6 +6452,16 @@
               }
             }
           },
+          "400": {
+            "description": "`mint` is not a valid base58 mint address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Missing or invalid API key",
             "content": {
