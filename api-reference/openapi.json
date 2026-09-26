@@ -1975,7 +1975,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "When the snapshot the metrics were computed from was captured, as Unix epoch seconds: the latest write to this mint's stored holder state (a full scan, a reconcile, or a live balance update). Use it to judge how fresh the metrics are. `null` when there is no snapshot (`status` is `no_holder_data` or `computing`)."
+            "description": "When the snapshot the metrics were computed from was captured, as Unix epoch seconds: the latest write to this mint's stored holder state (a census, a reconcile, or a live balance update). It is not a re-verification of every holder. Use it to judge how fresh the metrics are. `null` when there is no snapshot (`status` is `no_holder_data` or `computing`)."
           },
           "unavailable": {
             "type": "array",
