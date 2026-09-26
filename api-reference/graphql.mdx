@@ -1,11 +1,9 @@
 ---
 title: "GraphQL"
-description: "GraphQL endpoint for fetching multiple resources in one round-trip. Mirrors the REST surface."
+description: "GraphQL endpoint for OHLCV candles and the protocol list: several candle series in one round-trip."
 ---
 
-import WhichPriceField from '/snippets/which-price-field.mdx';
-
-The same data the REST endpoints expose is also available via GraphQL. Use REST for simple, cacheable queries; use GraphQL when you want to fetch a few related resources in one round-trip.
+The GraphQL endpoint serves two root fields: `candles`, the OHLCV candles of one pool, and `protocols`, the list of protocols. It is a small subset of the REST surface: swaps, trader stats, tokens, holders and everything else are REST only. Use GraphQL when you want several candle series (and the protocol list) in one round-trip, and REST for everything else.
 
 ## Endpoint
 
@@ -15,71 +13,82 @@ Content-Type: application/json
 X-API-Key: ohlcv_live_sk_<your_key>
 ```
 
-## Playground
+`Authorization: Bearer ohlcv_live_sk_<your_key>` works too. There is no hosted query builder: use any GraphQL client (or `curl`) against this URL with your key header.
 
-Open the same URL in a browser to load the GraphQL Playground (interactive query builder, schema browser, query history). Authenticate via the playground's HTTP-headers panel:
+## Schema
 
-```json
-{ "X-API-Key": "ohlcv_live_sk_<your_key>" }
-```
+| Field | Arguments | Returns |
+| --- | --- | --- |
+| `candles` | `pairAddress: String!` (the pool; `pair_address` in REST), `timeframe: String!` (`1s`, `30s`, `1m`, `5m`, `15m`, `1h`, `4h` or `1d`), `start: String`, `end: String` (RFC 3339 timestamps; `end` defaults to now), `limit: Int` (default `1000`) | `[GqlCandle!]!`, **oldest first** |
+| `protocols` | none | `[String!]!` |
+
+A `GqlCandle` has `timestamp`, `pairAddress`, `tokenAddress`, `baseMint`, `timeframe`, `open`, `high`, `low`, `close`, `volumeSol`, `volumeToken`, `tradeCount`, `buyCount`, `sellCount` and `uniqueTraders`: the fields of [`GET /api/v1/candles`](/api-reference), with the same values and units, in GraphQL's camelCase (`volumeSol` is REST's `volume_sol`).
+
+<Warning>
+`candles` returns candles **oldest first**, starting at `start`. Without `start` it starts at the pool's **first** candle, so `limit: 60` returns the pool's oldest hour, not its latest. Pass `start` to get a recent window.
+</Warning>
 
 ## Sample queries
 
-The exact schema is exposed via introspection — these are illustrative. The Playground's "Docs" sidebar is the source of truth.
-
-### Recent swaps for a pool
+### The last hour of 1-minute candles
 
 ```graphql
-{
-  swaps(pair_address: "<pool>", limit: 20) {
-    signature
-    timestamp
-    swap_type
-    sol_amount
-    token_amount
-    trader
-  }
-}
-```
-
-### Candles + recent swaps in one round-trip
-
-```graphql
-query DashboardData($pair: String!) {
-  candles(pair_address: $pair, timeframe: "1m", limit: 60) {
+query RecentCandles($pair: String!, $start: String!) {
+  candles(pairAddress: $pair, timeframe: "1m", start: $start, limit: 60) {
     timestamp
     open
+    high
+    low
     close
-    volume_sol
-    trade_count
-  }
-  swaps(pair_address: $pair, limit: 5) {
-    timestamp
-    swap_type
-    sol_amount
+    volumeSol
+    tradeCount
   }
 }
 ```
 
-### Trader stats + recent activity
+Variables:
+
+```json
+{ "pair": "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX", "start": "2026-09-26T04:40:00Z" }
+```
+
+### Two timeframes and the protocol list in one round-trip
+
+Aliases (`minute:`, `hourly:`) let one request ask for the same field twice.
 
 ```graphql
-query TraderProfile($wallet: String!) {
-  traderStats(wallet: $wallet) {
-    total_volume_sol
-    swap_count
-  }
-  traderSwaps(wallet: $wallet, limit: 20) {
-    signature
+query Overview($pair: String!, $lastHour: String!, $lastDay: String!) {
+  minute: candles(pairAddress: $pair, timeframe: "1m", start: $lastHour, limit: 60) {
     timestamp
-    pool_address
-    swap_type
-    sol_amount
+    close
+    volumeSol
   }
+  hourly: candles(pairAddress: $pair, timeframe: "1h", start: $lastDay, limit: 24) {
+    timestamp
+    open
+    high
+    low
+    close
+  }
+  protocols
 }
 ```
 
-<WhichPriceField />
+Variables:
+
+```json
+{
+  "pair": "7XawhbbxtsRcQA8KTkHT9f9nc6d69UwqCDh6U5EEbEmX",
+  "lastHour": "2026-09-26T04:40:00Z",
+  "lastDay": "2026-09-25T05:40:00Z"
+}
+```
+
+### The protocol list
+
+```graphql
+{ protocols }
+```
 
 ## Schema introspection
 
@@ -97,5 +106,6 @@ curl -X POST -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
 | Need | Use |
 | --- | --- |
 | One resource, paginate, possibly cache | REST |
-| Several related resources, one round-trip | GraphQL |
+| Several candle series (and the protocol list) in one round-trip | GraphQL |
+| Swaps, trader stats, tokens, holders and everything else | REST only |
 | WebSocket-style subscriptions | [WebSocket](/streaming/websocket), not GraphQL subscriptions |
