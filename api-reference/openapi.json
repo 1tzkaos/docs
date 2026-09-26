@@ -877,23 +877,25 @@
               "integer",
               "null"
             ],
-            "description": "Distinct wallets currently holding non-zero balance."
+            "description": "Distinct wallets currently holding non-zero balance. `null` unless the mint has a complete holder census; `holder_data_status` says why."
           },
           "holder_data_status": {
             "type": "string",
             "enum": [
               "ok",
+              "partial_holder_data",
+              "census_refused",
               "computing",
               "unavailable"
             ],
-            "description": "How to read `holders_count`.\n\n- `ok`: `holders_count` is the count.\n- `computing`: the holder data for this active token has not been built yet; `holders_count` is `null`, not 0. Retry later.\n- `unavailable`: the holder read FAILED; `holders_count` is `null` and `\"holders_count\"` is in `unavailable`. Retry."
+            "description": "Whether the holder-derived fields (`holders_count`, `creator_held_pct`, `top10_pct`, and each `actors` entry's `pct_of_circulating`) come from a complete holder census.\n\n- `ok`: they do.\n- `partial_holder_data`: the mint has no complete census yet: it has never had one, or the last one missed holders. Those fields are `null`. An `actors` entry's `count` is still served, counted over the holder rows available.\n- `census_refused`: the source refused the census (the largest tokens are too large to scan). Those fields are `null` until a census can be taken; this is not transient.\n- `computing`: the census is complete but the holder count is not available yet; `holders_count` is `null`, not 0. Retry later.\n- `unavailable`: a read FAILED (the holder count, or the census check itself). The fields are `null` and named in `unavailable`. Retry."
           },
           "creator_held_pct": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Percent of supply still held by the creator wallet (0–100)."
+            "description": "Percent of supply still held by the creator wallet (0–100). `null` unless the mint has a complete holder census (see `holder_data_status`), and when the supply or the creator is unknown."
           },
           "bonding_pct": {
             "type": [
@@ -1015,10 +1017,12 @@
           },
           "status": {
             "type": "string",
-            "description": "Snake-case status of the top-10 computation. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `no_pool_data`: the mint's pool addresses are not known yet, so the pool's LP wallet cannot be excluded. Withheld rather than reported as ~100%. Specific to `/tokens/{mint}/audit`; `/tokens/{mint}/concentration` does not emit it.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
+            "description": "Snake-case status of the top-10 computation. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `partial_holder_data`: the mint has holder rows but no complete holder census: it has never had one, or the last one missed holders. A top-10 over those rows is not a share of supply, so it is withheld.\n- `census_refused`: the source refused the census (the largest tokens are too large to scan), so the top-10 is withheld until a census can be taken. Not transient.\n- `no_pool_data`: the mint's pool addresses are not known yet, so the pool's LP wallet cannot be excluded. Withheld rather than reported as ~100%. Specific to `/tokens/{mint}/audit`; `/tokens/{mint}/concentration` does not emit it.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
             "enum": [
               "ready",
               "no_holder_data",
+              "partial_holder_data",
+              "census_refused",
               "no_pool_data",
               "computing",
               "no_supply",
@@ -1265,7 +1269,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Codes of signals that could not be evaluated, and so were never scored as passed: either their input does not exist yet (the mint is not fully onboarded) or its read failed (then the code is also in `unavailable_signals`). Omitted when empty."
+            "description": "Codes of signals that could not be evaluated, and so were never scored as passed: their input does not exist yet (the mint is not fully onboarded); they are holder-derived (`single_holder_50pct`, `top10_high`, `top10_very_high`, `snipers_pct_high`, `insiders_pct_high`, `dev_held_high`, `dev_held_very_high`) and the mint has no complete holder census; or their read failed (then the code is also in `unavailable_signals`). Omitted when empty."
           },
           "unavailable_signals": {
             "type": "array",
@@ -1965,9 +1969,11 @@
               "stale_holder_data",
               "no_supply",
               "no_holder_data",
+              "partial_holder_data",
+              "census_refused",
               "computing"
             ],
-            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
+            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `partial_holder_data` = the mint has holder rows but no complete holder census, so the percentages are withheld. `census_refused` = the source refused the census (the largest tokens are too large to scan), so the percentages are withheld until it can be taken. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
           },
           "snapshot_ts": {
             "type": "integer",
@@ -2016,9 +2022,11 @@
           "no_supply",
           "no_holder_data",
           "insufficient_holders",
-          "computing"
+          "computing",
+          "partial_holder_data",
+          "census_refused"
         ],
-        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again."
+        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again. `partial_holder_data`: the mint has holder rows but no complete holder census, so the field is withheld. `census_refused`: the source refused the census (the largest tokens), so the field is withheld until one can be taken."
       },
       "SnapshotNowResponse": {
         "type": "object",
