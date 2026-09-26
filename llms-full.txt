@@ -207,17 +207,16 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
 
 ## Error responses
 
-Errors are always enveloped. The default shape carries `error` as a **string** alongside `data: null`:
+Errors are always enveloped, with `error` as an object:
 
 ```json
 {
   "success": false,
-  "data": null,
-  "error": "Missing or invalid API key"
+  "error": { "code": "UNAUTHORIZED", "message": "unauthorized" }
 }
 ```
 
-Some endpoint families instead wrap `error` as an **object** (`{ code, message }`) — the legacy `/api/v1/*` and raw `/stats/*` / `/swaps/*` families. Handle both: read `error` as either a string or an object. See [Quotas & errors](/concepts/quotas-errors#response-envelope) for the per-family breakdown.
+Branch on `error.code`; `error.message` is for humans. A few families are not on this shape yet: `/swaps/*` and `/stats/*` send `error` as a string code with a sibling `message`, and `/tokens/{mint}/concentration` sends `error` as a string. If `error` is a string, treat it as the message. See [Quotas & errors](/concepts/quotas-errors#response-envelope) for the per-family breakdown.
 
 | Status | Meaning |
 | --- | --- |
@@ -225,6 +224,26 @@ Some endpoint families instead wrap `error` as an **object** (`{ code, message }
 | 429 | RPS cap exceeded in the current window. Retry with backoff. |
 
 Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
+
+
+---
+
+# changelog
+
+
+<Update label="DEPLOY_DATE" description="Breaking: one error body">
+**Breaking.** Endpoints that answered an error with `{ "success": false, "data": null, "error": "<string>" }` now answer with the documented envelope, where `error` is an object:
+
+```json
+{ "success": false, "error": { "code": "MISSING_PARAM", "message": "missing required parameter: pair_address" } }
+```
+
+- **Migrate:** branch on `error.code` ([the codes](/concepts/quotas-errors#error-codes)) instead of parsing the `error` string. The message text of a 4xx is unchanged.
+- **Every error of these endpoints is now the envelope.** That includes the ones that had an empty body (a 400 over a batch cap, a 500, an unknown path, a wrong method) or a plain-text body (a query parameter that does not parse).
+- **New codes:** a missing query parameter is `MISSING_PARAM`, and a wrong HTTP method is a 405 `METHOD_NOT_ALLOWED`.
+- **A 5xx message is now generic.** It no longer carries the internal cause; retry on `UNAVAILABLE`, `GATEWAY_TIMEOUT` or `INTERNAL`.
+- **A malformed mint is a 400.** On `/tokens/{mint}/holders`, `/holders/top`, `/snipers`, `/insiders`, `/smart-money` and `/whales` it is a 400 `INVALID_PARAM` on every tier; before, it was an empty 200.
+</Update>
 
 
 ---
@@ -541,11 +560,18 @@ These endpoints wrap success payloads: `/api/v1/pairs`, `/api/v1/candles`, `/api
 
 For example, `/screener` returns `{ results, total_matches, limit, offset, warnings }` at the top level.
 
-**Errors are always enveloped** (even for the top-level endpoints), but the `error` field shape differs:
+**Errors are always enveloped**, even for the top-level endpoints, and `error` is an object:
 
-- Most endpoints: `{ "success": false, "error": { "code": "...", "message": "..." } }`.
-- The `/screener` and `/search` filter-validation 400 returns `error` as a **string**: `{ "success": false, "data": null, "error": "invalid parameter: invalid_filter:mint|creator|mints" }`. A malformed `mint`, `mints[]`, or `creator` triggers this 400; an *unsupported* filter (e.g. `risk_score`) instead stays **200** and adds a note to the `warnings[]` array.
-- `/tokens/{mint}/intel` and `/tokens/{mint}/risk` also return `error` as a **string**, for their 400 (malformed `mint`), 404 (unknown mint) and 503 (the lookup failed; retry): `{ "success": false, "data": null, "error": "not found: mint not found: <mint>" }`. A failed lookup is never reported as a 404; `/tokens/{mint}/risk` answers 504 if its lookup times out.
+```json
+{ "success": false, "error": { "code": "INVALID_PARAM", "message": "invalid parameter: invalid_filter:mint" } }
+```
+
+Branch on `error.code` ([the codes](#error-codes)). `error.message` is for humans and is not a stable format; a 5xx message is generic and never carries the internal cause.
+
+- `/screener` and `/search`: a malformed `mint`, `mints[]` or `creator` filter is a 400 `INVALID_PARAM` (message `invalid parameter: invalid_filter:mint|creator|mints`). An *unsupported* filter (e.g. `risk_score`) instead stays **200** and adds a note to the `warnings[]` array.
+- `/tokens/{mint}/intel` and `/tokens/{mint}/risk`: a malformed `mint` is a 400 `INVALID_PARAM`, an unknown mint a 404 `NOT_FOUND`, and a failed lookup a 503 `UNAVAILABLE` (retry). A failed lookup is never reported as a 404; `/tokens/{mint}/risk` answers 504 `GATEWAY_TIMEOUT` if its lookup times out.
+- `/tokens/{mint}/holders`, `/holders/top`, `/snipers`, `/insiders`, `/smart-money` and `/whales`: a malformed `mint` is a 400 `INVALID_PARAM` on every tier.
+- Not on this shape yet: `/swaps/*` and `/stats/*` send a flat `{ "error": "invalid_parameter", "message": "..." }` (their 401 and 429 carry the `error` object but no `success`), and `/tokens/{mint}/concentration` sends `{ "error": "..." }`. They are being moved to the envelope; until then, if `error` is a string, treat it as the message.
 
 Streaming protocols (WebSocket, gRPC) use protocol-native error frames — see the [WebSocket](/streaming/websocket) and [gRPC](/streaming/grpc) pages.
 
@@ -645,7 +671,8 @@ The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently 
 | `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in the current one-second window. | Back off briefly and retry; windows are one second long. |
 | `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
-| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`). | Verify via [`/api/v1/pairs`](/api-reference). |
+| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`), or no such path. | Verify via [`/api/v1/pairs`](/api-reference). |
+| `METHOD_NOT_ALLOWED` | 405 | The path exists, but not for this HTTP method. | Use the method the API reference lists; most endpoints are `GET`. |
 | `UNAVAILABLE` | 503 | Backend dependency is down. | Retry with backoff. |
 | `GATEWAY_TIMEOUT` | 504 | Upstream took too long. | Retry; reduce `limit` if persistent. |
 | `INTERNAL` | 500 | Server-side error. | Retry. If it persists, [contact support](https://www.dexploit.dev/contact). |

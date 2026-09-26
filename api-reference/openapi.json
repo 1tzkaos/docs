@@ -65,15 +65,18 @@
             "properties": {
               "code": {
                 "type": "string",
-                "example": "INVALID_PARAM"
+                "example": "INVALID_PARAM",
+                "description": "One of `UNAUTHORIZED` (401), `FORBIDDEN` (403), `RATE_LIMIT_EXCEEDED` (429), `INVALID_PARAM` (400), `MISSING_PARAM` (400), `NOT_FOUND` (404), `METHOD_NOT_ALLOWED` (405), `UNAVAILABLE` (503), `GATEWAY_TIMEOUT` (504) or `INTERNAL` (500). See Quotas & errors for what each means."
               },
               "message": {
                 "type": "string",
-                "example": "use pair_address; see /api/v1/pairs?token_address=X to discover pools"
+                "example": "use pair_address; see /api/v1/pairs?token_address=X to discover pools",
+                "description": "Human-readable detail. A 5xx message is generic: it never carries the internal cause."
               }
             }
           }
-        }
+        },
+        "description": "The error body of every REST endpoint: `success` is always `false`, and `error` is an object. Branch on `error.code`; `error.message` is for humans and is not a stable format."
       },
       "Pair": {
         "type": "object",
@@ -3505,7 +3508,7 @@
           },
           "mint": {
             "type": "string",
-            "description": "Single mint address. Must be a valid base58 mint; a malformed value returns `400 invalid parameter: invalid_filter:mint` (see endpoint responses)."
+            "description": "Single mint address. Must be a valid base58 mint; a malformed value returns `400 INVALID_PARAM` (`invalid parameter: invalid_filter:mint`) (see endpoint responses)."
           },
           "mints": {
             "type": "array",
@@ -3513,11 +3516,11 @@
               "type": "string"
             },
             "maxItems": 200,
-            "description": "Batch filter — restrict results to this set of mints (cap 200). Use this to fetch screener rows for a known list of tokens in one call. Any malformed entry returns `400 invalid parameter: invalid_filter:mints`."
+            "description": "Batch filter — restrict results to this set of mints (cap 200). Use this to fetch screener rows for a known list of tokens in one call. Any malformed entry returns `400 INVALID_PARAM` (`invalid parameter: invalid_filter:mints`)."
           },
           "creator": {
             "type": "string",
-            "description": "Creator/deployer wallet. A malformed (non-base58) value returns `400 invalid parameter: invalid_filter:creator`."
+            "description": "Creator/deployer wallet. A malformed (non-base58) value returns `400 INVALID_PARAM` (`invalid parameter: invalid_filter:creator`)."
           },
           "has_image": {
             "type": "boolean"
@@ -3830,35 +3833,6 @@
         "example": {
           "error": "not_found",
           "message": "Swap not found: 43nGAPtVqZxiar6cbdqBg4DRTkG6gM2EsPzPz1igqWkLraYDZcygonrGXkAynXkFr8QocyG4BnefMBzVXMkbDYX2"
-        }
-      },
-      "OhlcvApiError": {
-        "type": "object",
-        "description": "The error body of `/tokens/{mint}/intel` and `/tokens/{mint}/risk`. `error` is a single string, not the `{code, message}` object of `ErrorEnvelope`. Authentication and rate-limit errors (401, 429) come from the gateway and use `ErrorEnvelope`.",
-        "required": [
-          "success",
-          "data",
-          "error"
-        ],
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "enum": [
-              false
-            ]
-          },
-          "data": {
-            "type": "null"
-          },
-          "error": {
-            "type": "string",
-            "description": "Human-readable detail, prefixed by its kind (`invalid parameter: `, `not found: `, `service unavailable: `). Not a stable format: branch on the HTTP status."
-          }
-        },
-        "example": {
-          "success": false,
-          "data": null,
-          "error": "not found: mint not found: Dx7vQ1hWmVUdiP1tQvXe3ZrYwP3W7tq2g8AqvNxKzR9a"
         }
       }
     }
@@ -5489,7 +5463,7 @@
     "/screener": {
       "post": {
         "summary": "Filter tokens (Phase-7 V2 screener)",
-        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
+        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
         "operationId": "runScreener",
         "tags": [
           "Screener"
@@ -5618,33 +5592,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "success",
-                    "data",
-                    "error"
-                  ],
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "data": {
-                      "type": "null"
-                    },
-                    "error": {
-                      "type": "string",
-                      "description": "Always of the form `invalid parameter: invalid_filter:<field>` where `<field>` is `mint`, `creator`, or `mints`.",
-                      "example": "invalid parameter: invalid_filter:mint"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
                   "success": false,
-                  "data": null,
-                  "error": "invalid parameter: invalid_filter:mint"
+                  "error": {
+                    "code": "INVALID_PARAM",
+                    "message": "invalid parameter: invalid_filter:mint"
+                  }
                 }
               }
             }
@@ -5854,7 +5809,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OhlcvApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -5864,7 +5819,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OhlcvApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -5874,7 +5829,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OhlcvApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -5939,6 +5894,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "`mint` is not a valid base58 mint address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -5977,6 +5942,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HoldersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`mint` is not a valid base58 mint address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -6040,6 +6015,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "`mint` is not a valid base58 mint address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -6100,6 +6085,16 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "`mint` is not a valid base58 mint address.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
           }
         }
       }
@@ -6157,6 +6152,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ActorsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`mint` is not a valid base58 mint address. This is checked before the tier lock, so it is a 400 on every tier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -6224,6 +6229,16 @@
               }
             }
           },
+          "400": {
+            "description": "`mint` is not a valid base58 mint address. This is checked before the tier lock, so it is a 400 on every tier.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Daily cap exceeded (Free tier only)."
           }
@@ -6272,7 +6287,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OhlcvApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -6282,7 +6297,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OhlcvApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -6292,7 +6307,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OhlcvApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -6302,7 +6317,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OhlcvApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
@@ -11476,7 +11491,7 @@
     "/search": {
       "get": {
         "summary": "Flat query-string screener alias",
-        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical **top-level** body to `POST /screener` — `{ results, total_matches, limit, offset, warnings }`, no `{success, data, error}` wrapper — and the same `x-cache` / `x-total-matches-exact` headers.\n\nInherits the screener error contract: a malformed `mint`/`creator` (non-base58) → **HTTP 400** `{\"success\":false,\"data\":null,\"error\":\"invalid parameter: invalid_filter:mint|creator|mints\"}`; an unsupported filter (e.g. `minRiskScore`/`maxRiskScore`) stays **200** with a `warnings[]` note.",
+        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical **top-level** body to `POST /screener` — `{ results, total_matches, limit, offset, warnings }`, no `{success, data, error}` wrapper — and the same `x-cache` / `x-total-matches-exact` headers.\n\nInherits the screener error contract: a malformed `mint`/`creator` (non-base58) → **HTTP 400** `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`; an unsupported filter (e.g. `minRiskScore`/`maxRiskScore`) stays **200** with a `warnings[]` note.",
         "operationId": "getSearch",
         "tags": [
           "Screener"
@@ -12111,32 +12126,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "required": [
-                    "success",
-                    "data",
-                    "error"
-                  ],
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "enum": [
-                        false
-                      ]
-                    },
-                    "data": {
-                      "type": "null"
-                    },
-                    "error": {
-                      "type": "string",
-                      "example": "invalid parameter: invalid_filter:creator"
-                    }
-                  }
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 },
                 "example": {
                   "success": false,
-                  "data": null,
-                  "error": "invalid parameter: invalid_filter:creator"
+                  "error": {
+                    "code": "INVALID_PARAM",
+                    "message": "invalid parameter: invalid_filter:creator"
+                  }
                 }
               }
             }

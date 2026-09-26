@@ -37,7 +37,8 @@
             "pages": [
               "index",
               "quickstart",
-              "authentication"
+              "authentication",
+              "changelog"
             ]
           },
           {

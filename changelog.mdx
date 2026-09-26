@@ -1,0 +1,18 @@
+---
+title: "Changelog"
+description: "Changes to the Dexploit API that affect your client, newest first."
+---
+
+<Update label="DEPLOY_DATE" description="Breaking: one error body">
+**Breaking.** Endpoints that answered an error with `{ "success": false, "data": null, "error": "<string>" }` now answer with the documented envelope, where `error` is an object:
+
+```json
+{ "success": false, "error": { "code": "MISSING_PARAM", "message": "missing required parameter: pair_address" } }
+```
+
+- **Migrate:** branch on `error.code` ([the codes](/concepts/quotas-errors#error-codes)) instead of parsing the `error` string. The message text of a 4xx is unchanged.
+- **Every error of these endpoints is now the envelope.** That includes the ones that had an empty body (a 400 over a batch cap, a 500, an unknown path, a wrong method) or a plain-text body (a query parameter that does not parse).
+- **New codes:** a missing query parameter is `MISSING_PARAM`, and a wrong HTTP method is a 405 `METHOD_NOT_ALLOWED`.
+- **A 5xx message is now generic.** It no longer carries the internal cause; retry on `UNAVAILABLE`, `GATEWAY_TIMEOUT` or `INTERNAL`.
+- **A malformed mint is a 400.** On `/tokens/{mint}/holders`, `/holders/top`, `/snipers`, `/insiders`, `/smart-money` and `/whales` it is a 400 `INVALID_PARAM` on every tier; before, it was an empty 200.
+</Update>
