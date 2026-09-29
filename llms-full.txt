@@ -829,7 +829,7 @@ your queries:
 
 | Surface | Data begins | What it means |
 | --- | --- | --- |
-| Raw swaps (`/swaps*`) | **2026-04-08** | The oldest indexed swap. This table has no expiry — nothing is aged out of it. |
+| Raw swaps (`/swaps*`) | **2026-04-08** (first rows); **full coverage from 2026-04-23** | The oldest indexed swap is 2026-04-08, but the index opened with a trickle and reached its normal daily volume on 2026-04-23; each venue's own start is in the table below. This table has no expiry — nothing is aged out of it. |
 | Candles (`/api/v1/candles`) | **2026-06-03** | The oldest bar on any timeframe. Shorter timeframes start later — see the retention ladder below. |
 | `creator` / deployer fields | **2026-05-26** | When Phase 0 mint capture went live. Mints that first traded before this date usually have no `creator`. |
 
@@ -1956,7 +1956,7 @@ The replace is **atomic**: if the new set would exceed the [per-connection subje
 | --- | --- |
 | `pair_address` | The on-chain pool/LP account. **Note the naming:** OHLCV frames key the pool as `pair_address`, but [swaps WebSocket](/streaming/websocket) frames key the *same* on-chain pool as `pool_address`. Same account, different field name across the two streams. |
 | `timestamp` | Bar **open** time, ISO 8601. The bar covers `[timestamp, timestamp + timeframe)`. |
-| `is_closed` | `false` for interim mid-bar pushes; `true` once the bar has closed. A closed bar may be sent **again** with `is_closed: true` and corrected values when trades land after it first closed, usually within about 2–3 seconds and occasionally after the next bar's close. Keep the **last** `is_closed: true` frame per `(pair_address, timeframe, timestamp)`: that is the bar [`/api/v1/candles`](/api-reference) serves. |
+| `is_closed` | `false` for interim mid-bar pushes; `true` once the bar has closed. A closed bar may be sent **again** with `is_closed: true` and corrected values when trades land after it first closed, usually within about 2–3 seconds and occasionally after the next bar's close. The 2–3 s is typical for `1s` and `1m` bars; a trade that is delivered late can correct a longer bar later (seen at 32 s on `5m` and `15m` bars). The stream sends corrections for a bar for at most **10 minutes** after it closes, and none after that. Keep the **last** `is_closed: true` frame per `(pair_address, timeframe, timestamp)`: that is the bar [`/api/v1/candles`](/api-reference) serves. |
 | `volume_sol` | **Lamports**, despite the name. Divide by `1e9` for SOL. |
 | `volume_token` | Token base units. Divide by `10 ** quote_decimals` for human-readable. |
 | `unique_traders` | Distinct wallets that traded in this bar so far. Grows monotonically across mid-bar frames. |
@@ -2026,7 +2026,9 @@ function connect() {
 connect();
 ```
 
-If you're rendering a live chart, key your local bar store by `(pair_address, timeframe, timestamp)` and *overwrite* the entry on every frame for that key — the latest frame is always the freshest snapshot of that bar. `is_closed: true` means the bar has closed, but a corrected close for the same key can follow within a few seconds, so keep overwriting on later closed frames too. If you trigger logic on close, allow for that correction.
+If you're rendering a live chart, key your local bar store by `(pair_address, timeframe, timestamp)` and *overwrite* the entry on every frame for that key — the latest frame is always the freshest snapshot of that bar. `is_closed: true` means the bar has closed, but a corrected close for the same key can follow — usually within a few seconds, and for up to 10 minutes — so keep overwriting on later closed frames too. If you trigger logic on close, allow for that correction.
+
+Repairs made after that are **not** sent on the stream. When missed trades are backfilled (for example after an ingestion outage), the corrected bars are written to storage and served by [`/api/v1/candles`](/api-reference), but no frame is sent for them. If you need exact history, re-read the affected window from REST: after a reconnect (see [Reconnect & backpressure](/streaming/reconnect-backpressure)), or when a window you hold is known to have been repaired.
 
 ### Changing the watched set at runtime
 

@@ -1306,7 +1306,7 @@
           },
           "is_closed": {
             "type": "boolean",
-            "description": "`false` for mid-bar updates, `true` once the bar has closed. A closed bar may be sent again with `is_closed: true` and corrected values when trades land after it first closed, usually within about 2\u20133 seconds and occasionally after the next bar's close. The LAST `is_closed: true` frame for a `(pair, timeframe, timestamp)` triple is the authoritative bar (the one REST serves); earlier frames for that triple are interim."
+            "description": "`false` for mid-bar updates, `true` once the bar has closed. A closed bar may be sent again with `is_closed: true` and corrected values when trades land after it first closed, usually within about 2\u20133 seconds and occasionally after the next bar's close. The 2\u20133 s is typical for 1s and 1m bars; a trade delivered late can correct a longer bar later (seen at 32 s on 5m and 15m bars). Corrections for a bar are sent for at most 10 minutes after it closes, and none after that; later repairs (backfills) change the stored bar that REST serves but are never sent on this channel. The LAST `is_closed: true` frame for a `(pair, timeframe, timestamp)` triple is the authoritative bar (the one REST serves); earlier frames for that triple are interim."
           }
         },
         "example": {
