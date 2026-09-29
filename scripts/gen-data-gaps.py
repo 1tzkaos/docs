@@ -117,6 +117,26 @@ ORDER BY gap_start
 FORMAT JSON
 """
 
+# The oldest indexed swap is not the day coverage became complete: the index
+# opened with a trickle of pump.fun rows (tens a day, 2026-04-08 → 04-15), and
+# the venues were added over the following week. "Full coverage" is the first
+# day carrying at least FULL_FRACTION of the median day over the first
+# FULL_WINDOW_DAYS — measured 2026-09-29: median 13.3 M rows/day, 04-22 at 0.61,
+# 04-23 at 1.00.
+#
+# COST: reads the first FULL_WINDOW_DAYS of `pump_swaps` only (the timestamp
+# minmax index prunes the rest): ~756 M rows, ~10 s, measured 2026-09-29.
+FULL_FRACTION = 0.75
+FULL_WINDOW_DAYS = 60
+Q_DAILY_START = """
+SELECT toString(toDate(timestamp)) AS d, count() AS n
+FROM solana_swaps.pump_swaps
+WHERE timestamp < (SELECT min(timestamp) FROM solana_swaps.pump_swaps) + INTERVAL {days} DAY
+GROUP BY d
+ORDER BY d
+FORMAT JSON
+"""
+
 # Retention ladder + the oldest bar actually held, per timeframe. The oldest
 # bar is read from the table itself, NOT from `system.parts.min_time` — a live
 # `ohlcv_1s` part reports a 1970-01-01 `min_time` while holding no row older
@@ -258,7 +278,15 @@ def backfill_status(age_hours: int) -> str:
     return "Past upstream retention"
 
 
-def render(census, gaps, ladder, generated_at: str) -> str:
+def full_coverage_day(daily: list[dict]) -> str:
+    """The first day at or above FULL_FRACTION of the median day (see Q_DAILY_START)."""
+    counts = sorted(int(r["n"]) for r in daily)
+    mid = len(counts) // 2
+    median = counts[mid] if len(counts) % 2 else (counts[mid - 1] + counts[mid]) / 2
+    return next(r["d"] for r in daily if int(r["n"]) >= FULL_FRACTION * median)
+
+
+def render(census, gaps, ladder, generated_at: str, full_from: str) -> str:
     swap_start = min(day(r["first_hour"]) for r in census)
     oldest_candle = min(r["oldest"] for r in ladder if r["oldest"])
 
@@ -283,8 +311,10 @@ def render(census, gaps, ladder, generated_at: str) -> str:
     w("| Surface | Data begins | What it means |")
     w("| --- | --- | --- |")
     w(
-        f"| Raw swaps (`/swaps*`) | **{swap_start}** | The oldest indexed swap. "
-        "This table has no expiry — nothing is aged out of it. |"
+        f"| Raw swaps (`/swaps*`) | **{swap_start}** (first rows); **full coverage from "
+        f"{full_from}** | The oldest indexed swap is {swap_start}, but the index opened with a "
+        f"trickle and reached its normal daily volume on {full_from}; each venue's own start "
+        "is in the table below. This table has no expiry — nothing is aged out of it. |"
     )
     w(
         f"| Candles (`/api/v1/candles`) | **{day(oldest_candle)}** | The oldest bar on any "
@@ -426,7 +456,10 @@ def main() -> int:
         row["ttl_days"] = ttls.get(table)
         ladder.append(row)
 
-    snippet = render(census, gaps, ladder, generated_at)
+    daily = query(url, Q_DAILY_START.format(days=FULL_WINDOW_DAYS))
+    full_from = full_coverage_day(daily)
+
+    snippet = render(census, gaps, ladder, generated_at, full_from)
     out_path = root / args.output
     out_path.write_text(snippet)
     try:
@@ -443,6 +476,8 @@ def main() -> int:
                     "census": census,
                     "gaps": gaps,
                     "ladder": ladder,
+                    "daily_start": daily,
+                    "full_coverage_from": full_from,
                 },
                 indent=2,
             )

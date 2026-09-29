@@ -10,7 +10,7 @@ your queries:
 
 | Surface | Data begins | What it means |
 | --- | --- | --- |
-| Raw swaps (`/swaps*`) | **2026-04-08** | The oldest indexed swap. This table has no expiry — nothing is aged out of it. |
+| Raw swaps (`/swaps*`) | **2026-04-08** (first rows); **full coverage from 2026-04-23** | The oldest indexed swap is 2026-04-08, but the index opened with a trickle and reached its normal daily volume on 2026-04-23; each venue's own start is in the table below. This table has no expiry — nothing is aged out of it. |
 | Candles (`/api/v1/candles`) | **2026-06-03** | The oldest bar on any timeframe. Shorter timeframes start later — see the retention ladder below. |
 | `creator` / deployer fields | **2026-05-26** | When Phase 0 mint capture went live. Mints that first traded before this date usually have no `creator`. |
 
