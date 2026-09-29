@@ -74,7 +74,7 @@
     "ohlcv": {
       "address": "/ws/ohlcv",
       "title": "OHLCV candle stream",
-      "description": "Live OHLCV bars for one or more pools / timeframes. Bars are emitted as they're built \u2014 `is_closed: false` mid-bar, `is_closed: true` on the final tick.",
+      "description": "Live OHLCV bars for one or more pools / timeframes. Bars are emitted as they're built \u2014 `is_closed: false` mid-bar, `is_closed: true` once closed. A closed bar may be re-sent with `is_closed: true` as a correction; the last one counts.",
       "messages": {
         "connected": {
           "$ref": "#/components/messages/OhlcvConnected"
@@ -1306,7 +1306,7 @@
           },
           "is_closed": {
             "type": "boolean",
-            "description": "`false` for mid-bar updates, `true` on the final tick for that bar. A `(pair, timeframe, timestamp)` triple emitted with `is_closed: true` is the authoritative bar \u2014 earlier `is_closed: false` frames for that same triple are interim."
+            "description": "`false` for mid-bar updates, `true` once the bar has closed. A closed bar may be sent again with `is_closed: true` and corrected values when trades land after it first closed, usually within about 2\u20133 seconds and occasionally after the next bar's close. The LAST `is_closed: true` frame for a `(pair, timeframe, timestamp)` triple is the authoritative bar (the one REST serves); earlier frames for that triple are interim."
           }
         },
         "example": {
