@@ -33,7 +33,8 @@ For example, `/screener` returns `{ results, total_matches, limit, offset, warni
 
 Branch on `error.code` ([the codes](#error-codes)). `error.message` is for humans and is not a stable format; a 5xx message is generic and never carries the internal cause.
 
-- `/screener` and `/search`: a malformed `mint`, `mints[]` or `creator` filter is a 400 `INVALID_PARAM` (message `invalid parameter: invalid_filter:mint|creator|mints`). An *unsupported* filter (e.g. `risk_score`) instead stays **200** and adds a note to the `warnings[]` array.
+- `/screener`: a malformed `mint`, `mints[]` or `creator` filter is a 400 `INVALID_PARAM` (message `invalid parameter: invalid_filter:mint|creator|mints`). An *unsupported* filter (e.g. `risk_score`) instead stays **200** and adds a note to the `warnings[]` array.
+- `/search`: a malformed `creator` (or `deployer`) or `mints` is a 400 `INVALID_PARAM` (`invalid_filter:creator` or `invalid_filter:mints`). `mint` on `/search` is matched as text, like `query`, and is never rejected. An unsupported filter stays 200 with a `warnings[]` note, as on `/screener`.
 - `/tokens/{mint}/intel` and `/tokens/{mint}/risk`: a malformed `mint` is a 400 `INVALID_PARAM`, an unknown mint a 404 `NOT_FOUND`, and a failed lookup a 503 `UNAVAILABLE` (retry). A failed lookup is never reported as a 404; `/tokens/{mint}/risk` answers 504 `GATEWAY_TIMEOUT` if its lookup times out.
 - `/tokens/{mint}/holders`, `/holders/top`, `/snipers`, `/insiders`, `/smart-money` and `/whales`: a malformed `mint` is a 400 `INVALID_PARAM` on every tier.
 - Not on this shape yet: `/swaps/*` and `/stats/*` send a flat `{ "error": "invalid_parameter", "message": "..." }` (their 401 and 429 carry the `error` object but no `success`), and `/tokens/{mint}/concentration` sends `{ "error": "..." }`. They are being moved to the envelope; until then, if `error` is a string, treat it as the message.
@@ -134,9 +135,10 @@ The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently 
 | `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
 | `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
 | `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in the current one-second window. | Back off briefly and retry; windows are one second long. |
+| `RATE_LIMITED` | 429 | The edge's own limits: more than 500 requests per second on one key, or too many attempts on an authentication endpoint. | Back off and retry. On a 429, branch on the status, since both codes mean "slow down". |
 | `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
-| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`), or no such path. | Verify via [`/api/v1/pairs`](/api-reference). |
+| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`). A path that doesn't exist is a 404 with an empty body instead. | Verify via [`/api/v1/pairs`](/api-reference). |
 | `METHOD_NOT_ALLOWED` | 405 | The path exists, but not for this HTTP method. | Use the method the API reference lists; most endpoints are `GET`. |
 | `UNAVAILABLE` | 503 | Backend dependency is down. | Retry with backoff. |
 | `GATEWAY_TIMEOUT` | 504 | Upstream took too long. | Retry; reduce `limit` if persistent. |

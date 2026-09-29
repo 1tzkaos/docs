@@ -66,7 +66,7 @@
               "code": {
                 "type": "string",
                 "example": "INVALID_PARAM",
-                "description": "One of `UNAUTHORIZED` (401), `FORBIDDEN` (403), `RATE_LIMIT_EXCEEDED` (429), `INVALID_PARAM` (400), `MISSING_PARAM` (400), `NOT_FOUND` (404), `METHOD_NOT_ALLOWED` (405), `UNAVAILABLE` (503), `GATEWAY_TIMEOUT` (504) or `INTERNAL` (500). See Quotas & errors for what each means."
+                "description": "One of `UNAUTHORIZED` (401), `FORBIDDEN` (403), `RATE_LIMIT_EXCEEDED` (429), `RATE_LIMITED` (429, from the edge: more than 500 requests per second on one key, or the authentication-endpoint throttle), `INVALID_PARAM` (400), `MISSING_PARAM` (400), `NOT_FOUND` (404), `METHOD_NOT_ALLOWED` (405), `UNAVAILABLE` (503), `GATEWAY_TIMEOUT` (504) or `INTERNAL` (500). See Quotas & errors for what each means."
               },
               "message": {
                 "type": "string",
@@ -11491,7 +11491,7 @@
     "/search": {
       "get": {
         "summary": "Flat query-string screener alias",
-        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical **top-level** body to `POST /screener` — `{ results, total_matches, limit, offset, warnings }`, no `{success, data, error}` wrapper — and the same `x-cache` / `x-total-matches-exact` headers.\n\nInherits the screener error contract: a malformed `mint`/`creator` (non-base58) → **HTTP 400** `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`; an unsupported filter (e.g. `minRiskScore`/`maxRiskScore`) stays **200** with a `warnings[]` note.",
+        "description": "Flat query-string alias over `POST /screener` (`ScreenerFilters::from_query`). All params optional; ranges use min/max-prefixed names. Returns the identical **top-level** body to `POST /screener` — `{ results, total_matches, limit, offset, warnings }`, no `{success, data, error}` wrapper — and the same `x-cache` / `x-total-matches-exact` headers.\n\nError contract: a malformed `creator` (alias `deployer`) or `mints` → **HTTP 400** `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:creator\"}}` (or `invalid_filter:mints`). `mint` here is matched as text, like `query`, and is never rejected; to filter by exact address use `POST /screener`. An unsupported filter (e.g. `minRiskScore`/`maxRiskScore`) stays **200** with a `warnings[]` note.",
         "operationId": "getSearch",
         "tags": [
           "Screener"
@@ -11522,7 +11522,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Mint filter."
+            "description": "Matched as text, like `query`; not validated as an address, so never a 400."
           },
           {
             "name": "creator",
@@ -12122,7 +12122,7 @@
             }
           },
           "400": {
-            "description": "Malformed address filter (`mint` or `creator` not valid base58). Same enveloped body as `POST /screener`. Unsupported filters (e.g. `minRiskScore`) stay 200 with a `warnings[]` note.",
+            "description": "Malformed `creator` (or `deployer`) or `mints` (not valid base58). `mint` is matched as text and is never a 400. Same enveloped body as `POST /screener`. Unsupported filters (e.g. `minRiskScore`) stay 200 with a `warnings[]` note.",
             "content": {
               "application/json": {
                 "schema": {
