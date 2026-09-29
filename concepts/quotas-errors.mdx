@@ -138,7 +138,7 @@ The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently 
 | `RATE_LIMITED` | 429 | The edge's own limits: more than 500 requests per second on one key, or too many attempts on an authentication endpoint. | Back off and retry. On a 429, branch on the status, since both codes mean "slow down". |
 | `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |
-| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`). A path that doesn't exist is a 404 with an empty body instead. | Verify via [`/api/v1/pairs`](/api-reference). |
+| `NOT_FOUND` | 404 | Resource doesn't exist (e.g., unknown mint or `pair_address`), or no such path under an endpoint's prefix. A path outside the API's routes can be a 404 with an empty body instead. | Verify via [`/api/v1/pairs`](/api-reference). |
 | `METHOD_NOT_ALLOWED` | 405 | The path exists, but not for this HTTP method. | Use the method the API reference lists; most endpoints are `GET`. |
 | `UNAVAILABLE` | 503 | Backend dependency is down. | Retry with backoff. |
 | `GATEWAY_TIMEOUT` | 504 | Upstream took too long. | Retry; reduce `limit` if persistent. |
