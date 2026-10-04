@@ -1190,6 +1190,13 @@
       },
       "ActorsResponse": {
         "type": "object",
+        "required": [
+          "mint",
+          "results",
+          "next_cursor",
+          "computed_at",
+          "supply_status"
+        ],
         "properties": {
           "mint": {
             "type": "string"
@@ -1197,7 +1204,7 @@
           "results": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/HolderRow"
+              "$ref": "#/components/schemas/ActorRow"
             }
           },
           "next_cursor": {
@@ -1208,8 +1215,65 @@
           },
           "computed_at": {
             "type": "integer"
+          },
+          "supply_status": {
+            "$ref": "#/components/schemas/SupplyStatus"
           }
         }
+      },
+      "ActorRow": {
+        "type": "object",
+        "required": [
+          "wallet",
+          "balance_atomic",
+          "balance_ui",
+          "pct_of_circulating",
+          "rank"
+        ],
+        "properties": {
+          "wallet": {
+            "type": "string",
+            "description": "Base58 wallet address."
+          },
+          "balance_atomic": {
+            "type": "string",
+            "description": "u64 as decimal string for JSON safety."
+          },
+          "balance_ui": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`balance_atomic` / 10^decimals. `null` when `supply_status` is not `ok` (the token's supply record could not be read), never a number computed from a guessed `decimals`."
+          },
+          "pct_of_circulating": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "This wallet's share of total supply, 0.0–1.0. `null`, never `0.0`, when the share cannot be stated: `supply_status` is not `ok`, the stored supply is 0, or the wallet's stored balance exceeds the supply."
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Omitted when there are no tags. Tags are returned only with `?enrich=identity`."
+          },
+          "rank": {
+            "type": "integer",
+            "description": "1-based position in this page (resumed across pages by cursor)."
+          }
+        }
+      },
+      "SupplyStatus": {
+        "type": "string",
+        "enum": [
+          "ok",
+          "unavailable",
+          "missing"
+        ],
+        "description": "Whether the supply behind `balance_ui` and `pct_of_circulating` was read. `ok`: it was. `unavailable`: the supply read failed or timed out. `missing`: there is no token record for the mint. In the last two, `balance_ui` and `pct_of_circulating` are `null` on every row; the rows are still the real holders, because the list itself never depends on supply."
       },
       "RiskResponse": {
         "type": "object",
@@ -6419,7 +6483,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Stub bundler response",
+            "description": "Bundler wallets for the mint",
             "content": {
               "application/json": {
                 "schema": {

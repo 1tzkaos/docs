@@ -41,7 +41,7 @@
 - [GET /tokens/{mint}/smart-money](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/smart-money): smart-money wallets holding (paid)
 - [GET /tokens/{mint}/whales](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/whales): whale wallets holding (paid)
 - [GET /tokens/{mint}/ath](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/ath): all-time-high price + ts + pair (SOL + USD)
-- [GET /tokens/{mint}/bundlers](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/bundlers): bundler wallets (stub; ships in Phase 5)
+- [GET /tokens/{mint}/bundlers](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/bundlers): bundler wallets tagged for the mint, with their true total count
 - [GET /tokens/latest](https://docs.dexploit.dev/api-reference/openapi/get/tokens/latest): newest tokens
 - [GET /tokens/multi/all](https://docs.dexploit.dev/api-reference/openapi/get/tokens/multi/all): newest tokens (alias)
 - [GET /tokens/multi/graduating](https://docs.dexploit.dev/api-reference/openapi/get/tokens/multi/graduating): pump.fun tokens near graduation
