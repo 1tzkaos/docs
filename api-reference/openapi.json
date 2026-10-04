@@ -1190,7 +1190,6 @@
       },
       "ActorsResponse": {
         "type": "object",
-        "description": "Wallets tagged for a mint who currently hold it. Used by `/smart-money` and `/whales`; `/snipers` and `/insiders` answer with `TaggedActorsResponse`.",
         "required": [
           "mint",
           "results",
@@ -1219,48 +1218,6 @@
           },
           "supply_status": {
             "$ref": "#/components/schemas/SupplyStatus"
-          }
-        }
-      },
-      "TaggedActorsResponse": {
-        "type": "object",
-        "description": "Wallets tagged `sniper` or `insider` for a mint who currently hold it. `results` is an answer only when `tag_status` is `ok` (or absent); otherwise it is `null`, not `[]`.",
-        "required": [
-          "mint",
-          "results",
-          "next_cursor",
-          "computed_at",
-          "supply_status"
-        ],
-        "properties": {
-          "mint": {
-            "type": "string"
-          },
-          "results": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "$ref": "#/components/schemas/ActorRow"
-            },
-            "description": "The holders, or `null` when `tag_status` is `computing`, `untagged` or `unavailable`. `null` means the tagger has not covered this mint (yet), not that nobody was found; `[]` with `tag_status` `ok` means none were found."
-          },
-          "next_cursor": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "description": "`null` on the last page, and whenever `results` is `null`."
-          },
-          "computed_at": {
-            "type": "integer"
-          },
-          "supply_status": {
-            "$ref": "#/components/schemas/SupplyStatus"
-          },
-          "tag_status": {
-            "$ref": "#/components/schemas/TagStatus"
           }
         }
       },
@@ -1317,16 +1274,6 @@
           "missing"
         ],
         "description": "Whether the supply behind `balance_ui` and `pct_of_circulating` was read. `ok`: it was. `unavailable`: the supply read failed or timed out. `missing`: there is no token record for the mint. In the last two, `balance_ui` and `pct_of_circulating` are `null` on every row; the rows are still the real holders, because the list itself never depends on supply."
-      },
-      "TagStatus": {
-        "type": "string",
-        "enum": [
-          "ok",
-          "computing",
-          "untagged",
-          "unavailable"
-        ],
-        "description": "Whether the tagger has completed a pass over this mint, so you can tell \"the tagger ran and found no one\" from \"the tagger has not covered this mint (yet)\". Each list is judged on its own tagger: `/snipers`, `/insiders` and `/bundlers` can report different values for the same mint.\n\n- `ok`: the list is the answer. A pass completed, or the mint was first seen before pass completion was recorded and is served as it was before. An empty list means no wallet was tagged.\n- `computing`: a new mint that has not had time to be tagged (roughly its first 2 minutes). The list, `count` and `next_cursor` are `null`.\n- `untagged`: no completed pass yet, and the mint is past that first window. The list, `count` and `next_cursor` are `null`. It can still change to `ok`: a pass usually runs about 60 seconds after the mint's first swap and can be delayed by up to 600 seconds. **It can also stay `untagged` indefinitely.** A mint that never trades gets no `sniper` or `bundler` pass, and an `insider` pass needs the mint's holder records, which most new mints never get. Retry with backoff for a few minutes, then treat it as \"not covered\", not as \"none\".\n- `unavailable`: the answer could not be established, because a read failed or the mint is not in the token registry. The list, `count` and `next_cursor` are `null`. A failed read is transient, so retry. A mint the registry has not seen stays `unavailable` until it is seen.\n\nWhen the value is not `ok`, the list and `count` are `null`, never `[]` or `0`: an empty list or a zero count is an answer only when `tag_status` is `ok`. A response with no `tag_status` does not report tagger coverage; its list is an answer, as these lists always were."
       },
       "RiskResponse": {
         "type": "object",
@@ -3876,7 +3823,7 @@
       },
       "BundlersResponse": {
         "type": "object",
-        "description": "Bundler wallets tagged for a mint. Lifetime-tagged: no current-balance filter. `count` and `bundlers` are an answer only when `tag_status` is `ok` (or absent); otherwise both are `null`, not `0` and `[]`.",
+        "description": "Bundler wallets tagged for a mint. Lifetime-tagged: no current-balance filter.",
         "required": [
           "mint",
           "count",
@@ -3888,18 +3835,12 @@
             "type": "string"
           },
           "count": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "description": "True total of distinct wallets tagged `bundler` for this mint — not the page size, so it can exceed `bundlers.length`. `null` when `tag_status` is not `ok`: the tagger has not covered the mint (yet), which is not the same as a count of `0`."
+            "type": "integer",
+            "description": "True total of distinct wallets tagged `bundler` for this mint — not the page size, so it can exceed `bundlers.length`."
           },
           "bundlers": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "description": "Most recently tagged first, truncated to `limit`. `null` when `tag_status` is not `ok`.",
+            "type": "array",
+            "description": "Most recently tagged first, truncated to `limit`.",
             "items": {
               "type": "object",
               "required": [
@@ -3919,12 +3860,9 @@
               }
             }
           },
-          "tag_status": {
-            "$ref": "#/components/schemas/TagStatus"
-          },
           "coverage_note": {
             "type": "string",
-            "description": "Present only on an answer (`tag_status` `ok`, or absent) whose `count` is 0. Bundler tagging began 2026-05-28; mints first observed before then read 0 until re-observed. Absent when `tag_status` is not `ok`: the note is about mints observed before tagging began and would mislead for a mint that is merely not covered yet."
+            "description": "Present only when `count` is 0. Bundler tagging began 2026-05-28; mints first observed before then read 0 until re-observed."
           },
           "computed_at": {
             "type": "integer",
@@ -6088,7 +6026,7 @@
     "/tokens/{mint}/snipers": {
       "get": {
         "summary": "Snipers holding this mint",
-        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /snipers/chart/{token}`](/api-reference/time-series-charts/sniper-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).\n\n**Coverage.** `tag_status` says whether the tagger has completed a `sniper` pass over this mint. When it is not `ok`, `results` and `next_cursor` are `null`, not `[]`: an empty list is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).",
+        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /snipers/chart/{token}`](/api-reference/time-series-charts/sniper-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
         "operationId": "listTokenSnipers",
         "tags": [
           "Tokens"
@@ -6137,7 +6075,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaggedActorsResponse"
+                  "$ref": "#/components/schemas/ActorsResponse"
                 }
               }
             }
@@ -6158,7 +6096,7 @@
     "/tokens/{mint}/insiders": {
       "get": {
         "summary": "Insiders holding this mint",
-        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /insiders/chart/{token}`](/api-reference/time-series-charts/insider-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).\n\n**Coverage.** `tag_status` says whether the tagger has completed an `insider` pass over this mint. When it is not `ok`, `results` and `next_cursor` are `null`, not `[]`: an empty list is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).",
+        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /insiders/chart/{token}`](/api-reference/time-series-charts/insider-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).",
         "operationId": "listTokenInsiders",
         "tags": [
           "Tokens"
@@ -6207,7 +6145,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TaggedActorsResponse"
+                  "$ref": "#/components/schemas/ActorsResponse"
                 }
               }
             }
@@ -6516,7 +6454,7 @@
     "/tokens/{mint}/bundlers": {
       "get": {
         "summary": "Bundler wallets for a mint",
-        "description": "Wallets tagged `bundler` for this mint — wallets that acquired the token in the same bundled transaction batch at launch.\n\nReturns the tagged wallets (most recently tagged first) and `count`, the **true total** of distinct tagged wallets for the mint rather than the page size — so `count` can exceed `bundlers.length` (`limit` defaults to 100, max 500). A `coverage_note` is included only when `tag_status` is `ok` (or absent) and `count` is 0: bundler tagging began 2026-05-28, and mints first observed before then read 0 until re-observed.\n\n**Coverage.** `tag_status` says whether the tagger has completed a bundler pass over this mint. When it is not `ok`, `count` and `bundlers` are `null`, not `0` and `[]`, and there is no `coverage_note`: a zero count is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).\n\n**Lifetime-tagged, not currently-holding.** Unlike [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint) and [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), this route does not join current balances, so a wallet stays listed after selling out and `count` cannot fall.\n\nCompare [`GET /bundlers/chart/{token}`](/api-reference/time-series-charts/bundler-count-time-series-for-a-token-stub), which returns `0` in every bucket regardless of this count — that series is not yet wired to the tag data (Dexploit-Swaps#940). A non-empty list here beside a flat-zero chart is expected today.",
+        "description": "Wallets tagged `bundler` for this mint — wallets that acquired the token in the same bundled transaction batch at launch.\n\nReturns the tagged wallets (most recently tagged first) and `count`, the **true total** of distinct tagged wallets for the mint rather than the page size — so `count` can exceed `bundlers.length` (`limit` defaults to 100, max 500). A `coverage_note` is included only when `count` is 0: bundler tagging began 2026-05-28, and mints first observed before then read 0 until re-observed.\n\n**Lifetime-tagged, not currently-holding.** Unlike [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint) and [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), this route does not join current balances, so a wallet stays listed after selling out and `count` cannot fall.\n\nCompare [`GET /bundlers/chart/{token}`](/api-reference/time-series-charts/bundler-count-time-series-for-a-token-stub), which returns `0` in every bucket regardless of this count — that series is not yet wired to the tag data (Dexploit-Swaps#940). A non-empty list here beside a flat-zero chart is expected today.",
         "operationId": "getTokensBundlers",
         "tags": [
           "Tokens"
