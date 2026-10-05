@@ -2429,7 +2429,7 @@
               "number",
               "null"
             ],
-            "description": "`unpriced_cost_basis_sol` in USD via the Pyth oracle. `null` when the oracle is unavailable."
+            "description": "`unpriced_cost_basis_sol` in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
           },
           "spot_price_max_age_secs": {
             "type": "integer",
@@ -2441,21 +2441,21 @@
               "onchain_held",
               "replay_unreconciled"
             ],
-            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book."
+            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book. This route serves only these two values; `onchain_held_basis_drift` (see `PnlV2Summary`) is a `/v2` value."
           },
           "unrealized_floor_sol": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Lower bound on the wallet's true unrealized PnL in SOL — `unrealized_sol` with every unpriced bag valued at zero. NON-NULL ONLY when `coverage_position_set` is `onchain_held`; over an unreconciled set the priced side can contain phantom gains, so no bound holds and this is `null`."
+            "description": "Lower bound on the wallet's true unrealized PnL in SOL: `unrealized_sol` with every unpriced bag valued at zero. Non-null only when `coverage_position_set` is `onchain_held`; with `replay_unreconciled` the priced side can contain phantom gains, so no bound holds and this is `null`."
           },
           "unrealized_floor_usd": {
             "type": [
               "number",
               "null"
             ],
-            "description": "`unrealized_floor_sol` in USD via the Pyth oracle. `null` when there is no floor or no oracle."
+            "description": "`unrealized_floor_sol` in USD via Dexploit's SOL/USD rate. `null` when there is no floor or the rate is unavailable."
           },
           "reconciled": {
             "type": "boolean",
@@ -2914,7 +2914,7 @@
               "number",
               "null"
             ],
-            "description": "`unpriced_cost_basis_sol` in USD via the Pyth oracle. `null` when the oracle is unavailable."
+            "description": "`unpriced_cost_basis_sol` in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
           },
           "spot_price_max_age_secs": {
             "type": "integer",
@@ -2924,23 +2924,24 @@
             "type": "string",
             "enum": [
               "onchain_held",
-              "replay_unreconciled"
+              "replay_unreconciled",
+              "onchain_held_basis_drift"
             ],
-            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book."
+            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book. `onchain_held_basis_drift` = held on chain, but at least one position's on-chain balance is above the quantity the trade ledger accounts for, so its cost basis understates it and no floor is published."
           },
           "unrealized_floor_sol": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Lower bound on the wallet's true unrealized PnL in SOL — `unrealized_sol` with every unpriced bag valued at zero. NON-NULL ONLY when `coverage_position_set` is `onchain_held`; over an unreconciled set the priced side can contain phantom gains, so no bound holds and this is `null`."
+            "description": "Lower bound on the wallet's true unrealized PnL in SOL: `unrealized_sol` with every unpriced bag valued at zero. Non-null only when `coverage_position_set` is `onchain_held` AND the figure covers every open position. Otherwise it is `null`, because no bound holds: with `replay_unreconciled` the priced side can contain phantom gains; with `onchain_held_basis_drift` the cost basis understates the bag, so the figure would sit above the true minimum; and for a wallet with more than 2,000 positions (open and closed) the summary prices only 200 of them (`unrealized_basis: \"top_200\"`), so the untouched tail could each fall to its full cost basis, even though `coverage_position_set` reads `onchain_held`. The degraded answer for a wallet whose ledger read times out carries no coverage fields at all."
           },
           "unrealized_floor_usd": {
             "type": [
               "number",
               "null"
             ],
-            "description": "`unrealized_floor_sol` in USD via the Pyth oracle. `null` when there is no floor or no oracle."
+            "description": "`unrealized_floor_sol` in USD via Dexploit's SOL/USD rate. `null` when there is no floor or the rate is unavailable."
           }
         }
       },
