@@ -227,18 +227,24 @@
             "description": "Token base units; divide by 10**`quote_decimals` for human-readable."
           },
           "fee": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
-            "description": "LP fee paid, in lamports."
+            "description": "LP fee paid, in lamports, or `null` when the fee is unknown. **`null` means unknown, not zero.** A fee is served only where it is known to be correct; where it is not, the API serves `null` instead of a number. Do not read it as a fee of `0`, and do not treat a sum of `fee` over rows that include a `null` as a total of the fees paid."
           },
           "fee_bps": {
             "type": "integer",
             "description": "Effective LP fee, in basis points."
           },
           "creator_fee": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
-            "description": "Creator-set fee paid, in lamports (pump.fun + meteora-dbc)."
+            "description": "Creator-set fee paid, in lamports (pump.fun + meteora-dbc), or `null` when the fee is unknown. The same rule as `fee`: **`null` means unknown, not zero.**"
           },
           "creator_fee_bps": {
             "type": "integer"
