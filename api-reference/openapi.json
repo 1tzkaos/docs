@@ -2037,9 +2037,12 @@
             "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
           },
           "snapshot_ts": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
-            "description": "Unix epoch seconds for the snapshot the metrics were computed from."
+            "description": "When the snapshot the metrics were computed from was captured, as Unix epoch seconds: the latest write to this mint's stored holder state (a census, a reconcile, or a live balance update). It is not a re-verification of every holder. Use it to judge how fresh the metrics are. `null` unless the mint has a complete holder census: `status` is `no_holder_data`, `partial_holder_data`, `census_refused` or `census_too_large`, or `computing` when the read failed. Non-null with `ready`, `stale_holder_data` and `no_supply`."
           },
           "unavailable": {
             "type": "array",
