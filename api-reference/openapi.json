@@ -232,7 +232,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "LP fee paid, in lamports where the venue records it that way, or `null` when the fee is unknown. **`null` means unknown, not zero.** Today `null` is served for `raydium_amm` and `raydium_clmm` swaps and for `raydium_cpmm` sells from before that venue's fee was captured; every other row is the stored figure, and on some venues that figure is not yet denominated in lamports. Do not read `null` as a fee of `0`, and do not treat a sum of `fee` over rows that include a `null`, or over venues that record it in different units, as a total of the fees paid."
+            "description": "LP fee paid, in lamports, or `null` when the fee is unknown. **`null` means unknown, not zero.** A fee is served only where it is known to be correct; where it is not, the API serves `null` instead of a number. Do not read `null` as a fee of `0`, and do not treat a sum of `fee` over rows that include a `null` as a total of the fees paid."
           },
           "fee_bps": {
             "type": "integer",
@@ -244,7 +244,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "The token creator's fee on venues that charge one, in lamports where the venue records it that way, or `null` when the fee is unknown. The same rule as `fee`, and the same venues serve `null` today: **`null` means unknown, not zero.**"
+            "description": "The token creator's fee on venues that charge one, in lamports where the venue records it that way, or `null` when the fee is unknown. **`null` means unknown, not zero.** A number is the stored figure."
           },
           "creator_fee_bps": {
             "type": "integer"
