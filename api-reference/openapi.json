@@ -3119,6 +3119,22 @@
               }
             }
           },
+          "positions_total": {
+            "type": "integer",
+            "description": "How many positions the wallet has in the ledger, open and closed (one per mint). `positions[]` is capped at 200, so this is the size of the full list, which is paged at `/v2/pnl/wallets/{wallet}/positions`. Absent from the degraded answer returned when the ledger read times out."
+          },
+          "positions_truncated": {
+            "type": "boolean",
+            "description": "`true` when `positions[]` holds only the 200 most material positions of `positions_total`; the rest are at `/v2/pnl/wallets/{wallet}/positions`. Always `true` for a wallet with more than 2,000 positions. It says nothing about the aggregate figures: see `unrealized_basis`."
+          },
+          "unrealized_basis": {
+            "type": "string",
+            "enum": [
+              "full",
+              "top_200"
+            ],
+            "description": "Whether `unrealized_sol` was summed over every position. `full`: it was; only the inline `positions[]` list is capped. `top_200`: only the 200 most material positions were priced (a wallet with more than 2,000 positions). `realized_sol`, `cost_basis_sol` and the open and closed counts are still exact, and no `unrealized_floor_sol` is published. This is not `unrealized_price_basis`, which says how many of the counted positions had a live price."
+          },
           "unrealized_price_basis": {
             "type": "string",
             "enum": [
