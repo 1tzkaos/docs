@@ -244,7 +244,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "Creator-set fee paid, in lamports (pump.fun + raydium_cpmm + meteora-dbc), or `null` when the fee is unknown. The same rule as `fee`: **`null` means unknown, not zero.**"
+            "description": "The token creator's fee paid, in lamports, on venues that charge one, or `null` when the fee is unknown. The same rule as `fee`: **`null` means unknown, not zero.**"
           },
           "creator_fee_bps": {
             "type": "integer"
