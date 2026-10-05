@@ -1975,7 +1975,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "When the snapshot the metrics were computed from was captured, as Unix epoch seconds: the latest write to this mint's stored holder state (a census, a reconcile, or a live balance update). It is not a re-verification of every holder. Use it to judge how fresh the metrics are. `null` when there is no snapshot (`status` is `no_holder_data` or `computing`)."
+            "description": "When the snapshot the metrics were computed from was captured, as Unix epoch seconds: the latest write to this mint's stored holder state (a census, a reconcile, or a live balance update). It is not a re-verification of every holder. Use it to judge how fresh the metrics are. `null` unless the mint has a complete holder census: `status` is `no_holder_data`, `partial_holder_data`, `census_refused` or `census_too_large`, or `computing` when the read failed. Non-null with `ready`, `stale_holder_data` and `no_supply`."
           },
           "unavailable": {
             "type": "array",
