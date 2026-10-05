@@ -880,23 +880,24 @@
               "integer",
               "null"
             ],
-            "description": "Distinct wallets currently holding non-zero balance."
+            "description": "Distinct wallets currently holding non-zero balance. `null` unless the mint has a complete holder census; `holder_data_status` says why."
           },
           "holder_data_status": {
             "type": "string",
             "enum": [
               "ok",
-              "computing",
+              "partial_holder_data",
+              "census_refused",
               "unavailable"
             ],
-            "description": "How to read `holders_count`.\n\n- `ok`: `holders_count` is the count.\n- `computing`: the holder data for this active token has not been built yet; `holders_count` is `null`, not 0. Retry later.\n- `unavailable`: the holder read FAILED; `holders_count` is `null` and `\"holders_count\"` is in `unavailable`. Retry."
+            "description": "Whether the holder-derived fields (`holders_count`, `creator_held_pct`, `top10_pct` and each `actors` entry's `pct_of_circulating`) come from a complete holder census. This field is carried by `/tokens/{mint}/intel` only. `top10_pct.status` is a different field with its own values (see `Top10Pct`).\n\n- `ok`: they do.\n- `partial_holder_data`: the mint has no complete census: it has never had one, or the last one missed holders. Those fields are `null`. An `actors` entry's `count` is still served, counted over the holder rows available. A mint with no holder rows yet and no census also reads `partial_holder_data` here, while its `top10_pct.status` is `no_holder_data` until the first rows arrive.\n- `census_refused`: the census source refused the mint (too many accounts to scan). Those fields are `null`, and a census does not complete on its own; this is not transient.\n- `unavailable`: a read FAILED, so `holders_count` is `null` and named in `unavailable`. If it was the census check that failed, `creator_held_pct` and `top10_pct` are also `null` and named in `unavailable`, and each `actors` entry's `pct_of_circulating` is `null`. Retry."
           },
           "creator_held_pct": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Percent of supply still held by the creator wallet (0–100)."
+            "description": "Percent of supply still held by the creator wallet (0–100). `null` unless the mint has a complete holder census (see `holder_data_status`), and when the supply or the creator is unknown."
           },
           "bonding_pct": {
             "type": [
@@ -1018,11 +1019,12 @@
           },
           "status": {
             "type": "string",
-            "description": "Snake-case status of the top-10 computation. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `no_pool_data`: the mint's pool addresses are not known yet, so the pool's LP wallet cannot be excluded. Withheld rather than reported as ~100%. Specific to `/tokens/{mint}/audit`; `/tokens/{mint}/concentration` does not emit it.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
+            "description": "Snake-case status of the top-10 computation. This is the `top10_pct.status` that `/tokens/{mint}/audit` and `/tokens/{mint}/intel` carry; `/tokens/{mint}/concentration` has its own `status` (see `ConcentrationResponse`), and `holder_data_status` on `/intel` is a separate field. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `partial_holder_data`: the mint has holder rows but no complete holder census: it has never had one, or the last one missed holders. A top-10 over those rows is not a share of supply, so it is withheld.\n- `census_refused`: the source refused the census (the largest tokens are too large to scan), so the top-10 is withheld until a census can be taken. Not transient.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
             "enum": [
               "ready",
               "no_holder_data",
-              "no_pool_data",
+              "partial_holder_data",
+              "census_refused",
               "computing",
               "no_supply",
               "stale_holder_data"
@@ -1332,7 +1334,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Codes of signals that could not be evaluated, and so were never scored as passed: either their input does not exist yet (the mint is not fully onboarded) or its read failed (then the code is also in `unavailable_signals`). Omitted when empty."
+            "description": "Codes of signals that could not be evaluated, and so were never scored as passed: their input does not exist yet (the mint is not fully onboarded); they are holder-derived (`single_holder_50pct`, `top10_high`, `top10_very_high`, `snipers_pct_high`, `insiders_pct_high`, `dev_held_high`, `dev_held_very_high`) and the mint has no complete holder census; or their read failed (then the code is also in `unavailable_signals`). Omitted when empty."
           },
           "unavailable_signals": {
             "type": "array",
@@ -2023,7 +2025,7 @@
               "integer",
               "null"
             ],
-            "description": "Number of holder rows in the latest snapshot. A row COUNT stays meaningful when the balances do not, so it is published even where the percentage fields are withheld. `null` when `status` is `no_holder_data` or `computing`, where the count itself is unknown."
+            "description": "Number of holder rows in the latest snapshot. A row COUNT stays meaningful when the balances do not, so it is published even where the percentage fields are withheld. `null` when `status` is `no_holder_data` or `computing`, where the count itself is unknown. With `partial_holder_data` or `census_refused` it counts the rows the snapshot holds, which can be far fewer than the token's holders; `/tokens/{mint}/intel`'s `holders_count` is `null` for those mints."
           },
           "status": {
             "type": "string",
@@ -2032,9 +2034,11 @@
               "stale_holder_data",
               "no_supply",
               "no_holder_data",
+              "partial_holder_data",
+              "census_refused",
               "computing"
             ],
-            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
+            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `partial_holder_data` = the mint has holder rows but no complete holder census, so the percentages are withheld. `census_refused` = the source refused the census (the largest tokens are too large to scan), so the percentages are withheld until it can be taken. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
           },
           "snapshot_ts": {
             "type": [
@@ -2086,9 +2090,11 @@
           "no_supply",
           "no_holder_data",
           "insufficient_holders",
-          "computing"
+          "computing",
+          "partial_holder_data",
+          "census_refused"
         ],
-        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again."
+        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again. `partial_holder_data`: the mint has holder rows but no complete holder census, so the field is withheld. `census_refused`: the source refused the census (the largest tokens), so the field is withheld until one can be taken."
       },
       "SnapshotNowResponse": {
         "type": "object",
@@ -5760,7 +5766,7 @@
     "/tokens/{mint}/audit": {
       "get": {
         "summary": "On-chain audit flags",
-        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n\n`top10_pct.status` can be any of six values (see `Top10Pct`). Everything except `ready` means the value is withheld, not zero. `no_pool_data` is specific to this endpoint: it is returned when the mint's pool addresses are unknown, rather than publishing a share that counts the pool's LP wallet.\n- **Malformed** (non-base58) mint → `400`.",
+        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n\n`top10_pct.status` is one of the values listed on `Top10Pct`. Everything except `ready` means the value is withheld, not zero.\n- **Malformed** (non-base58) mint → `400`.",
         "operationId": "getTokenAudit",
         "security": [],
         "tags": [
@@ -6511,7 +6517,7 @@
     "/tokens/{mint}/concentration": {
       "get": {
         "summary": "Holder concentration",
-        "description": "Holder-concentration metrics for a mint, sourced from the latest `holder-snapshot` for the token: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** the endpoint does not 404.\n\n- A malformed `mint` (not 32–44 base58 characters) returns `400`.\n- A valid mint with no snapshot yet returns `200` with `status: \"no_holder_data\"`, and `total_holders`, `top10_pct`, `top100_pct` and `gini` all `null`; `field_status` gives `no_holder_data` for each. \"No data\" is never reported as `0`% or `0` holders.\n- When the holder data cannot be read just now (a transient database error), the response is `200` with `status: \"computing\"`, the same four fields `null`, all three balance-derived fields listed in `unavailable`, and `Cache-Control: no-store`. Ask again.",
+        "description": "Holder-concentration metrics for a mint, sourced from the latest `holder-snapshot` for the token: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** the endpoint does not 404.\n\n- A malformed `mint` (not 32–44 base58 characters) returns `400`.\n- A valid mint with no snapshot yet returns `200` with `status: \"no_holder_data\"`, and `total_holders`, `top10_pct`, `top100_pct` and `gini` all `null`; `field_status` gives `no_holder_data` for each. \"No data\" is never reported as `0`% or `0` holders.\n- A mint with holder rows but no complete holder census returns `200` with `status` `partial_holder_data` or `census_refused`: `top10_pct`, `top100_pct` and `gini` are `null`, `field_status` gives the same status for each, and `snapshot_ts` is `null`. `total_holders` is still served (see its description).\n- When the holder data cannot be read just now (a transient database error), the response is `200` with `status: \"computing\"`, the same four fields `null`, all three balance-derived fields listed in `unavailable`, and `Cache-Control: no-store`. Ask again.",
         "operationId": "getTokenConcentration",
         "tags": [
           "Tokens"
