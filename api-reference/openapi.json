@@ -303,6 +303,31 @@
           }
         }
       },
+      "SignatureSwaps": {
+        "type": "object",
+        "description": "Every swap leg of one transaction, returned by `/swaps/{signature}`.",
+        "properties": {
+          "signature": {
+            "type": "string",
+            "description": "The transaction signature that was looked up."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Number of legs in `swaps`. Legs are never paged: a transaction holds a bounded number of them."
+          },
+          "swaps": {
+            "type": "array",
+            "description": "Every swap leg, ordered by `slot`, `block_tx_index`, `ix_index`, then `dex`.",
+            "items": {
+              "$ref": "#/components/schemas/Swap"
+            }
+          },
+          "price_semantics": {
+            "type": "string",
+            "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change."
+          }
+        }
+      },
       "SwapsPage": {
         "type": "object",
         "description": "Paged list of swaps, shared by `/swaps`, `/swaps/range`, `/swaps/whale`.",
@@ -4755,8 +4780,8 @@
     },
     "/swaps/{signature}": {
       "get": {
-        "summary": "Single swap by transaction signature",
-        "description": "Look up the swap event emitted by a specific Solana transaction. Returns the swap object directly (no envelope).",
+        "summary": "Every swap leg of a transaction",
+        "description": "A signature names a transaction, not a swap: about 1 in 21 transactions holds more than one swap (multi-hop and multi-venue routes). Returns EVERY leg as `{signature, total, swaps, price_semantics}`, ordered by `slot`, `block_tx_index`, `ix_index`, then `dex`. `404` only when no swap has that signature. A lookup that does not finish in time is a `503` with `Retry-After`, never a `404`.",
         "operationId": "getSwapBySignature",
         "tags": [
           "Swaps"
@@ -4773,48 +4798,39 @@
         ],
         "responses": {
           "200": {
-            "description": "Swap event",
+            "description": "Every swap leg of the transaction",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Swap"
-                }
-              }
-            },
-            "headers": {
-              "x-price-semantics": {
-                "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change. This route returns the bare swap object with no envelope, so the label is carried in this response header instead. NOTE: it is not exposed via Access-Control-Expose-Headers, so a browser cannot read it cross-origin; server-side callers see it normally.",
-                "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SignatureSwaps"
                 }
               }
             }
           },
           "404": {
-            "description": "Signature not found",
+            "description": "No swap has this signature",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SwapsApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }
           },
           "503": {
-            "description": "The lookup ran out of its time budget, so whether the swap exists is unknown (`error: service_unavailable`). Retry after the `Retry-After` interval. A 404 means the signature was looked up and is not there; a timeout is never reported as a 404.",
+            "description": "The lookup did not finish within its time budget. This is not a 404: retry after the interval in `Retry-After`.",
             "headers": {
               "Retry-After": {
                 "description": "Seconds to wait before retrying.",
                 "schema": {
-                  "type": "integer",
-                  "example": 5
+                  "type": "string"
                 }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SwapsApiError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             }

@@ -3,6 +3,19 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="Pending deploy" description="Breaking: /swaps/{signature} returns every leg of the transaction">
+**Breaking.** `GET /swaps/{signature}` now returns an envelope with every swap of the transaction, instead of one swap object. A signature names a transaction, and about 1 in 21 transactions holds more than one swap (multi-hop and multi-venue routes); the route used to return one of them, not always the same one.
+
+```json
+{ "signature": "<signature>", "total": 2, "swaps": [ { "signature": "<signature>", "dex": "pumpswap" }, { "signature": "<signature>", "dex": "raydium_cpmm" } ], "price_semantics": "pool_price=RAW vault ratio, uncorrected (not a tradeable price); ..." }
+```
+
+- **Migrate:** read `swaps` (an array). When `total` is `1`, `swaps[0]` is the object the route used to return.
+- **Order:** `swaps` is ordered by `slot`, `block_tx_index`, `ix_index`, then `dex`, and is the same on every call.
+- **The `x-price-semantics` header is gone.** The label is the `price_semantics` field of the body, like the other swap routes, so a browser can read it.
+- **`404`** only when no swap has that signature. A lookup that does not finish in time is a `503` with `Retry-After`, never a `404`.
+</Update>
+
 <Update label="2026-09-29" description="Breaking: one error body">
 **Breaking.** Endpoints that answered an error with `{ "success": false, "data": null, "error": "<string>" }` now answer with the documented envelope, where `error` is an object:
 
