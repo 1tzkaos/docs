@@ -880,23 +880,24 @@
               "integer",
               "null"
             ],
-            "description": "Distinct wallets currently holding non-zero balance."
+            "description": "Distinct wallets currently holding non-zero balance. `null` unless the mint has a complete holder census; `holder_data_status` says why."
           },
           "holder_data_status": {
             "type": "string",
             "enum": [
               "ok",
-              "computing",
+              "partial_holder_data",
+              "census_refused",
               "unavailable"
             ],
-            "description": "How to read `holders_count`.\n\n- `ok`: `holders_count` is the count.\n- `computing`: the holder data for this active token has not been built yet; `holders_count` is `null`, not 0. Retry later.\n- `unavailable`: the holder read FAILED; `holders_count` is `null` and `\"holders_count\"` is in `unavailable`. Retry."
+            "description": "Whether the holder-derived fields (`holders_count`, `creator_held_pct`, `top10_pct` and each `actors` entry's `pct_of_circulating`) come from a complete holder census. This field is carried by `/tokens/{mint}/intel` only. `top10_pct.status` is a different field with its own values (see `Top10Pct`).\n\n- `ok`: they do.\n- `partial_holder_data`: the mint has no complete census: it has never had one, or the last one missed holders. Those fields are `null`. An `actors` entry's `count` is still served, counted over the holder rows available. A mint with no holder rows yet and no census also reads `partial_holder_data` here, while its `top10_pct.status` is `no_holder_data` until the first rows arrive.\n- `census_refused`: the census source refused the mint (too many accounts to scan). Those fields are `null`, and a census does not complete on its own; this is not transient.\n- `unavailable`: a read FAILED, so `holders_count` is `null` and named in `unavailable`. If it was the census check that failed, `creator_held_pct` and `top10_pct` are also `null` and named in `unavailable`, and each `actors` entry's `pct_of_circulating` is `null`. Retry."
           },
           "creator_held_pct": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Percent of supply still held by the creator wallet (0–100)."
+            "description": "Percent of supply still held by the creator wallet (0–100). `null` unless the mint has a complete holder census (see `holder_data_status`), and when the supply or the creator is unknown."
           },
           "bonding_pct": {
             "type": [
@@ -1018,11 +1019,12 @@
           },
           "status": {
             "type": "string",
-            "description": "Snake-case status of the top-10 computation. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `no_pool_data`: the mint's pool addresses are not known yet, so the pool's LP wallet cannot be excluded. Withheld rather than reported as ~100%. Specific to `/tokens/{mint}/audit`; `/tokens/{mint}/concentration` does not emit it.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
+            "description": "Snake-case status of the top-10 computation. This is the `top10_pct.status` that `/tokens/{mint}/audit` and `/tokens/{mint}/intel` carry; `/tokens/{mint}/concentration` has its own `status` (see `ConcentrationResponse`), and `holder_data_status` on `/intel` is a separate field. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `partial_holder_data`: the mint has holder rows but no complete holder census: it has never had one, or the last one missed holders. A top-10 over those rows is not a share of supply, so it is withheld.\n- `census_refused`: the source refused the census (the largest tokens are too large to scan), so the top-10 is withheld until a census can be taken. Not transient.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
             "enum": [
               "ready",
               "no_holder_data",
-              "no_pool_data",
+              "partial_holder_data",
+              "census_refused",
               "computing",
               "no_supply",
               "stale_holder_data"
@@ -1385,7 +1387,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Codes of signals that could not be evaluated, and so were never scored as passed: either their input does not exist yet (the mint is not fully onboarded) or its read failed (then the code is also in `unavailable_signals`). Omitted when empty."
+            "description": "Codes of signals that could not be evaluated, and so were never scored as passed: their input does not exist yet (the mint is not fully onboarded); they are holder-derived (`single_holder_50pct`, `top10_high`, `top10_very_high`, `snipers_pct_high`, `insiders_pct_high`, `dev_held_high`, `dev_held_very_high`) and the mint has no complete holder census; or their read failed (then the code is also in `unavailable_signals`). Omitted when empty."
           },
           "unavailable_signals": {
             "type": "array",
@@ -2076,7 +2078,7 @@
               "integer",
               "null"
             ],
-            "description": "Number of holder rows in the latest snapshot. A row COUNT stays meaningful when the balances do not, so it is published even where the percentage fields are withheld. `null` when `status` is `no_holder_data` or `computing`, where the count itself is unknown."
+            "description": "Number of holder rows in the latest snapshot. A row COUNT stays meaningful when the balances do not, so it is published even where the percentage fields are withheld. `null` when `status` is `no_holder_data` or `computing`, where the count itself is unknown. With `partial_holder_data` or `census_refused` it counts the rows the snapshot holds, which can be far fewer than the token's holders; `/tokens/{mint}/intel`'s `holders_count` is `null` for those mints."
           },
           "status": {
             "type": "string",
@@ -2085,14 +2087,19 @@
               "stale_holder_data",
               "no_supply",
               "no_holder_data",
+              "partial_holder_data",
+              "census_refused",
               "computing"
             ],
-            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
+            "description": "Verdict for the TOP-10 cohort. `ready` = trustworthy. `stale_holder_data` = the cohort's balances exceed stored supply, so the percentage is withheld. `no_supply` = supply unknown. `no_holder_data` = no snapshot covers this mint yet. `partial_holder_data` = the mint has holder rows but no complete holder census, so the percentages are withheld. `census_refused` = the source refused the census (the largest tokens are too large to scan), so the percentages are withheld until it can be taken. `computing` = the holder data could not be read just now (a transient database error); ask again. Read this before treating a `null` as zero or as 'no holders'."
           },
           "snapshot_ts": {
-            "type": "integer",
+            "type": [
+              "integer",
+              "null"
+            ],
             "format": "int64",
-            "description": "Unix epoch seconds for the snapshot the metrics were computed from."
+            "description": "When the snapshot the metrics were computed from was captured, as Unix epoch seconds: the latest write to this mint's stored holder state (a census, a reconcile, or a live balance update). It is not a re-verification of every holder. Use it to judge how fresh the metrics are. `null` unless the mint has a complete holder census: `status` is `no_holder_data`, `partial_holder_data`, `census_refused` or `census_too_large`, or `computing` when the read failed. Non-null with `ready`, `stale_holder_data` and `no_supply`."
           },
           "unavailable": {
             "type": "array",
@@ -2136,9 +2143,11 @@
           "no_supply",
           "no_holder_data",
           "insufficient_holders",
-          "computing"
+          "computing",
+          "partial_holder_data",
+          "census_refused"
         ],
-        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again."
+        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again. `partial_holder_data`: the mint has holder rows but no complete holder census, so the field is withheld. `census_refused`: the source refused the census (the largest tokens), so the field is withheld until one can be taken."
       },
       "SnapshotNowResponse": {
         "type": "object",
@@ -2639,7 +2648,7 @@
           },
           "unrealized_sol": {
             "type": "number",
-            "description": "Unrealized PnL in SOL on remaining open lots."
+            "description": "Unrealized PnL in SOL on the remaining open lots the wallet is confirmed to still HOLD on chain, summed over those with a live spot price. The FIFO replay set is reconciled against on-chain holdings first, so bags exited outside the indexed venues do not contribute; `coverage_position_set` says whether that reconciliation succeeded, and `unpriced_*` say what the price window excluded."
           },
           "total_volume_sol": {
             "type": "number",
@@ -2677,6 +2686,68 @@
           "warning": {
             "type": "string",
             "description": "Always present. Explains that this is basic FIFO PnL and that full cost-basis ships in Phase 8."
+          },
+          "unrealized_price_basis": {
+            "type": "string",
+            "enum": [
+              "spot",
+              "partial",
+              "none"
+            ],
+            "description": "How much of the open book `unrealized_sol` covers. `spot` = every counted position had a live spot price; `partial` = some were excluded; `none` = nothing was priced, so `unrealized_sol` is 0 for lack of data, NOT because the wallet is flat. Distinct from `unrealized_basis`, which answers whether the whole position LIST was looked at."
+          },
+          "priced_position_count": {
+            "type": "integer",
+            "description": "Open positions that had a live spot price and are therefore included in `unrealized_sol`."
+          },
+          "unpriced_position_count": {
+            "type": "integer",
+            "description": "Open positions with NO live spot price inside `spot_price_max_age_secs`. They are EXCLUDED from `unrealized_sol` — not valued at zero and not assumed break-even, both of which would be wrong in a direction the caller cannot detect."
+          },
+          "unpriced_cost_basis_sol": {
+            "type": "number",
+            "description": "Total cost basis, in SOL, of the excluded positions — the magnitude of what `unrealized_sol` does not cover."
+          },
+          "unpriced_cost_basis_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unpriced_cost_basis_sol` in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
+          },
+          "spot_price_max_age_secs": {
+            "type": "integer",
+            "description": "Maximum age of a trade for it to count as a live spot price (seconds)."
+          },
+          "coverage_position_set": {
+            "type": "string",
+            "enum": [
+              "onchain_held",
+              "replay_unreconciled"
+            ],
+            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book. This route serves only these two values; `onchain_held_basis_drift` (see `PnlV2Summary`) is a `/v2` value."
+          },
+          "unrealized_floor_sol": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Lower bound on the wallet's true unrealized PnL in SOL: `unrealized_sol` with every unpriced bag valued at zero. Non-null only when `coverage_position_set` is `onchain_held`; with `replay_unreconciled` the priced side can contain phantom gains, so no bound holds and this is `null`."
+          },
+          "unrealized_floor_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unrealized_floor_sol` in USD via Dexploit's SOL/USD rate. `null` when there is no floor or the rate is unavailable."
+          },
+          "reconciled": {
+            "type": "boolean",
+            "description": "Whether the open-position set was checked against on-chain holdings. `false` ⇒ the raw FIFO replay set was served and `coverage_position_set` is `replay_unreconciled`."
+          },
+          "reconciliation_source": {
+            "type": "string",
+            "description": "What supplied on-chain truth (`shyft`), or `unavailable` when the response is not reconciled."
           }
         }
       },
@@ -3100,6 +3171,77 @@
                 }
               }
             }
+          },
+          "positions_total": {
+            "type": "integer",
+            "description": "How many positions the wallet has in the ledger, open and closed (one per mint). `positions[]` is capped at 200, so this is the size of the full list, which is paged at `/v2/pnl/wallets/{wallet}/positions`. Absent from the degraded answer returned when the ledger read times out."
+          },
+          "positions_truncated": {
+            "type": "boolean",
+            "description": "`true` when `positions[]` holds only the 200 most material positions of `positions_total`; the rest are at `/v2/pnl/wallets/{wallet}/positions`. Always `true` for a wallet with more than 2,000 positions. It says nothing about the aggregate figures: see `unrealized_basis`."
+          },
+          "unrealized_basis": {
+            "type": "string",
+            "enum": [
+              "full",
+              "top_200"
+            ],
+            "description": "Whether `unrealized_sol` was summed over every position. `full`: it was; only the inline `positions[]` list is capped. `top_200`: only the 200 most material positions were priced (a wallet with more than 2,000 positions). `realized_sol`, `cost_basis_sol` and the open and closed counts are still exact, and no `unrealized_floor_sol` is published. This is not `unrealized_price_basis`, which says how many of the counted positions had a live price."
+          },
+          "unrealized_price_basis": {
+            "type": "string",
+            "enum": [
+              "spot",
+              "partial",
+              "none"
+            ],
+            "description": "How much of the open book `unrealized_sol` covers. `spot` = every counted position had a live spot price; `partial` = some were excluded; `none` = nothing was priced, so `unrealized_sol` is 0 for lack of data, NOT because the wallet is flat. Distinct from `unrealized_basis`, which answers whether the whole position LIST was looked at."
+          },
+          "priced_position_count": {
+            "type": "integer",
+            "description": "Open positions that had a live spot price and are therefore included in `unrealized_sol`."
+          },
+          "unpriced_position_count": {
+            "type": "integer",
+            "description": "Open positions with NO live spot price inside `spot_price_max_age_secs`. They are EXCLUDED from `unrealized_sol` — not valued at zero and not assumed break-even, both of which would be wrong in a direction the caller cannot detect."
+          },
+          "unpriced_cost_basis_sol": {
+            "type": "number",
+            "description": "Total cost basis, in SOL, of the excluded positions — the magnitude of what `unrealized_sol` does not cover."
+          },
+          "unpriced_cost_basis_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unpriced_cost_basis_sol` in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
+          },
+          "spot_price_max_age_secs": {
+            "type": "integer",
+            "description": "Maximum age of a trade for it to count as a live spot price (seconds)."
+          },
+          "coverage_position_set": {
+            "type": "string",
+            "enum": [
+              "onchain_held",
+              "replay_unreconciled",
+              "onchain_held_basis_drift"
+            ],
+            "description": "WHICH set the coverage counts describe. `onchain_held` = every counted position was confirmed still held on chain. `replay_unreconciled` = on-chain truth was unavailable, so the counts come from the raw replay/ledger set and include bags the wallet may already have exited; treat them as an UPPER bound on the open book. `onchain_held_basis_drift` = held on chain, but at least one position's on-chain balance is above the quantity the trade ledger accounts for, so its cost basis understates it and no floor is published."
+          },
+          "unrealized_floor_sol": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Lower bound on the wallet's true unrealized PnL in SOL: `unrealized_sol` with every unpriced bag valued at zero. Non-null only when `coverage_position_set` is `onchain_held` AND the figure covers every open position. Otherwise it is `null`, because no bound holds: with `replay_unreconciled` the priced side can contain phantom gains; with `onchain_held_basis_drift` the cost basis understates the bag, so the figure would sit above the true minimum; and for a wallet with more than 2,000 positions (open and closed) the summary prices only 200 of them (`unrealized_basis: \"top_200\"`), so the untouched tail could each fall to its full cost basis, even though `coverage_position_set` reads `onchain_held`. The degraded answer for a wallet whose ledger read times out carries no coverage fields at all."
+          },
+          "unrealized_floor_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`unrealized_floor_sol` in USD via Dexploit's SOL/USD rate. `null` when there is no floor or the rate is unavailable."
           }
         }
       },
@@ -5819,7 +5961,7 @@
     "/tokens/{mint}/audit": {
       "get": {
         "summary": "On-chain audit flags",
-        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n\n`top10_pct.status` can be any of six values (see `Top10Pct`). Everything except `ready` means the value is withheld, not zero. `no_pool_data` is specific to this endpoint: it is returned when the mint's pool addresses are unknown, rather than publishing a share that counts the pool's LP wallet.\n- **Malformed** (non-base58) mint → `400`.",
+        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n\n`top10_pct.status` is one of the values listed on `Top10Pct`. Everything except `ready` means the value is withheld, not zero.\n- **Malformed** (non-base58) mint → `400`.",
         "operationId": "getTokenAudit",
         "security": [],
         "tags": [
@@ -6570,7 +6712,7 @@
     "/tokens/{mint}/concentration": {
       "get": {
         "summary": "Holder concentration",
-        "description": "Holder-concentration metrics for a mint, sourced from the latest `holder-snapshot` for the token: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** the endpoint does not 404.\n\n- A malformed `mint` (not 32–44 base58 characters) returns `400`.\n- A valid mint with no snapshot yet returns `200` with `status: \"no_holder_data\"`, and `total_holders`, `top10_pct`, `top100_pct` and `gini` all `null`; `field_status` gives `no_holder_data` for each. \"No data\" is never reported as `0`% or `0` holders.\n- When the holder data cannot be read just now (a transient database error), the response is `200` with `status: \"computing\"`, the same four fields `null`, all three balance-derived fields listed in `unavailable`, and `Cache-Control: no-store`. Ask again.",
+        "description": "Holder-concentration metrics for a mint, sourced from the latest `holder-snapshot` for the token: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** the endpoint does not 404.\n\n- A malformed `mint` (not 32–44 base58 characters) returns `400`.\n- A valid mint with no snapshot yet returns `200` with `status: \"no_holder_data\"`, and `total_holders`, `top10_pct`, `top100_pct` and `gini` all `null`; `field_status` gives `no_holder_data` for each. \"No data\" is never reported as `0`% or `0` holders.\n- A mint with holder rows but no complete holder census returns `200` with `status` `partial_holder_data` or `census_refused`: `top10_pct`, `top100_pct` and `gini` are `null`, `field_status` gives the same status for each, and `snapshot_ts` is `null`. `total_holders` is still served (see its description).\n- When the holder data cannot be read just now (a transient database error), the response is `200` with `status: \"computing\"`, the same four fields `null`, all three balance-derived fields listed in `unavailable`, and `Cache-Control: no-store`. Ask again.",
         "operationId": "getTokenConcentration",
         "tags": [
           "Tokens"
@@ -8983,7 +9125,7 @@
     "/v2/pnl/wallets/{wallet}/positions": {
       "get": {
         "summary": "List a wallet's positions",
-        "description": "Paginated cost-basis positions for a wallet. `min_value_sol` is applied **after** read-time pricing on `current_value_sol`. `total` is the true total under the LIMIT (`count() OVER ()`).",
+        "description": "Paginated cost-basis positions for a wallet. `min_value_sol` is applied **after** read-time pricing on `current_value_sol`.\n\n`total` counts the SAME set `positions[]` is paged out of, so any `offset < total` has rows behind it. For `status=open` that set is *ledger position AND still held on chain as of the newest reconciliation pass* — it is therefore NOT the wallet's on-chain position count. `onchain_held_count` is that count, and `unmatched_onchain_count` is how many held mints have no position row at all and so cannot be returned here at any offset. Both are `null` when `reconciled` is `false`.",
         "operationId": "getPnlV2Positions",
         "tags": [
           "Wallet PnL (v2)"

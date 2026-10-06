@@ -727,6 +727,8 @@ A `partial_data` score is a true lower bound — every signal in `missing_signal
 
 The risk block embedded in `/tokens/{mint}/intel` carries the same `status`, `missing_signals` and `unavailable_signals`.
 
+The seven holder-derived signals (`single_holder_50pct`, `top10_high`, `top10_very_high`, `snipers_pct_high`, `insiders_pct_high`, `dev_held_high`, `dev_held_very_high`) need a **complete holder census** of the mint. Until the mint has one, they sit in `missing_signals[]` rather than being evaluated over a partial holder set. That happens when the mint has never been censused, when the last census missed holders, or when it is too large to scan. A partial set would read a holder it never saw as holding 0%. If the check of the census itself fails, the seven are listed in `unavailable_signals[]` instead: retry.
+
 ## Signals
 
 Twelve signals across six categories. "Graded" signals scale their contribution with the magnitude of the underlying value (e.g. `dev_held_high` contributes more when the creator holds 30% vs 6%).
@@ -1956,7 +1958,7 @@ The replace is **atomic**: if the new set would exceed the [per-connection subje
 | --- | --- |
 | `pair_address` | The on-chain pool/LP account. **Note the naming:** OHLCV frames key the pool as `pair_address`, but [swaps WebSocket](/streaming/websocket) frames key the *same* on-chain pool as `pool_address`. Same account, different field name across the two streams. |
 | `timestamp` | Bar **open** time, ISO 8601. The bar covers `[timestamp, timestamp + timeframe)`. |
-| `is_closed` | `false` for interim mid-bar pushes; `true` once the bar has closed. A closed bar may be sent **again** with `is_closed: true` and corrected values when trades land after it first closed, usually within about 2–3 seconds and occasionally after the next bar's close. The 2–3 s is typical for `1s` and `1m` bars; a trade that is delivered late can correct a longer bar later (seen at 32 s on `5m` and `15m` bars). The stream sends corrections for a bar for at most **10 minutes** after it closes, and none after that. Keep the **last** `is_closed: true` frame per `(pair_address, timeframe, timestamp)`: that is the bar [`/api/v1/candles`](/api-reference) serves. |
+| `is_closed` | `false` for interim mid-bar pushes; `true` once the bar has closed. A closed bar may be sent **again** with `is_closed: true` and corrected values when trades land after it first closed, usually within about 2–3 seconds and occasionally after the next bar's close. The 2–3 s is typical for `1s` and `1m` bars; a trade that is delivered late can correct a longer bar later (seen at 32 s on `5m` and `15m` bars). The stream sends corrections for a bar for at most **10 minutes** after it closes, and none after that. Keep the **last** `is_closed: true` frame per `(pair_address, timeframe, timestamp)`: that is the bar [`/api/v1/candles`](/api-reference) serves, unless the window was repaired later (repairs are not sent on the stream; see below). |
 | `volume_sol` | **Lamports**, despite the name. Divide by `1e9` for SOL. |
 | `volume_token` | Token base units. Divide by `10 ** quote_decimals` for human-readable. |
 | `unique_traders` | Distinct wallets that traded in this bar so far. Grows monotonically across mid-bar frames. |
