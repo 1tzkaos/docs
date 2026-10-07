@@ -651,14 +651,14 @@
               "boolean",
               "null"
             ],
-            "description": "True if the dominant LP token is burnt/locked. `null` when not indexed/computed. This is the boolean roll-up; see `lock` for the structured signal."
+            "description": "True if the dominant LP token is burnt or permanently locked. A time lock does not count: see `lock.kind`. `null` when not indexed/computed. This is the boolean roll-up; see `lock` for the structured signal."
           },
           "lock": {
             "type": [
               "object",
               "null"
             ],
-            "description": "Structured LP-lock signal. `null` when there is no structured signal yet (same meaning as a `null` `lp_burnt`). When present it distinguishes *how* the LP is secured and how confident we are.",
+            "description": "Structured LP-lock signal. `null` when there is no structured signal yet (same meaning as a `null` `lp_burnt`). When present it distinguishes *how* the LP is secured and how confident we are.\n\n**How to read it.** `mechanism` and `secured_pct` describe a *permanent* arrangement only: `burned`, or `locked` forever. `unsecured` means nothing is permanently secured. A time lock is a separate, additive set of keys (`kind`, `unlock_at`, `status`, `time_locked_pct`). They appear only when a time lock is known for the token's pool (today: UNCX concentrated-liquidity locks) and only on a `lock` that already exists, never beside `lock: null`.\n- `mechanism: \"unsecured\"` beside `kind: \"time_lock\"` and `status: \"active\"` is a normal answer: nothing is permanent, and the LP is locked until `unlock_at`. Show it as \"time-locked until `unlock_at`\", never as burnt or locked forever. A time lock never raises `secured_pct`.\n- `status: \"expired\"` means every lock record has passed its date, so the owner can withdraw at any moment: treat the LP as not locked.\n- `time_locked_pct.value` is the share of the locked pool's position *value* held by the active time locks, as of `time_locked_pct.as_of` (up to about a day old). It is a value share, not a liquidity share, it moves with price, and it describes the pool the lock sits in, not the token's liquidity on other pools or venues. A `value` of `1` means the pool's whole measured value is in the locked positions. `status: \"unknown\"` with a `null` `value` means it cannot honestly be one number (for example the token's active locks span more than one pool), so show no number.\n- The time-lock data is re-read once a day, so a lock the owner extends or withdraws shows within about a day. If it has not been refreshed for three days the keys are omitted, and `mechanism` is all that is left (the conservative reading).",
             "properties": {
               "secured_pct": {
                 "type": "object",
@@ -697,7 +697,7 @@
                   "unsecured",
                   null
                 ],
-                "description": "`burned` = LP sent to the incinerator (irreversible). `locked` = LP/position held by a locker program (Streamflow / Jupiter Lock / Raydium Burn&Earn / UNCX). `partial` / `unsecured` are graded readings from the detector. Bonding-curve venues (PumpFun, Meteora DBC) have no fungible LP to burn, so `lock` stays `null` there."
+                "description": "The PERMANENT mechanism. `burned` = LP sent to the incinerator (irreversible). `locked` = LP/position locked permanently, so it can never be withdrawn (Raydium Burn&Earn; a Meteora DAMM v2 permanent lock). A time-limited lock (UNCX, Streamflow, Jupiter Lock) is never `locked`: it ends, so it is described by `kind` / `unlock_at` / `status` / `time_locked_pct`, and a token locked only that way reads `unsecured` here. `partial` / `unsecured` are graded readings from the detector. Bonding-curve venues (PumpFun, Meteora DBC) have no fungible LP to burn, so `lock` stays `null` there."
               },
               "verified": {
                 "type": [
@@ -705,6 +705,59 @@
                   "null"
                 ],
                 "description": "`true` for direct on-chain observations (firehose LP burn/lock events; Raydium AMM/CPMM verified layouts). `false` for asserted layouts (Meteora DAMM v2, Raydium CLMM position scans)."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "time_lock"
+                ],
+                "description": "`time_lock`. Present only when a time lock is known for the token's pool. It is not a permanent mechanism: see `mechanism`."
+              },
+              "unlock_at": {
+                "type": "string",
+                "format": "date-time",
+                "description": "When the time lock ends (UTC, RFC 3339). With several lock records on the token, the earliest unlock among the active ones; when `status` is `expired`, the latest."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "active",
+                  "expired"
+                ],
+                "description": "`active`: the unlock date has not been reached. `expired`: every lock record has passed its date and the owner can withdraw at any moment (the LP is not secured). Not the same field as `secured_pct.status` or `time_locked_pct.status`."
+              },
+              "time_locked_pct": {
+                "type": "object",
+                "description": "Share of the locked pool's position VALUE held by the active time locks, as a fraction of 1, valued at the pool's price at the last daily read (`as_of`). Point in time, and it moves with price. Not a share of liquidity, and not about the token's other pools or venues. `status` is `unknown` with a `null` `value` when it cannot honestly be one number: the pool was not measured at the last read, the locked position was not found on chain, the locked value would exceed the pool's, or the token's active locks span more than one pool. An expired-only lock is `0`.",
+                "required": [
+                  "value",
+                  "status",
+                  "as_of"
+                ],
+                "properties": {
+                  "value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 1,
+                    "description": "Fraction `0..1` when `status` is `ready`; otherwise `null`."
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ready",
+                      "unknown"
+                    ],
+                    "description": "`ready` = `value` is a measured fraction; `unknown` = no single honest number, `value` is `null`."
+                  },
+                  "as_of": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "When the pool was last valued (UTC, RFC 3339): up to about a day old."
+                  }
+                }
               }
             }
           },

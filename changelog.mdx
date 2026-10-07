@@ -3,6 +3,14 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-10-07" description="Additive: time-lock keys on the audit lock object">
+**Additive.** The `lock` object of a token's audit (`GET /tokens/{mint}/audit`, and `audit` on `GET /tokens/{mint}`) can now say that the LP is locked for a limited time and until when. A client that ignores keys it does not know is unaffected.
+
+- **New keys:** `kind` (`"time_lock"`), `unlock_at`, `status` (`"active"` or `"expired"`) and `time_locked_pct` (`{ value, status, as_of }`). They appear only when a time lock is known for the token's pool (today: UNCX concentrated-liquidity locks) and only on a `lock` that already exists. They never raise `secured_pct`.
+- **How to read them:** `mechanism` and `secured_pct` still describe a *permanent* arrangement only. `mechanism: "unsecured"` beside `kind: "time_lock"` and `status: "active"` means nothing is permanent and the LP is locked until `unlock_at`. `status: "expired"` means the owner can withdraw at any moment. `time_locked_pct.value` is a share of that pool's position value at `as_of`, not of liquidity; the `lock` object's description under `GET /tokens/{mint}/audit` has the full reading.
+- **Clarified:** `mechanism: "locked"` and `lp_burnt: true` mean a permanent lock (a burn, Raydium Burn&Earn, a Meteora DAMM v2 permanent lock). A time-limited lock (UNCX, Streamflow, Jupiter Lock) does not count as either. The previous description listed them under `locked`.
+</Update>
+
 <Update label="2026-09-29" description="Breaking: one error body">
 **Breaking.** Endpoints that answered an error with `{ "success": false, "data": null, "error": "<string>" }` now answer with the documented envelope, where `error` is an object:
 
