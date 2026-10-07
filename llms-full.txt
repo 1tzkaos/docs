@@ -231,6 +231,21 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-10-07" description="Breaking: GET /swaps/{signature} returns every swap of the transaction">
+**Breaking.** `GET /swaps/{signature}` now answers with an envelope that holds every swap of the transaction, instead of one swap object.
+
+```json
+{ "signature": "2B9pP1c1…", "total": 2, "swaps": [ { "…": "swap object" }, { "…": "swap object" } ], "price_semantics": "…" }
+```
+
+- **Why:** a signature names a transaction, and a transaction can hold more than one swap (a multi-hop route, or swaps on several venues). In one measured hour (2026-10-07, 17:00 to 18:00 UTC) 6.0% of transactions did, and the largest held 13 swaps. The route used to answer with one of them, chosen arbitrarily, and hid the rest.
+- **Migrate:** read the swap fields you used from each element of `swaps`. Each element is the swap object the route returned before, with the same fields. A transaction with one swap gives a one-element array, so a client that reads `swaps[0]` sees what it saw before for those.
+- **Order:** `swaps` is in a fixed order (ascending `slot`, `block_tx_index` and `ix_index`, then `dex`), so the same request returns the same order. `total` is always `swaps.length`: the swaps of one transaction are not paged.
+- **`price_semantics` moved.** It is now a field of the response body, as on the other `/swaps*` routes. The `x-price-semantics` response header is no longer sent.
+- **Unchanged:** an unknown signature is still a 404, and a lookup that ran out of time is still a 503, never a 404.
+- **Now documented on the swap object:** `ix_index` and `block_tx_index`. The API already returned them on every swap; they are the keys the order is built from.
+</Update>
+
 <Update label="2026-10-07" description="Additive: time-lock keys on the audit lock object">
 **Additive.** The `lock` object of a token's audit (`GET /tokens/{mint}/audit`, and `audit` on `GET /tokens/{mint}`) can now say that the LP is locked for a limited time and until when. A client that ignores keys it does not know is unaffected.
 
