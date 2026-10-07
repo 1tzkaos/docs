@@ -371,7 +371,7 @@
         "payload": {
           "$ref": "#/components/schemas/WsSwapFrame"
         },
-        "description": "Streaming frames carry no `price_semantics` field \u2014 that label is emitted on the REST responses only (as an envelope field, or as the `x-price-semantics` header on `GET /swaps/{signature}`). The derivations it describes apply equally here."
+        "description": "Streaming frames carry no `price_semantics` field \u2014 that label is emitted on the REST responses only, as an envelope field. The derivations it describes apply equally here."
       },
       "PoolEvent": {
         "name": "pool_event",
@@ -388,7 +388,7 @@
         "payload": {
           "$ref": "#/components/schemas/WsRoomMessageFrame"
         },
-        "description": "Streaming frames carry no `price_semantics` field \u2014 that label is emitted on the REST responses only (as an envelope field, or as the `x-price-semantics` header on `GET /swaps/{signature}`). The derivations it describes apply equally here."
+        "description": "Streaming frames carry no `price_semantics` field \u2014 that label is emitted on the REST responses only, as an envelope field. The derivations it describes apply equally here."
       },
       "SwapsJoin": {
         "name": "join",

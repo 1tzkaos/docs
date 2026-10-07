@@ -300,6 +300,15 @@
           },
           "cashback_bps": {
             "type": "integer"
+          },
+          "block_tx_index": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Position of the swap's transaction within its block. Swaps from before 2026-06-10 carry `0`."
+          },
+          "ix_index": {
+            "type": "integer",
+            "description": "The swap's index within its transaction, as numbered by the decoder that read it. Each decoder starts at `0`, so two swaps of one transaction on different venues can both be `0`. Among swaps read by the same decoder it follows the order they ran. Swaps from before 2026-05-30 carry `0`."
           }
         }
       },
@@ -325,6 +334,110 @@
             "type": "string",
             "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change."
           }
+        }
+      },
+      "SignatureSwaps": {
+        "type": "object",
+        "description": "Every swap of one transaction, returned by `GET /swaps/{signature}`.",
+        "required": [
+          "signature",
+          "total",
+          "swaps",
+          "price_semantics"
+        ],
+        "properties": {
+          "signature": {
+            "type": "string",
+            "description": "The transaction signature that was requested."
+          },
+          "total": {
+            "type": "integer",
+            "description": "Number of swaps in `swaps`. The swaps of one transaction are never paged, so this is always `swaps.length`."
+          },
+          "swaps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Swap"
+            },
+            "description": "Every swap the transaction emitted, at least one. A transaction with one swap gives a one-element array. The order is fixed: ascending `slot`, `block_tx_index` and `ix_index`, then `dex` (the venue id), with a fixed final tie-break, so the same request always returns the same order. `ix_index` is numbered per decoder (see its description), so the order is the order the swaps ran in only among swaps read by the same decoder; across venues it is deterministic but not execution order."
+          },
+          "price_semantics": {
+            "type": "string",
+            "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change."
+          }
+        },
+        "example": {
+          "signature": "2B9pP1c1imNEcyCPBBnE9La3UYCkBMxzNehRLXNV4Hj7y2ZqB46JwopqYgsnTkRaajgs4x5aso5CdLGBJsNK4W22",
+          "total": 2,
+          "swaps": [
+            {
+              "timestamp": 1791398356000,
+              "slot": 454305668,
+              "signature": "2B9pP1c1imNEcyCPBBnE9La3UYCkBMxzNehRLXNV4Hj7y2ZqB46JwopqYgsnTkRaajgs4x5aso5CdLGBJsNK4W22",
+              "token_address": "DU6JbpQshZU821X1JKQtcFfj4WRm34WFoixs2p8jnuBL",
+              "pair_address": "A7dPgUPsoEEG56ZopxsfyqvvMJ3tdAXM1ub86wEEFUJm",
+              "user": "FajP2FjmdGDxPwbhVStVVEkMQ2sC2nEayypBztviPfNM",
+              "is_buy": false,
+              "sol_amount": 54609143,
+              "token_amount": 479835144917,
+              "virtual_sol_reserves": 60499422171,
+              "virtual_token_reserves": 532071201487917,
+              "fee": 518787,
+              "price_per_token": 0.00011380813510324691,
+              "dex": 1,
+              "real_sol_reserves": 30499422171,
+              "real_token_reserves": 252171201487917,
+              "creator_fee": 163828,
+              "fee_bps": 95,
+              "creator_fee_bps": 30,
+              "price_impact_bps": -9,
+              "base_decimals": 9,
+              "quote_decimals": 6,
+              "pool_price": 1.137055003199114e-07,
+              "transfer_fee_in": 0,
+              "transfer_fee_out": 0,
+              "cashback": 0,
+              "cashback_bps": 0,
+              "ix_index": 0,
+              "block_tx_index": 157,
+              "time_source": 1,
+              "agent_trade": 1
+            },
+            {
+              "timestamp": 1791398356000,
+              "slot": 454305668,
+              "signature": "2B9pP1c1imNEcyCPBBnE9La3UYCkBMxzNehRLXNV4Hj7y2ZqB46JwopqYgsnTkRaajgs4x5aso5CdLGBJsNK4W22",
+              "token_address": "8sGfh5FLDenW2uSDbStnzAE2RaZYtvh81WdRChJTpump",
+              "pair_address": "4r6FqXB4wbMxtgBMFBKQBuEFEvg9LJrgQLqvsWHGKnAK",
+              "user": "FajP2FjmdGDxPwbhVStVVEkMQ2sC2nEayypBztviPfNM",
+              "is_buy": true,
+              "sol_amount": 53260767,
+              "token_amount": 1880897675995,
+              "virtual_sol_reserves": 30217928086,
+              "virtual_token_reserves": 1065261652305393,
+              "fee": 505978,
+              "price_per_token": 2.831667436232272e-05,
+              "dex": 1,
+              "real_sol_reserves": 217928086,
+              "real_token_reserves": 785361652305393,
+              "creator_fee": 159783,
+              "fee_bps": 95,
+              "creator_fee_bps": 30,
+              "price_impact_bps": -17,
+              "base_decimals": 9,
+              "quote_decimals": 6,
+              "pool_price": 2.8366672188568576e-08,
+              "transfer_fee_in": 0,
+              "transfer_fee_out": 0,
+              "cashback": 0,
+              "cashback_bps": 0,
+              "ix_index": 1,
+              "block_tx_index": 157,
+              "time_source": 1,
+              "agent_trade": 1
+            }
+          ],
+          "price_semantics": "pool_price=RAW vault ratio, uncorrected (not a tradeable price); price_impact_bps=CORRECTED at read time, null where not computed; for an executed price use price_per_token. See https://docs.dexploit.dev/concepts/coverage"
         }
       },
       "Protocol": {
@@ -4870,8 +4983,8 @@
     },
     "/swaps/{signature}": {
       "get": {
-        "summary": "Single swap by transaction signature",
-        "description": "Look up the swap event emitted by a specific Solana transaction. Returns the swap object directly (no envelope).",
+        "summary": "Swaps of one transaction, by signature",
+        "description": "Look up the swaps emitted by a specific Solana transaction.\n\nA signature names a *transaction*, and a transaction can hold more than one swap (a multi-hop route, or swaps on several venues), so the response is an envelope: `swaps` holds every swap of the transaction and `total` counts them. A transaction with one swap gives a one-element `swaps` array. The swaps are never paged, and they come back in a fixed order (see `swaps` in the response).\n\nThis route used to return one swap object with no envelope, which for a transaction with several swaps was one of them, chosen arbitrarily. See the [changelog](/changelog).",
         "operationId": "getSwapBySignature",
         "tags": [
           "Swaps"
@@ -4888,19 +5001,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Swap event",
+            "description": "Every swap of the transaction",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Swap"
-                }
-              }
-            },
-            "headers": {
-              "x-price-semantics": {
-                "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change. This route returns the bare swap object with no envelope, so the label is carried in this response header instead. NOTE: it is not exposed via Access-Control-Expose-Headers, so a browser cannot read it cross-origin; server-side callers see it normally.",
-                "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/SignatureSwaps"
                 }
               }
             }
