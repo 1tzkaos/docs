@@ -308,7 +308,7 @@
           },
           "ix_index": {
             "type": "integer",
-            "description": "Position of this swap among the swaps of its transaction, in the order they ran, starting at `0`. Swaps from before 2026-05-30 carry `0` whatever their position."
+            "description": "The swap's index within its transaction, as numbered by the decoder that read it. Each decoder starts at `0`, so two swaps of one transaction on different venues can both be `0`. Among swaps read by the same decoder it follows the order they ran. Swaps from before 2026-05-30 carry `0`."
           }
         }
       },
@@ -359,7 +359,7 @@
             "items": {
               "$ref": "#/components/schemas/Swap"
             },
-            "description": "Every swap the transaction emitted, at least one. A transaction with one swap gives a one-element array. The order is fixed: ascending `slot`, `block_tx_index` and `ix_index` (the order the swaps ran in the transaction), then `dex`; a remaining tie is broken by a fixed rule, so the same request always returns the same order."
+            "description": "Every swap the transaction emitted, at least one. A transaction with one swap gives a one-element array. The order is fixed: ascending `slot`, `block_tx_index` and `ix_index`, then `dex` (the venue id), with a fixed final tie-break, so the same request always returns the same order. `ix_index` is numbered per decoder (see its description), so the order is the order the swaps ran in only among swaps read by the same decoder; across venues it is deterministic but not execution order."
           },
           "price_semantics": {
             "type": "string",
