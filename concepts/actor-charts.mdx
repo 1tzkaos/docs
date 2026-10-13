@@ -28,7 +28,7 @@ Use these when you only need one dimension or want to fan out to multiple chart 
 - `GET /holders/chart/{token}` — distinct holder count
 - `GET /snipers/chart/{token}` — sniper wallet count
 - `GET /insiders/chart/{token}` — insider wallet count
-- `GET /bundlers/chart/{token}` — bundler wallet count (stub; all values 0 until Phase 5)
+- `GET /bundlers/chart/{token}` — bundler wallet count (currently 0 in every bucket; use `/tokens/{mint}/bundlers` for the count)
 
 Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": <ms> }`.
 
@@ -44,4 +44,4 @@ A mint that doesn't trade for several hours will have gaps in its chart for the 
 
 ## Coverage
 
-Charts start at Phase 3 launch (2026-05-28). There is no pre-launch backfill — upstream holder balances aren't retained historically. Empty results arrive with a `coverage_note` explaining this. See [Data coverage](/concepts/coverage#actor-charts-phase-3) for the full policy.
+Charts start on 2026-05-28; there is no data before that date. Empty results arrive with a `coverage_note` explaining this. See [Data coverage](/concepts/coverage#actor-charts).

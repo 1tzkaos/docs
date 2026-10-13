@@ -274,8 +274,8 @@ def backfill_status(age_hours: int) -> str:
     for whoever runs the backfill.
     """
     if age_hours <= SHYFT_RETENTION_HOURS:
-        return "Backfill pending"
-    return "Past upstream retention"
+        return "May be filled"
+    return "Cannot be filled"
 
 
 def full_coverage_day(daily: list[dict]) -> str:
@@ -298,8 +298,8 @@ def render(census, gaps, ladder, generated_at: str, full_from: str) -> str:
     w(
         f"> **Snapshot as of {generated_at}.** Everything below was measured against the "
         "live index at that time by `scripts/gen-data-gaps.py`, which is run by hand, not "
-        "on a schedule. Changes since then (a window backfilled, a new outage, a window "
-        "ageing past upstream retention) do not show until it is run again."
+        "on a schedule. Changes since then (a window filled, a new outage, a window "
+        "that can no longer be filled) do not show until it is run again."
     )
     w("")
     w("## Where the data starts")
@@ -321,7 +321,7 @@ def render(census, gaps, ladder, generated_at: str, full_from: str) -> str:
         "timeframe. Shorter timeframes start later — see the retention ladder below. |"
     )
     w(
-        "| `creator` / deployer fields | **2026-05-26** | When Phase 0 mint capture went "
+        "| `creator` / deployer fields | **2026-05-26** | When creator capture went "
         "live. Mints that first traded before this date usually have no `creator`. |"
     )
     w("")
@@ -355,23 +355,23 @@ def render(census, gaps, ladder, generated_at: str, full_from: str) -> str:
     w("")
     w(
         f"These windows were measured at **{generated_at}**, and each status is as of "
-        "that time: a window marked **Backfill pending** may since have been filled, or "
-        "have aged past upstream retention."
+        "that time: a window marked **May be filled** may since have been filled, or "
+        "may have become impossible to fill."
     )
     w("")
 
     if not gaps:
         w(
-            "No multi-hour ingestion gap is currently outstanding on any venue. "
+            "No multi-hour data gap is currently outstanding on any venue. "
             "A new gap appears here the next time this section is generated."
         )
         w("")
     else:
         w(
-            "An ingestion outage leaves a venue with **no rows at all** for the affected "
+            "A data outage leaves a venue with **no rows at all** for the affected "
             f"hours — not partial data. Every window of {MIN_GAP_HOURS} hours or more that "
             "was outstanding when this was measured is listed here. A window drops off "
-            "this table at the first regeneration after it is backfilled."
+            "this table at the first regeneration after it is filled."
         )
         w("")
         w("| Window (UTC) | Duration | Affected | Status |")
@@ -384,10 +384,9 @@ def render(census, gaps, ladder, generated_at: str, full_from: str) -> str:
             )
         w("")
         w(
-            "**Backfill pending** means the blocks were still inside our upstream "
-            "provider's retention window when this was measured, so the hole could be "
-            "filled. "
-            "**Past upstream retention** means the source blocks have aged out; those "
+            "**May be filled** means the source blocks were still available when this was "
+            "measured, so the hole could be filled. "
+            "**Cannot be filled** means the source blocks have aged out; those "
             "windows may never be filled, so treat them as permanent holes when you "
             "design around them."
         )

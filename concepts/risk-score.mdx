@@ -103,7 +103,7 @@ Twelve signals across six categories. "Graded" signals scale their contribution 
 
 **Graded contribution** keeps small differences in the underlying data from causing large score jumps. A token at 51% top-10 concentration doesn't suddenly leap past one at 49%.
 
-**Phase 0 strict precedence** for `dev_held_*`: we only fire these when `tokens.creator_source` is populated. We never fall back to "largest holder is probably the creator" — that produced false positives in pre-Phase-0 testing on tokens where the largest holder was a CEX hot wallet or the AMM pool itself.
+**Known creator only** for `dev_held_*`: we only fire these when the token's creator is known. We never fall back to "largest holder is probably the creator" — that guess produces false positives on tokens where the largest holder is a CEX hot wallet or the AMM pool itself.
 
 ## Re-computing the score
 

@@ -126,7 +126,7 @@ Each candle is built from real trade events — `volume_sol`, `volume_token`, `t
     Replace polling with a WebSocket subscription.
   </Card>
   <Card title="GitHub Examples" icon="github" href="https://github.com/DexploitV1/Dexploit-Examples">
-    Working sample apps for chart, dashboard, and backfill workflows.
+    Working sample apps for chart, dashboard, and historical-data workflows.
   </Card>
   <Card title="Authentication" icon="key" href="/authentication">
     API keys, headers, and tier limits.
@@ -530,7 +530,7 @@ Pass one of these strings as the `timeframe` query parameter on candle endpoints
 | `4h` | |
 | `1d` | One day, UTC-aligned. |
 
-Each timeframe is its own [ClickHouse materialized view](https://clickhouse.com/docs/en/sql-reference/statements/create/view#materialized) — there's no on-the-fly resampling, so larger timeframes return as fast as `1m`.
+Every timeframe is stored and served directly, with no resampling at request time, so larger timeframes return as fast as `1m`.
 
 Anything else (`2m`, `30m`, etc.) returns 400.
 
@@ -557,9 +557,9 @@ Every timestamp on the API is ISO-8601 UTC, e.g., `2026-05-09T12:34:00Z`. When y
 
 If `end` is omitted on `/api/v1/candles`, the server snaps to a 30-second-aligned "now" so consecutive live queries hit the cache. To pull a precise instantaneous range, set both `start` and `end` explicitly.
 
-## Resolution support on Phase 2 endpoints
+## Resolution on the price endpoints
 
-`/price/history`, `/price/history/range`, and `/chart/{token}` all accept `?resolution=1m|5m|1h|1d`. `/price/history/timestamp` is always 1m (highest precision). `/tokens/{mint}/ath` reads from `ohlcv_1d` only — daily resolution is the canonical ATH grain.
+`/price/history`, `/price/history/range`, and `/chart/{token}` all accept `?resolution=1m|5m|1h|1d`. `/price/history/timestamp` is always 1m (highest precision). `/tokens/{mint}/ath` uses daily candles only.
 
 
 ---
@@ -857,7 +857,7 @@ Twelve signals across six categories. "Graded" signals scale their contribution 
 
 **Graded contribution** keeps small differences in the underlying data from causing large score jumps. A token at 51% top-10 concentration doesn't suddenly leap past one at 49%.
 
-**Phase 0 strict precedence** for `dev_held_*`: we only fire these when `tokens.creator_source` is populated. We never fall back to "largest holder is probably the creator" — that produced false positives in pre-Phase-0 testing on tokens where the largest holder was a CEX hot wallet or the AMM pool itself.
+**Known creator only** for `dev_held_*`: we only fire these when the token's creator is known. We never fall back to "largest holder is probably the creator" — that guess produces false positives on tokens where the largest holder is a CEX hot wallet or the AMM pool itself.
 
 ## Re-computing the score
 
@@ -889,11 +889,11 @@ outright. Both are measured below rather than asserted: the tables in the next t
 sections are generated from the live index by a script. They are a snapshot, not a live
 view. This snapshot was generated on 2026-09-10 and nothing refreshes it between runs, so
 a window may have been filled, or a new one opened, since then. Endpoints that depend on
-[Phase 0](/concepts/risk-score#phase-0) mint capture also return a `coverage_note` field
-when results are empty.
+creator data (started 2026-05-26) or on actor-chart history (started 2026-05-28) also return a
+`coverage_note` field when results are empty.
 
 
-> **Snapshot as of 2026-09-10 03:22Z.** Everything below was measured against the live index at that time by `scripts/gen-data-gaps.py`, which is run by hand, not on a schedule. Changes since then (a window backfilled, a new outage, a window ageing past upstream retention) do not show until it is run again.
+> **Snapshot as of 2026-09-10 03:22Z.** Everything below was measured against the live index at that time by `scripts/gen-data-gaps.py`, which is run by hand, not on a schedule. Changes since then (a window filled, a new outage, a window that can no longer be filled) do not show until it is run again.
 
 ## Where the data starts
 
@@ -905,7 +905,7 @@ your queries:
 | --- | --- | --- |
 | Raw swaps (`/swaps*`) | **2026-04-08** (first rows); **full coverage from 2026-04-23** | The oldest indexed swap is 2026-04-08, but the index opened with a trickle and reached its normal daily volume on 2026-04-23; each venue's own start is in the table below. This table has no expiry — nothing is aged out of it. |
 | Candles (`/api/v1/candles`) | **2026-06-03** | The oldest bar on any timeframe. Shorter timeframes start later — see the retention ladder below. |
-| `creator` / deployer fields | **2026-05-26** | When Phase 0 mint capture went live. Mints that first traded before this date usually have no `creator`. |
+| `creator` / deployer fields | **2026-05-26** | When creator capture went live. Mints that first traded before this date usually have no `creator`. |
 
 `GET /api/v1/stats` reports the candle figure as `oldest_candle`, computed from the same tables — it is the one to trust programmatically.
 
@@ -928,31 +928,31 @@ Daily bars are kept forever, so `1d` is the timeframe to use for a full-history 
 
 ## Known data gaps
 
-These windows were measured at **2026-09-10 03:22Z**, and each status is as of that time: a window marked **Backfill pending** may since have been filled, or have aged past upstream retention.
+These windows were measured at **2026-09-10 03:22Z**, and each status is as of that time: a window marked **May be filled** may since have been filled, or may have become impossible to fill.
 
-An ingestion outage leaves a venue with **no rows at all** for the affected hours — not partial data. Every window of 2 hours or more that was outstanding when this was measured is listed here. A window drops off this table at the first regeneration after it is backfilled.
+A data outage leaves a venue with **no rows at all** for the affected hours — not partial data. Every window of 2 hours or more that was outstanding when this was measured is listed here. A window drops off this table at the first regeneration after it is filled.
 
 | Window (UTC) | Duration | Affected | Status |
 | --- | --- | --- | --- |
-| 2026-04-09 22:00Z → 2026-04-10 01:00Z | 3 h | `pumpfun` | Past upstream retention |
-| 2026-04-10 14:00Z → 2026-04-10 18:00Z | 4 h | `pumpfun` | Past upstream retention |
-| 2026-04-12 10:00Z → 2026-04-12 13:00Z | 3 h | `pumpfun` | Past upstream retention |
-| 2026-04-12 18:00Z → 2026-04-14 23:00Z | 2 d 5 h | `pumpfun` | Past upstream retention |
-| 2026-04-15 05:00Z → 2026-04-19 05:00Z | 4 d | `pumpfun` | Past upstream retention |
-| 2026-04-23 09:00Z → 2026-04-24 01:00Z | 16 h | `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm` | Past upstream retention |
-| 2026-05-18 10:00Z → 2026-06-09 05:00Z | 21 d 19 h | `raydium_clmm` | Past upstream retention |
-| 2026-06-25 21:00Z → 2026-06-26 04:00Z | 7 h | **every venue** | Past upstream retention |
-| 2026-06-29 05:00Z → 2026-06-30 05:00Z | 1 d | **every venue** | Past upstream retention |
-| 2026-08-30 22:00Z → 2026-08-31 01:00Z | 3 h | `orca` | Past upstream retention |
-| 2026-08-31 13:00Z → 2026-08-31 17:00Z | 4 h | all Raydium venues | Past upstream retention |
-| 2026-09-01 19:00Z → 2026-09-01 23:00Z | 4 h | all Raydium venues | Past upstream retention |
-| 2026-09-02 03:00Z → 2026-09-02 10:00Z | 7 h | all Raydium venues | Past upstream retention |
-| 2026-09-03 20:00Z → 2026-09-04 06:00Z | 10 h | all Raydium venues | Past upstream retention |
-| 2026-09-05 02:00Z → 2026-09-05 23:00Z | 21 h | all Raydium venues | Past upstream retention |
-| 2026-09-06 21:00Z → 2026-09-06 23:00Z | 2 h | all Meteora venues | Backfill pending |
-| 2026-09-09 02:00Z → 2026-09-09 12:00Z | 10 h | all Raydium venues | Backfill pending |
+| 2026-04-09 22:00Z → 2026-04-10 01:00Z | 3 h | `pumpfun` | Cannot be filled |
+| 2026-04-10 14:00Z → 2026-04-10 18:00Z | 4 h | `pumpfun` | Cannot be filled |
+| 2026-04-12 10:00Z → 2026-04-12 13:00Z | 3 h | `pumpfun` | Cannot be filled |
+| 2026-04-12 18:00Z → 2026-04-14 23:00Z | 2 d 5 h | `pumpfun` | Cannot be filled |
+| 2026-04-15 05:00Z → 2026-04-19 05:00Z | 4 d | `pumpfun` | Cannot be filled |
+| 2026-04-23 09:00Z → 2026-04-24 01:00Z | 16 h | `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm` | Cannot be filled |
+| 2026-05-18 10:00Z → 2026-06-09 05:00Z | 21 d 19 h | `raydium_clmm` | Cannot be filled |
+| 2026-06-25 21:00Z → 2026-06-26 04:00Z | 7 h | **every venue** | Cannot be filled |
+| 2026-06-29 05:00Z → 2026-06-30 05:00Z | 1 d | **every venue** | Cannot be filled |
+| 2026-08-30 22:00Z → 2026-08-31 01:00Z | 3 h | `orca` | Cannot be filled |
+| 2026-08-31 13:00Z → 2026-08-31 17:00Z | 4 h | all Raydium venues | Cannot be filled |
+| 2026-09-01 19:00Z → 2026-09-01 23:00Z | 4 h | all Raydium venues | Cannot be filled |
+| 2026-09-02 03:00Z → 2026-09-02 10:00Z | 7 h | all Raydium venues | Cannot be filled |
+| 2026-09-03 20:00Z → 2026-09-04 06:00Z | 10 h | all Raydium venues | Cannot be filled |
+| 2026-09-05 02:00Z → 2026-09-05 23:00Z | 21 h | all Raydium venues | Cannot be filled |
+| 2026-09-06 21:00Z → 2026-09-06 23:00Z | 2 h | all Meteora venues | May be filled |
+| 2026-09-09 02:00Z → 2026-09-09 12:00Z | 10 h | all Raydium venues | May be filled |
 
-**Backfill pending** means the blocks were still inside our upstream provider's retention window when this was measured, so the hole could be filled. **Past upstream retention** means the source blocks have aged out; those windows may never be filled, so treat them as permanent holes when you design around them.
+**May be filled** means the source blocks were still available when this was measured, so the hole could be filled. **Cannot be filled** means the source blocks have aged out; those windows may never be filled, so treat them as permanent holes when you design around them.
 
 ### Per-venue totals
 
@@ -1171,33 +1171,33 @@ events for this venue aren't published yet.
 
 ### `/deployer/{wallet}`
 
-Only ~5% of mints currently in our index have a non-empty `creator` field — older mints predate Phase 0. New mints (post-2026-05-26) all have `creator` captured.
+Only ~5% of mints currently in our index have a non-empty `creator` field — older mints predate 2026-05-26, when creator capture started. New mints (from 2026-05-26) all have `creator` captured.
 
-If you query `/deployer/{wallet}` for a wallet that deployed before Phase 0, you may see empty results. The response will include:
+If you query `/deployer/{wallet}` for a wallet that deployed before 2026-05-26, you may see empty results. The response will include:
 
 ```json
 {
   "results": [],
-  "coverage_note": "creator data is captured from Phase 0 onwards (2026-05-26); older mints may be missing",
+  "coverage_note": "Creator data starts 2026-05-26; older tokens may be missing.",
   "computed_at": 1779912000000
 }
 ```
 
 ### `/tokens/{mint}/ath`
 
-Sources `ohlcv_1d`, which is populated from day 1 of the candle ingestion pipeline. No coverage gap.
+Computed from daily candles, which cover the full candle history. No coverage gap.
 
 ### `/price/history*`
 
-Sources `ohlcv_{1m,5m,1h,1d}`. Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
+Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
 
-## Actor charts (Phase 3)
+## Actor charts
 
-`token_actor_history` snapshots begin at Phase 3 launch (2026-05-28). There is no pre-launch backfill — upstream holder balances aren't retained historically, so accurate reconstruction isn't possible. Charts fill forward as a mint trades.
+Actor-chart history starts on 2026-05-28. There is no data before that date, because historical holder balances aren't available to reconstruct it. Charts fill forward as a mint trades.
 
 A mint that doesn't trade for several hours has gaps (not zeros) in its chart for those hours — holder counts don't change when nothing trades. Frontends should forward-fill the last known value.
 
-`bundler_count` / `bundler_pct` are 0 until the Phase 5 bundler tagger ships.
+The bundler series (`/bundlers/chart/{token}`) currently returns 0 in every bucket. For a bundler count use `/tokens/{mint}/bundlers`.
 
 
 ---
@@ -1230,7 +1230,7 @@ Use these when you only need one dimension or want to fan out to multiple chart 
 - `GET /holders/chart/{token}` — distinct holder count
 - `GET /snipers/chart/{token}` — sniper wallet count
 - `GET /insiders/chart/{token}` — insider wallet count
-- `GET /bundlers/chart/{token}` — bundler wallet count (stub; all values 0 until Phase 5)
+- `GET /bundlers/chart/{token}` — bundler wallet count (currently 0 in every bucket; use `/tokens/{mint}/bundlers` for the count)
 
 Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": <ms> }`.
 
@@ -1246,7 +1246,7 @@ A mint that doesn't trade for several hours will have gaps in its chart for the 
 
 ## Coverage
 
-Charts start at Phase 3 launch (2026-05-28). There is no pre-launch backfill — upstream holder balances aren't retained historically. Empty results arrive with a `coverage_note` explaining this. See [Data coverage](/concepts/coverage#actor-charts-phase-3) for the full policy.
+Charts start on 2026-05-28; there is no data before that date. Empty results arrive with a `coverage_note` explaining this. See [Data coverage](/concepts/coverage#actor-charts).
 
 
 ---
@@ -1262,15 +1262,15 @@ The wallet group exposes two holdings endpoints with different accuracy/speed tr
 
 ### `/wallets/{w}/holdings` — authoritative, slower
 
-This endpoint queries Shyft's `all_tokens` REST API to fetch the wallet's current on-chain token balances. Because it reads directly from chain state it captures every token the wallet holds — including airdrops, transfers, and tokens bought through platforms that Dexploit doesn't index. For each token it overlays:
+This endpoint reads the wallet's current on-chain token balances from an external data provider. Because it reads chain state it captures every token the wallet holds — including airdrops, transfers, and tokens bought through platforms that Dexploit doesn't index. For each token it overlays:
 
 - **Current value** — latest-candle price from Dexploit's OHLCV index, converted to USD via Dexploit's SOL/USD rate, derived from on-chain SOL/stablecoin swaps.
 - **FIFO cost-basis** — if Dexploit has swap records for this wallet and mint, it reconstructs the average cost per token using the FIFO engine. Tokens with no swap history (airdrops, off-platform transfers) get `cost_basis_sol: null` and `no_cost_basis: true`.
 - **Unrealized PnL** — `current_value_sol − cost_basis_sol`, present only when both values are known.
 
-When Shyft is temporarily unavailable the endpoint degrades gracefully: it falls back to the FIFO-derived token list and returns `holdings_source: "fifo_fallback"` so callers can surface the appropriate caveat. It never returns 5xx on a Shyft blip.
+When the on-chain balance lookup is temporarily unavailable the endpoint falls back to the FIFO-derived token list and returns `holdings_source: "fifo_fallback"` so callers can surface the appropriate caveat. It does not return a 5xx for that.
 
-Response is cached 30 seconds per wallet (aligned to Shyft's roughly 10-request-per-second limit for `all_tokens`).
+Response is cached 30 seconds per wallet.
 
 ### `/wallets/{w}/holdings/basic` — fast, our data only
 
@@ -1278,44 +1278,36 @@ This endpoint runs the FIFO engine over the wallet's swap history in Dexploit's 
 
 Use `/holdings/basic` when you need a quick snapshot and completeness is less important than latency (~30 ms cold, uncached).
 
-## Cron-free chart freshness
+## Chart freshness
 
-`/wallets/{w}/chart` returns a daily portfolio-value series without relying on any background scheduler.
+`/wallets/{w}/chart` returns a daily portfolio-value series, computed when you ask for it.
 
 When you request the chart:
 
-1. **Stored closed days are read first.** Days that have already been computed are immutable — the wallet's swap history for a past day can't change, so the value computed then is correct forever. These rows live in ClickHouse and are returned as-is.
-2. **Gaps are filled lazily.** If days are missing between the last stored point and yesterday (because the wallet hasn't been queried recently), those days are computed now. Each gap day replays the wallet's swaps up to end-of-day through the FIFO engine and prices the resulting holdings against that day's `ohlcv_1d` close. The results are written to the store before the response is returned, so the next request skips the gap.
-3. **Today is always computed live.** The current day is never persisted — it's too early to close. It appears in the response as `today` with `provisional: true`. Today's value uses current prices from the OHLCV index, not a fixed close.
+1. **Closed days are returned as stored.** A past day's value does not change once it has been computed, because the wallet's swap history for that day can't change.
+2. **Missing days are computed on request.** If days are missing between the last stored point and yesterday (because the wallet hasn't been queried recently), they are computed now: the wallet's swaps up to the end of each day are replayed through the FIFO engine and the resulting holdings are priced at that day's close. They are stored, so the next request is faster.
+3. **Today is always computed live.** The current day is not stored — it hasn't closed. It appears in the response as `today` with `provisional: true`, valued at current prices rather than a daily close.
 
-This means the chart is always maximally fresh: closed days never go stale (they're immutable), and today is recomputed on every request.
+Closed days never go stale, and today is recomputed on every request.
 
-**USD basis note.** `value_usd` in the series uses the **current** SOL/USD rate for all points, including historical ones. Dexploit does not store a daily SOL/USD history. If you need historically accurate USD values, apply your own SOL/USD rate to `value_sol`, which is computed from actual historical prices.
+**USD basis note.** `value_usd` in the series uses the **current** SOL/USD rate for all points, including historical ones. Dexploit does not keep a daily SOL/USD history. If you need historically accurate USD values, apply your own SOL/USD rate to `value_sol`, which is computed from actual historical prices.
 
 ## PnL basic — FIFO realized PnL
 
 `/wallets/{w}/pnl/basic` runs a FIFO lot-matching engine over the wallet's swap history: buy lots are pushed in time order; each sell matches against the earliest open lots and realizes `proceeds − cost_matched`. The result includes realized PnL, unrealized PnL on remaining lots, win rate, and volume.
 
-The response always includes a `warning` field:
+The response always includes a `warning` field stating that this is basic FIFO realized PnL.
 
-```
-basic FIFO realized PnL; full cost-basis (cross-wallet, tax-lot, transfer-aware) ships in Phase 8
-```
+FIFO is a good approximation for single-wallet trading activity, but it misses cross-wallet position transfers and is not suitable for tax calculations. For position-level cost basis use `GET /v2/pnl/wallets/{wallet}`.
 
-This is intentional — FIFO is a good approximation for single-wallet trading activity, but it misses cross-wallet position transfers and is not suitable for tax calculations. Full PnL with transfer-aware cost basis and tax-lot support ships in Phase 8.
+## Reserved parameters on trade history
 
-## Phase-5 feature flags (current no-ops)
+`/wallets/{w}/trades` accepts `hide_arb` and `parse_jupiter` query parameters. They are reserved: they are accepted without error but currently have no effect. The response includes a `coverage_note` saying so.
 
-`/wallets/{w}/trades` accepts `hide_arb` and `parse_jupiter` query parameters. In Phase 4 these parameters are accepted without error but have no effect. The response always includes:
+- **`hide_arb`** — reserved.
+- **`parse_jupiter`** — reserved.
 
-```json
-"coverage_note": "hide_arb and parse_jupiter take effect in Phase 5 (arb tagger + Jupiter attribution); currently no-ops."
-```
-
-- **`hide_arb`** — will filter out arbitrage round-trips (same mint bought and sold in close time proximity for near-zero net). The arb tagger ships in Phase 5.
-- **`parse_jupiter`** — will expand Jupiter aggregator transactions into their constituent hops and attribute the trade to the source/destination token rather than the intermediate token. Jupiter attribution ships in Phase 5.
-
-Wire these parameters into your UI now if you want them to take effect automatically when Phase 5 ships.
+`from_token` and `to_token` both filter on the swap's token mint.
 
 
 ---
@@ -1434,7 +1426,7 @@ A few things worth flagging:
 - **There is no `price` field.** The price the trade filled at is the trade's own two legs: `price = (sol_amount / token_amount) * 10 ** (quote_decimals - base_decimals)`, in SOL per whole token. That is the same number REST returns as `price_per_token`, and it is correct on every venue. `pool_price` is the pool's **reported reserve ratio** — not a mid, and not a quote you can trade against; read *Which price field should I use?* below before using it.
 - **Amounts are integers in base units.** `sol_amount` is in **lamports** (1 SOL = 1e9). `token_amount` is in token base units; divide by `10 ** quote_decimals` to get the human-readable amount.
 - **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account). The swaps stream keys it as `pool_address`; REST and the [OHLCV WebSocket](/streaming/ohlcv) key the *same* account as `pair_address`.
-- **`maker_tags`** carries the wallet-intel classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
+- **`maker_tags`** carries the wallet classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
 - **No `price_semantics` field.** REST responses carry a `price_semantics` label describing how the price fields are derived; streaming frames do not. The derivations are the same — `pool_price` is a raw vault ratio and not a tradeable price, `price_impact_bps` is corrected, `price_per_token` is the executed price — see [Coverage](/concepts/coverage).
 - **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings. `price_impact_bps` is `null` wherever no impact was computed, the same swaps REST and GraphQL return `null` for; see below.
 
@@ -1719,7 +1711,7 @@ Unless noted, every room delivers the **room-mode wrapper** — `{ "type": "mess
   holds no complete graduation history to derive it from honestly.
 </Note>
 
-The `rugs` room fans out the **full `RugRecord`** for every `rug_detected` — the same object the [`rug_detected` field table](#rug-detected-rugrecord-the-classified-signal) describes, including **`reason`** (and the `dex` venue id). This is a superset of what the REST `GET /rugs` feed (under **Rugs** in the [API reference](/api-reference)) returns — REST **omits `reason`** (it lives only on the NATS wire), so use the room when you need it live:
+The `rugs` room fans out the **full `RugRecord`** for every `rug_detected` — the same object the [`rug_detected` field table](#rug-detected-rugrecord-the-classified-signal) describes, including **`reason`** (and the `dex` venue id). This is a superset of what the REST `GET /rugs` feed (under **Rugs** in the [API reference](/api-reference)) returns — REST **omits `reason`** (it is only in the live stream), so use the room when you need it live:
 
 ```json
 {
@@ -1797,7 +1789,7 @@ safe.
 
 ### Historical / replay companions
 
-For backfill and gap-filling, the same events are queryable over REST and MCP:
+To fill gaps in history, the same events are queryable over REST and MCP:
 
 - REST: [`GET /pool-events?token=<mint>&limit=N&before=<ts_ms>`](/api-reference) — paginated LP/burn history (cursor is epoch **ms**).
 - REST: `GET /rugs` (under **Rugs** in the [API reference](/api-reference)) — recent `rug_detected` events across all venues (7-day window, paged; requires an API key). `drained_pct` is a **0..1** fraction and `lp_sol_pulled` is **already in SOL** — but `reason` is **WS-only** (use the [`rugs` room](#the-global-rugs-room) for it).
@@ -1805,7 +1797,7 @@ For backfill and gap-filling, the same events are queryable over REST and MCP:
 - MCP: the `list_pool_events` tool wraps the same pool-events endpoint.
 
 <Note>
-**Edge:** `/ws/swaps` is already routed at the OVH edge — both `lp_withdraw` and `rug_detected` ride this same socket. No new endpoint or connection is needed.
+**One connection:** both `lp_withdraw` and `rug_detected` arrive on the same `/ws/swaps` socket. No new endpoint or connection is needed.
 </Note>
 
 ## Complete TypeScript client
@@ -2102,7 +2094,7 @@ connect();
 
 If you're rendering a live chart, key your local bar store by `(pair_address, timeframe, timestamp)` and *overwrite* the entry on every frame for that key — the latest frame is always the freshest snapshot of that bar. `is_closed: true` means the bar has closed, but a corrected close for the same key can follow — usually within a few seconds, and for up to 10 minutes — so keep overwriting on later closed frames too. If you trigger logic on close, allow for that correction.
 
-Repairs made after that are **not** sent on the stream. When missed trades are backfilled (for example after an ingestion outage), the corrected bars are written to storage and served by [`/api/v1/candles`](/api-reference), but no frame is sent for them. If you need exact history, re-read the affected window from REST: after a reconnect (see [Reconnect & backpressure](/streaming/reconnect-backpressure)), or when a window you hold is known to have been repaired.
+Repairs made after that are **not** sent on the stream. When missed trades are added afterwards (for example after a data outage), the corrected bars are written to storage and served by [`/api/v1/candles`](/api-reference), but no frame is sent for them. If you need exact history, re-read the affected window from REST: after a reconnect (see [Reconnect & backpressure](/streaming/reconnect-backpressure)), or when a window you hold is known to have been repaired.
 
 ### Changing the watched set at runtime
 

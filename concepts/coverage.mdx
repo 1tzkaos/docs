@@ -11,8 +11,8 @@ outright. Both are measured below rather than asserted: the tables in the next t
 sections are generated from the live index by a script. They are a snapshot, not a live
 view. This snapshot was generated on 2026-09-10 and nothing refreshes it between runs, so
 a window may have been filled, or a new one opened, since then. Endpoints that depend on
-[Phase 0](/concepts/risk-score#phase-0) mint capture also return a `coverage_note` field
-when results are empty.
+creator data (started 2026-05-26) or on actor-chart history (started 2026-05-28) also return a
+`coverage_note` field when results are empty.
 
 <DataGaps />
 
@@ -118,30 +118,30 @@ events for this venue aren't published yet.
 
 ### `/deployer/{wallet}`
 
-Only ~5% of mints currently in our index have a non-empty `creator` field — older mints predate Phase 0. New mints (post-2026-05-26) all have `creator` captured.
+Only ~5% of mints currently in our index have a non-empty `creator` field — older mints predate 2026-05-26, when creator capture started. New mints (from 2026-05-26) all have `creator` captured.
 
-If you query `/deployer/{wallet}` for a wallet that deployed before Phase 0, you may see empty results. The response will include:
+If you query `/deployer/{wallet}` for a wallet that deployed before 2026-05-26, you may see empty results. The response will include:
 
 ```json
 {
   "results": [],
-  "coverage_note": "creator data is captured from Phase 0 onwards (2026-05-26); older mints may be missing",
+  "coverage_note": "Creator data starts 2026-05-26; older tokens may be missing.",
   "computed_at": 1779912000000
 }
 ```
 
 ### `/tokens/{mint}/ath`
 
-Sources `ohlcv_1d`, which is populated from day 1 of the candle ingestion pipeline. No coverage gap.
+Computed from daily candles, which cover the full candle history. No coverage gap.
 
 ### `/price/history*`
 
-Sources `ohlcv_{1m,5m,1h,1d}`. Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
+Same coverage as `/api/v1/candles` — see the [OHLCV docs](/concepts/swap-event-ohlcv).
 
-## Actor charts (Phase 3)
+## Actor charts
 
-`token_actor_history` snapshots begin at Phase 3 launch (2026-05-28). There is no pre-launch backfill — upstream holder balances aren't retained historically, so accurate reconstruction isn't possible. Charts fill forward as a mint trades.
+Actor-chart history starts on 2026-05-28. There is no data before that date, because historical holder balances aren't available to reconstruct it. Charts fill forward as a mint trades.
 
 A mint that doesn't trade for several hours has gaps (not zeros) in its chart for those hours — holder counts don't change when nothing trades. Frontends should forward-fill the last known value.
 
-`bundler_count` / `bundler_pct` are 0 until the Phase 5 bundler tagger ships.
+The bundler series (`/bundlers/chart/{token}`) currently returns 0 in every bucket. For a bundler count use `/tokens/{mint}/bundlers`.

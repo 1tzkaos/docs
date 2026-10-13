@@ -18,7 +18,7 @@ Pass one of these strings as the `timeframe` query parameter on candle endpoints
 | `4h` | |
 | `1d` | One day, UTC-aligned. |
 
-Each timeframe is its own [ClickHouse materialized view](https://clickhouse.com/docs/en/sql-reference/statements/create/view#materialized) — there's no on-the-fly resampling, so larger timeframes return as fast as `1m`.
+Every timeframe is stored and served directly, with no resampling at request time, so larger timeframes return as fast as `1m`.
 
 Anything else (`2m`, `30m`, etc.) returns 400.
 
@@ -45,6 +45,6 @@ Every timestamp on the API is ISO-8601 UTC, e.g., `2026-05-09T12:34:00Z`. When y
 
 If `end` is omitted on `/api/v1/candles`, the server snaps to a 30-second-aligned "now" so consecutive live queries hit the cache. To pull a precise instantaneous range, set both `start` and `end` explicitly.
 
-## Resolution support on Phase 2 endpoints
+## Resolution on the price endpoints
 
-`/price/history`, `/price/history/range`, and `/chart/{token}` all accept `?resolution=1m|5m|1h|1d`. `/price/history/timestamp` is always 1m (highest precision). `/tokens/{mint}/ath` reads from `ohlcv_1d` only — daily resolution is the canonical ATH grain.
+`/price/history`, `/price/history/range`, and `/chart/{token}` all accept `?resolution=1m|5m|1h|1d`. `/price/history/timestamp` is always 1m (highest precision). `/tokens/{mint}/ath` uses daily candles only.
