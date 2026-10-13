@@ -1428,7 +1428,7 @@ A few things worth flagging:
 - **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account). The swaps stream keys it as `pool_address`; REST and the [OHLCV WebSocket](/streaming/ohlcv) key the *same* account as `pair_address`.
 - **`maker_tags`** carries the wallet classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
 - **No `price_semantics` field.** REST responses carry a `price_semantics` label describing how the price fields are derived; streaming frames do not. The derivations are the same — `pool_price` is a raw vault ratio and not a tradeable price, `price_impact_bps` is corrected, `price_per_token` is the executed price — see [Coverage](/concepts/coverage).
-- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee`, `creator_fee`, `price_impact_bps`, `cashback` come back null on protocols that don't report them — fall back to the `_bps` siblings. `price_impact_bps` is `null` wherever no impact was computed, the same swaps REST and GraphQL return `null` for; see below.
+- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee` and `creator_fee` come back `null` when the amount is not known — fall back to the `_bps` siblings. `price_impact_bps` and `cashback` come back null on protocols that don't report them. `price_impact_bps` is `null` wherever no impact was computed, the same swaps REST and GraphQL return `null` for; see below.
 
 ## Which price field should I use?
 

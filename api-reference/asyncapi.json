@@ -733,14 +733,15 @@
               "null"
             ],
             "format": "int64",
-            "description": "Aggregate lamports paid in fees; null when the protocol breaks it down per fee_bps field instead."
+            "description": "Aggregate lamports paid in fees; `null` when the amount is not known."
           },
           "creator_fee": {
             "type": [
               "integer",
               "null"
             ],
-            "format": "int64"
+            "format": "int64",
+            "description": "The token creator's fee in lamports; `null` when the amount is not known."
           },
           "creator_fee_bps": {
             "type": "integer"
