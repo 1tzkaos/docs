@@ -3039,7 +3039,7 @@
         "properties": {
           "raw": {
             "type": "number",
-            "description": "Net cash-flow in SOL: Σ(SOL received from sells) − Σ(SOL spent on buys). **Not realized PnL** — it ignores cost basis and counts every buy (including zero-token buys), so it diverges from `strict`/`adjusted` whenever a position still holds open lots (Wave 6.5 / QW-9)."
+            "description": "Net cash-flow in SOL: Σ(SOL received from sells) − Σ(SOL spent on buys). **Not realized PnL** — it ignores cost basis and counts every buy (including zero-token buys), so it diverges from `strict`/`adjusted` whenever a position still holds open lots."
           },
           "strict": {
             "type": "number",
