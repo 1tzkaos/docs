@@ -1690,7 +1690,7 @@
             ],
             "enum": [
               "pumpfun_event",
-              "shyft_graphql",
+              "index",
               "lp_create_signer",
               "metaplex_update_authority",
               "first_swap_trader",
