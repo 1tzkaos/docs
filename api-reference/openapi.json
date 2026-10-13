@@ -2571,7 +2571,7 @@
               "live",
               "fifo_fallback"
             ],
-            "description": "`live` = on-chain balances (read within the last 30 seconds; authoritative). `fifo_fallback` = on-chain balances were unavailable; the list is derived from Dexploit's swap index only. After a failed read the fallback can persist for up to 2 minutes."
+            "description": "`live` = on-chain balances (read within the last 30 seconds; authoritative). `fifo_fallback` = on-chain balances were unavailable; the list is derived from Dexploit's swap index only."
           },
           "holdings": {
             "type": "array",
