@@ -2568,10 +2568,10 @@
           "holdings_source": {
             "type": "string",
             "enum": [
-              "shyft",
+              "live",
               "fifo_fallback"
             ],
-            "description": "`shyft` = authoritative on-chain balances. `fifo_fallback` = on-chain balances were temporarily unavailable; list is derived from Dexploit's swap index only."
+            "description": "`live` = on-chain balances read at request time (authoritative). `fifo_fallback` = on-chain balances were temporarily unavailable; the list is derived from Dexploit's swap index only."
           },
           "holdings": {
             "type": "array",
@@ -2919,7 +2919,7 @@
           },
           "reconciliation_source": {
             "type": "string",
-            "description": "The on-chain data provider that supplied the reconciliation (`shyft`), or `unavailable` when the response is not reconciled."
+            "description": "Where the reconciliation against on-chain holdings came from: `live` (on-chain holdings read at request time), or `unavailable` when the response is not reconciled."
           }
         }
       },
