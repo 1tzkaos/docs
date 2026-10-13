@@ -7,7 +7,7 @@
 ## Getting started
 - [Quickstart](https://docs.dexploit.dev/quickstart): get an API key, first request
 - [Authentication](https://docs.dexploit.dev/authentication): pass `?api_key=` or `Authorization: Bearer`
-- [Quotas & errors](https://docs.dexploit.dev/concepts/quotas-errors): per-tier RPS, no monthly cap
+- [Quotas & errors](https://docs.dexploit.dev/concepts/quotas-errors): per-tier RPS; Free is 10 requests/s, 10,000 requests/month, 14 days of history
 
 ## Concepts
 - [Pairs vs tokens](https://docs.dexploit.dev/concepts/pairs-vs-tokens)
