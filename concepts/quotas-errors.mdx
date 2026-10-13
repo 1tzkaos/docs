@@ -1,6 +1,6 @@
 ---
 title: "Quotas & errors"
-description: "Per-tier RPS caps, response envelope shape, and error codes. Phase 1.2a: no monthly cap — usage is gated entirely by requests-per-second."
+description: "Per-tier limits (requests per second, the Free monthly cap and history window), response envelope shape, and error codes."
 ---
 
 ## Response envelope
@@ -55,16 +55,16 @@ All paths share the same host, `https://api.dexploit.dev`, and the same `Authori
 
 ## Rate limits
 
-Dexploit's pricing model is **capped requests-per-second, unlimited monthly usage.** Pick a tier that matches your sustained throughput; there is no monthly volume to budget against.
+Paid tiers are **capped requests-per-second with unlimited monthly usage.** The **Free** tier is capped at 10 requests per second, **10,000 requests per calendar month**, and **14 days of history**. Pick a tier that matches your sustained throughput.
 
-| Tier | Requests per second |
-| --- | --- |
-| Free | 20 |
-| Developer | 100 |
-| Pro | 500 |
-| Enterprise | unlimited |
+| Tier | Requests per second | Requests per month | History |
+| --- | --- | --- | --- |
+| Free | 10 | 10,000 | last 14 days |
+| Developer | 100 | unlimited | full |
+| Pro | 500 | unlimited | full |
+| Enterprise | unlimited | unlimited | full |
 
-The cap is strict per second. Requests are counted in fixed one-second windows (`rps_window_secs: 1` in [`/credits`](#inspecting-your-usage)), and the first request over the cap within a second gets a 429. There is no burst allowance above it: a Free-tier client gets 20 requests in any one second, not more by staying quiet the rest of the minute.
+The cap is strict per second. Requests are counted in fixed one-second windows (`rps_window_secs: 1` in [`/credits`](#inspecting-your-usage)), and the first request over the cap within a second gets a 429. There is no burst allowance above it: a Free-tier client gets 10 requests in any one second, not more by staying quiet the rest of the minute.
 
 ## Inspecting your usage
 
@@ -73,12 +73,12 @@ Call `GET /credits` at any time to see your current tier, RPS cap, requests used
 ```json
 {
   "tier": "free",
-  "rps_cap": 20,
+  "rps_cap": 10,
   "rps_window_secs": 1,
   "current_window_used": 7,
-  "current_window_remaining": 13,
+  "current_window_remaining": 3,
   "monthly_used": 4321,
-  "monthly_used_note": "informational; no monthly cap on Dexploit",
+  "monthly_used_note": "Free is capped at 10,000 requests per calendar month; paid tiers have no monthly cap",
   "tier_features": {
     "smart_money_access": false,
     "whales_access": false
@@ -86,11 +86,17 @@ Call `GET /credits` at any time to see your current tier, RPS cap, requests used
 }
 ```
 
-`monthly_used` is informational. There is no monthly cap on Dexploit — the field shows your cumulative request count for the current calendar month so you can size up your typical load.
+`monthly_used` is your cumulative request count for the current calendar month. On the Free tier it counts toward the 10,000-request monthly cap; on paid tiers there is no monthly cap and the field is informational, so you can size up your typical load.
 
 ## Rate limiting
 
 When you exceed your tier's RPS cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Back off and retry. Windows are one second long, so a short backoff is enough; [`GET /credits`](#inspecting-your-usage) shows the current window's usage.
+
+## Free-tier monthly cap and history window
+
+A Free key that has used its 10,000 requests for the calendar month gets HTTP 429 with `code: "MONTHLY_QUOTA_EXCEEDED"` and the time the cap resets. Retrying sooner will not help; wait for the reset or upgrade.
+
+A Free key that asks for data older than 14 days gets HTTP 403 with `code: "HISTORY_WINDOW_EXCEEDED"`; the error carries `oldest_allowed` (the earliest time the key may request) and `window_days`. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
 
 ## Tier-locked features
 
@@ -135,6 +141,8 @@ The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently 
 | `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
 | `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
 | `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in the current one-second window. | Back off briefly and retry; windows are one second long. |
+| `MONTHLY_QUOTA_EXCEEDED` | 429 | Free tier: the 10,000-requests-per-month cap is used up. | Wait for the reset time in the response, or upgrade. |
+| `HISTORY_WINDOW_EXCEEDED` | 403 | Free tier: the request names a time older than 14 days. | Use a time on or after `oldest_allowed`, or upgrade. |
 | `RATE_LIMITED` | 429 | The edge's own limits: more than 500 requests per second on one key, or too many attempts on an authentication endpoint. | Back off and retry. On a 429, branch on the status, since both codes mean "slow down". |
 | `INVALID_PARAM` | 400 | One of your query params is wrong. | See `error.message`. The most common cause is sending `mint` to `/candles` — use `pair_address`. |
 | `MISSING_PARAM` | 400 | A required param is absent. | Add it. |

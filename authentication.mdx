@@ -1,6 +1,6 @@
 ---
 title: "Authentication"
-description: "API keys, request headers, and per-tier RPS caps. Phase 1.2a: no monthly cap."
+description: "API keys, request headers, and per-tier limits. Free: 10 requests/s, 10,000 requests/month, 14 days of history."
 ---
 
 Every request needs an API key. Generate one from your [dashboard](https://www.dexploit.dev/dashboard).
@@ -30,18 +30,18 @@ Keys look like `ohlcv_<env>_sk_<48_random_chars>` where `<env>` is `live`, `dev`
 
 Keys are hashed (SHA-256) at rest. You see the full key once at generation. Lost a key? **Rotate** to issue a new one — there's no way to retrieve the original. Rotation issues a fresh key and grants the old one a 7-day grace period before it stops working.
 
-## Tiers and RPS caps
+## Tiers and limits
 
-Pricing is capped requests-per-second with unlimited monthly volume — pick a tier that matches your sustained throughput.
+Paid tiers are capped by requests-per-second only, with unlimited monthly volume. The Free tier also has a monthly request cap and a 14-day history window. Pick a tier that matches your sustained throughput.
 
-| Tier | Price | Requests per second |
-| --- | --- | --- |
-| Free | $0 | 20 |
-| Developer | $50/mo | 100 |
-| Pro | $199/mo | 500 |
-| Enterprise | Custom | unlimited |
+| Tier | Price | Requests per second | Requests per month | History |
+| --- | --- | --- | --- | --- |
+| Free | $0 | 10 | 10,000 | last 14 days |
+| Developer | $50/mo | 100 | unlimited | full |
+| Pro | $199/mo | 500 | unlimited | full |
+| Enterprise | Custom | unlimited | unlimited | full |
 
-The cap is strict per second: requests are counted in fixed one-second windows, with no burst allowance above the cap. See [Quotas & errors](/concepts/quotas-errors#rate-limits).
+The cap is strict per second: requests are counted in fixed one-second windows, with no burst allowance above the cap. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
 
 Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
 
@@ -56,12 +56,12 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
 ```json
 {
   "tier": "free",
-  "rps_cap": 20,
+  "rps_cap": 10,
   "rps_window_secs": 1,
   "current_window_used": 7,
-  "current_window_remaining": 13,
+  "current_window_remaining": 3,
   "monthly_used": 4321,
-  "monthly_used_note": "informational; no monthly cap on Dexploit",
+  "monthly_used_note": "Free is capped at 10,000 requests per calendar month; paid tiers have no monthly cap",
   "tier_features": {
     "smart_money_access": false,
     "whales_access": false
