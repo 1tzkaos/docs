@@ -635,7 +635,7 @@
               },
               "dev_sell_penalty": {
                 "type": "number",
-                "description": "Reserved — currently always `0.0`. The creator-sell penalty is deferred to a later phase (like `holder_growth` and `top10_penalty`, which are `null` today)."
+                "description": "Reserved — currently always `0.0`. `holder_growth` and `top10_penalty` are likewise reserved and `null` today."
               },
               "holder_growth": {
                 "type": [
@@ -4167,7 +4167,7 @@
                 "type": null
               }
             },
-            "description": "Deferred — currently produces a warning rather than filtering."
+            "description": "Reserved — currently produces a warning rather than filtering."
           }
         }
       },
@@ -5895,7 +5895,7 @@
     "/screener": {
       "post": {
         "summary": "Filter tokens (screener)",
-        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
+        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries reserved-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being reserved).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
         "operationId": "runScreener",
         "tags": [
           "Screener"
@@ -10110,7 +10110,7 @@
     "/v2/pnl/wallets/{wallet}/highlights": {
       "get": {
         "summary": "Standout positions",
-        "description": "Standout positions for a wallet from one `wallet_positions` aggregate: biggest winner/loser, fastest flip, longest hold, most traded, biggest single buy/sell. Each highlight is `null` when no qualifying row matched. Cached 5s hot / 30s cold.",
+        "description": "Standout positions for a wallet from the wallet's positions: biggest winner/loser, fastest flip, longest hold, most traded, biggest single buy/sell. Each highlight is `null` when no qualifying row matched. Cached 5s hot / 30s cold.",
         "operationId": "getPnlV2Highlights",
         "tags": [
           "Wallet PnL (v2)"
@@ -11205,7 +11205,7 @@
     "/v2/pnl/leaderboard/top": {
       "get": {
         "summary": "Top wallets by realized PnL",
-        "description": "Wallets ranked by realized PnL over a trailing window (wallets with `last_trade_ts` in the window). Served from an event-driven per-wallet rollup (`wallet_pnl_rollup`), cache-warmed for sub-second response (300s cache).",
+        "description": "Wallets ranked by realized PnL over a trailing window (wallets with `last_trade_ts` in the window). Served from a precomputed per-wallet summary for fast responses (300s cache).",
         "operationId": "getLeaderboardTop",
         "tags": [
           "Leaderboards & KOLs"
@@ -12359,7 +12359,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Min risk score (deferred → warning)."
+            "description": "Min risk score (reserved: produces a warning)."
           },
           {
             "name": "maxRiskScore",
@@ -12368,7 +12368,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Max risk score (deferred → warning)."
+            "description": "Max risk score (reserved: produces a warning)."
           },
           {
             "name": "minVolume",
