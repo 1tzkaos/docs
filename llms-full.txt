@@ -2164,7 +2164,7 @@ For the **raw swap feed** with rich server-side filtering (tokens / traders / po
 
 - Host: `grpc.dexploit.dev:443` (TLS)
 - Service: `dexploit.v1.PriceStream`
-- Proto: [`price_stream.proto`](https://github.com/DexploitV1/Dexploit-Swaps/blob/main/crates/swaps-streamer/proto/price_stream.proto)
+- Proto: [`price_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/ohlcv/typescript/grpc/proto/price_stream.proto)
 
 TLS is required. Authenticate via gRPC metadata — `x-api-key` or `authorization: Bearer`:
 
@@ -2299,7 +2299,7 @@ The `dexploit.v1.SwapStream` gRPC service delivers Solana DEX swaps in real time
 - Host: `grpc.dexploit.dev:443` (TLS)
 - Service: `dexploit.v1.SwapStream`
 - Auth: `x-api-key` metadata header (or `authorization: Bearer …`)
-- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Swaps/blob/main/crates/swaps-streamer/proto/swap_stream.proto)
+- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/grpc/typescript/swap-stream/proto/swap_stream.proto)
 
 ## RPCs
 
