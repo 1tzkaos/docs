@@ -345,6 +345,21 @@
       "source": "/api-reference/tokens/bundler-wallets-for-a-mint-stub",
       "destination": "/api-reference/tokens/bundler-wallets-for-a-mint",
       "permanent": true
+    },
+    {
+      "source": "/api-reference/screener/filter-tokens-phase-7-v2-screener",
+      "destination": "/api-reference/screener/filter-tokens-screener",
+      "permanent": true
+    },
+    {
+      "source": "/api-reference/time-series-charts/bundler-count-time-series-for-a-token-stub",
+      "destination": "/api-reference/time-series-charts/bundler-count-time-series-for-a-token",
+      "permanent": true
+    },
+    {
+      "source": "/api-reference/wallet-portfolio/fast-fifo-derived-holdings-no-shyft",
+      "destination": "/api-reference/wallet-portfolio/fast-fifo-derived-holdings",
+      "permanent": true
     }
   ]
 }

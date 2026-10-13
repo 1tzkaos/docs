@@ -28,7 +28,7 @@
         "type": "apiKey",
         "in": "header",
         "name": "X-API-Key",
-        "description": "Preferred for swaps-api endpoints (`/swaps/*`, `/stats/*`, `/trending`, `/pool-events`)."
+        "description": "Preferred for the swap endpoints (`/swaps/*`, `/stats/*`, `/trending`, `/pool-events`)."
       },
       "BearerAuth": {
         "type": "http",
@@ -627,7 +627,7 @@
               },
               "vol_acceleration": {
                 "type": "number",
-                "description": "`vol_now_sol / max(vol_prior_sol, 0.01)` — a raw, unbounded volume ratio (not log-scaled or clamped), matching the ClickHouse `tokens_trending_score` materialized view. The dominant momentum term; values can be large when volume spikes from a near-zero prior window."
+                "description": "`vol_now_sol / max(vol_prior_sol, 0.01)` — a raw, unbounded volume ratio (not log-scaled or clamped). The dominant momentum term; values can be large when volume spikes from a near-zero prior window."
               },
               "buyer_acceleration": {
                 "type": "number",
@@ -635,7 +635,7 @@
               },
               "dev_sell_penalty": {
                 "type": "number",
-                "description": "Reserved — currently always `0.0`. The creator-sell penalty is deferred to a later phase (like `holder_growth` and `top10_penalty`, which are `null` today)."
+                "description": "Reserved — currently always `0.0`. `holder_growth` and `top10_penalty` are likewise reserved and `null` today."
               },
               "holder_growth": {
                 "type": [
@@ -746,7 +746,7 @@
       },
       "TokenAudit": {
         "type": "object",
-        "description": "On-chain authority and LP-burn checks for a token, served by a dedicated service (CT106) at the **root** path `/tokens/{mint}/audit` (not under `/api/v1`).\n\nA valid base58 mint that has not been indexed yet still returns **HTTP 200** with `indexed: false` and every flag/value `null` (the unindexed sentinel) — it does not 404. A malformed (non-base58) mint returns **HTTP 400**.",
+        "description": "On-chain authority and LP-burn checks for a token, served at the **root** path `/tokens/{mint}/audit` (not under `/api/v1`).\n\nA valid base58 mint that has not been indexed yet still returns **HTTP 200** with `indexed: false` and every flag/value `null` (the unindexed sentinel) — it does not 404. A malformed (non-base58) mint returns **HTTP 400**.",
         "required": [
           "mint",
           "indexed"
@@ -775,7 +775,7 @@
             "properties": {
               "secured_pct": {
                 "type": "object",
-                "description": "Share of LP secured, as `{ value, status }` (changed 2026-09-23 from a bare number, #709). `status: \"ready\"` carries the polling detector's measured fraction in `value` (`0..1`). `status: \"unknown\"` means no trustworthy share exists, and `value` is `null`: either only the real-time event path observed the lock (a binary on-chain burn/lock event, with no share measured), or the stored fraction contradicted `mechanism` (e.g. `burned` beside `0`) and is withheld rather than published. Never fabricated. Read `status` before treating `value`.",
+                "description": "Share of LP secured, as `{ value, status }` (changed 2026-09-23 from a bare number). `status: \"ready\"` carries the measured fraction in `value` (`0..1`). `status: \"unknown\"` means no trustworthy share is available, and `value` is `null`: either the lock was observed only as a burn/lock event with no share measured, or the recorded fraction contradicted `mechanism` (e.g. `burned` beside `0`) and is withheld rather than published. Never fabricated. Read `status` before treating `value`.",
                 "required": [
                   "value",
                   "status"
@@ -1070,7 +1070,7 @@
               "number",
               "null"
             ],
-            "description": "Pump.fun bonding-curve progress, or `null`. Three outcomes, not two:\n\n- **`0`–`100`** — the mint is still on the pump.fun bonding curve. Progress is `real_sol_reserves / 85 SOL × 100`, taken from the mint's most recent trade, when that trade is on pump.fun, and clamped to `0`–`100`.\n- **`100.0`** — the mint has **graduated** off the curve; its most recent trade was on PumpSwap, Raydium or another venue. Graduated mints deliberately read `100.0`, not `null` (Dexploit-Swaps#951).\n- **`null`** — the mint's address does not end in `pump`, **or** its most recent trade in the **last 24 hours**, on any venue, reported zero SOL reserves, or it has not traded in the last 24 hours. A graduated mint that has gone quiet for a day therefore reads `null` rather than `100.0`, so `null` does not by itself mean \"not a pump.fun token\"."
+            "description": "Pump.fun bonding-curve progress, or `null`. Three outcomes, not two:\n\n- **`0`–`100`** — the mint is still on the pump.fun bonding curve. Progress is `real_sol_reserves / 85 SOL × 100`, taken from the mint's most recent trade, when that trade is on pump.fun, and clamped to `0`–`100`.\n- **`100.0`** — the mint has **graduated** off the curve; its most recent trade was on PumpSwap, Raydium or another venue. Graduated mints deliberately read `100.0`, not `null`.\n- **`null`** — the mint's address does not end in `pump`, **or** its most recent trade in the **last 24 hours**, on any venue, reported zero SOL reserves, or it has not traded in the last 24 hours. A graduated mint that has gone quiet for a day therefore reads `null` rather than `100.0`, so `null` does not by itself mean \"not a pump.fun token\"."
           },
           "top10_pct": {
             "allOf": [
@@ -1078,7 +1078,7 @@
                 "$ref": "#/components/schemas/Top10Pct"
               }
             ],
-            "description": "Never `null`. On `/intel`, `status` is `computing` only when the read FAILED, and `\"top10_pct\"` is then in `unavailable`. Data that isn't available yet is `no_holder_data`. The `computing` status described on `Top10Pct` (transient, such as a backfill running) applies to `/tokens/{mint}/audit` and `/tokens/{mint}/concentration`, not to `/intel`."
+            "description": "Never `null`. On `/intel`, `status` is `computing` only when the read FAILED, and `\"top10_pct\"` is then in `unavailable`. Data that isn't available yet is `no_holder_data`. The `computing` status described on `Top10Pct` (transient, for example while data is being prepared) applies to `/tokens/{mint}/audit` and `/tokens/{mint}/concentration`, not to `/intel`."
           },
           "actors": {
             "anyOf": [
@@ -1096,7 +1096,7 @@
               "object",
               "null"
             ],
-            "description": "Creator wallet, source provenance, and recent launches. `null` when the creator is unknown (Phase 0 strict precedence — never falls back to largest holder). Also `null` when any of its reads failed; then `\"dev\"` is in `unavailable` (it used to be served as a first-time creator: `other_tokens: []`, `total_launches: 0`)."
+            "description": "Creator wallet, source provenance, and recent launches. `null` when the creator is unknown (it never falls back to the largest holder). Also `null` when any of its reads failed; then `\"dev\"` is in `unavailable`."
           },
           "change_pct": {
             "type": [
@@ -1185,7 +1185,7 @@
           },
           "status": {
             "type": "string",
-            "description": "Snake-case status of the top-10 computation. This is the `top10_pct.status` that `/tokens/{mint}/audit` and `/tokens/{mint}/intel` carry; `/tokens/{mint}/concentration` has its own `status` (see `ConcentrationResponse`), and `holder_data_status` on `/intel` is a separate field. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `partial_holder_data`: the mint has holder rows but no complete holder census: it has never had one, or the last one missed holders. A top-10 over those rows is not a share of supply, so it is withheld.\n- `census_refused`: the source refused the census (the largest tokens are too large to scan), so the top-10 is withheld until a census can be taken. Not transient.\n- `computing`: transient (for example, a backfill is running). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
+            "description": "Snake-case status of the top-10 computation. This is the `top10_pct.status` that `/tokens/{mint}/audit` and `/tokens/{mint}/intel` carry; `/tokens/{mint}/concentration` has its own `status` (see `ConcentrationResponse`), and `holder_data_status` on `/intel` is a separate field. `value`/`computed_at` are non-null only when `ready`. Every other status means the value is **withheld**, not zero.\n\n- `ready`: `value` is the pool-excluded top-10 holders' share of supply, a percentage from 0 to 100.\n- `no_holder_data`: no holder snapshot covers this mint yet, or it has no holders.\n- `partial_holder_data`: the mint has holder rows but no complete holder census: it has never had one, or the last one missed holders. A top-10 over those rows is not a share of supply, so it is withheld.\n- `census_refused`: the holder census was refused (the largest tokens are too large to scan), so the top-10 is withheld until a census can be taken. Not transient.\n- `computing`: transient (for example, data is being prepared). Retry shortly.\n- `no_supply`: the token's supply is unknown or 0, so there is no denominator.\n- `stale_holder_data`: the pool-excluded top-10 sum exceeds supply, which means the holder snapshot over-counts. Withheld rather than clamped to 100%.",
             "enum": [
               "ready",
               "no_holder_data",
@@ -1412,7 +1412,7 @@
             "items": {
               "$ref": "#/components/schemas/ActorRow"
             },
-            "description": "The holders, or `null` when `tag_status` is `computing`, `untagged` or `unavailable`. `null` means the tagger has not covered this mint (yet), not that nobody was found; `[]` with `tag_status` `ok` means none were found."
+            "description": "The holders, or `null` when `tag_status` is `computing`, `untagged` or `unavailable`. `null` means this mint has not been tagged yet, not that nobody was found; `[]` with `tag_status` `ok` means none were found."
           },
           "next_cursor": {
             "type": [
@@ -1494,7 +1494,7 @@
           "untagged",
           "unavailable"
         ],
-        "description": "Whether the tagger has completed a pass over this mint, so you can tell \"the tagger ran and found no one\" from \"the tagger has not covered this mint (yet)\". Each list is judged on its own tagger: `/snipers`, `/insiders` and `/bundlers` can report different values for the same mint.\n\n- `ok`: the list is the answer. A pass completed, or the mint was first seen before pass completion was recorded and is served as it was before. An empty list means no wallet was tagged.\n- `computing`: a new mint that has not had time to be tagged (roughly its first 2 minutes). The list, `count` and `next_cursor` are `null`.\n- `untagged`: no completed pass yet, and the mint is past that first window. The list, `count` and `next_cursor` are `null`. It can still change to `ok`: a pass usually runs about 60 seconds after the mint's first swap and can be delayed by up to 600 seconds. **It can also stay `untagged` indefinitely.** A mint that never trades gets no `sniper` or `bundler` pass, and an `insider` pass needs the mint's holder records, which most new mints never get. Retry with backoff for a few minutes, then treat it as \"not covered\", not as \"none\".\n- `unavailable`: the answer could not be established, because a read failed or the mint is not in the token registry. The list, `count` and `next_cursor` are `null`. A failed read is transient, so retry. A mint the registry has not seen stays `unavailable` until it is seen.\n\nWhen the value is not `ok`, the list and `count` are `null`, never `[]` or `0`: an empty list or a zero count is an answer only when `tag_status` is `ok`. A response with no `tag_status` does not report tagger coverage; its list is an answer, as these lists always were."
+        "description": "Whether tagging has completed for this mint, so you can tell \"tagging ran and found no one\" from \"this mint has not been tagged yet\". Each list is judged on its own tagging: `/snipers`, `/insiders` and `/bundlers` can report different values for the same mint.\n\n- `ok`: the list is the answer. A pass completed, or the mint was first seen before pass completion was recorded and is served as it was before. An empty list means no wallet was tagged.\n- `computing`: a new mint that has not had time to be tagged (roughly its first 2 minutes). The list, `count` and `next_cursor` are `null`.\n- `untagged`: no completed pass yet, and the mint is past that first window. The list, `count` and `next_cursor` are `null`. It can still change to `ok`: a pass usually runs about 60 seconds after the mint's first swap and can be delayed by up to 600 seconds. **It can also stay `untagged` indefinitely.** A mint that never trades gets no `sniper` or `bundler` pass, and an `insider` pass needs the mint's holder records, which most new mints never get. Retry with backoff for a few minutes, then treat it as \"not covered\", not as \"none\".\n- `unavailable`: the answer could not be established, because a read failed or the mint is not in the token registry. The list, `count` and `next_cursor` are `null`. A failed read is transient, so retry. A mint the registry has not seen stays `unavailable` until it is seen.\n\nWhen the value is not `ok`, the list and `count` are `null`, never `[]` or `0`: an empty list or a zero count is an answer only when `tag_status` is `ok`. A response with no `tag_status` does not report tagging coverage; its list is an answer, as these lists always were."
       },
       "RiskResponse": {
         "type": "object",
@@ -1681,7 +1681,7 @@
               "string",
               "null"
             ],
-            "description": "Phase 0 strict precedence — null when unknown."
+            "description": "`null` when the creator is unknown; it never falls back to the largest holder."
           },
           "creator_source": {
             "type": [
@@ -2027,7 +2027,7 @@
       },
       "AthResponse": {
         "type": "object",
-        "description": "Per-mint all-time high. All ATH fields are nullable — they're null when the mint has no daily candles in `ohlcv_1d` yet.",
+        "description": "Per-mint all-time high. All ATH fields are nullable — they're null when the mint has no daily candles yet.",
         "properties": {
           "mint": {
             "type": "string"
@@ -2084,7 +2084,7 @@
               "string",
               "null"
             ],
-            "description": "Set when results is empty. Explains that creator capture began 2026-05-26 (Phase 0)."
+            "description": "Set when `results` is empty. Creator data starts 2026-05-26; older tokens may be missing."
           },
           "computed_at": {
             "type": "integer",
@@ -2213,7 +2213,7 @@
       },
       "ConcentrationResponse": {
         "type": "object",
-        "description": "Holder-concentration metrics for a mint from its latest `holder-snapshot`. Every numeric field is nullable, and they are withheld INDEPENDENTLY — a field is `null` when the cohort it describes cannot be computed coherently, because the service withholds a number rather than publish one it knows is wrong. `holder_balances` rows are never evicted, so a mint can have a trustworthy top 10 and a long tail of stale rows that together exceed supply: USDC on 2026-08-14 had a pool-excluded held sum of 107.6% of stored supply while its top 10 was 20.5%. `status` reports the verdict for the TOP-10 cohort only — the headline metric `/audit`, `/intel` and `/risk` also publish — so `top100_pct` or `gini` can be `null` while `status` is `ready`.",
+        "description": "Holder-concentration metrics for a mint from its latest holder snapshot. Every numeric field is nullable, and they are withheld INDEPENDENTLY — a field is `null` when the cohort it describes cannot be computed coherently, because a number is withheld rather than published when it is known to be wrong. A mint can have a trustworthy top 10 and a long tail of stale holder rows that together exceed supply: USDC on 2026-08-14 had a pool-excluded held sum of 107.6% of stored supply while its top 10 was 20.5%. `status` reports the verdict for the TOP-10 cohort only — the headline metric `/audit`, `/intel` and `/risk` also publish — so `top100_pct` or `gini` can be `null` while `status` is `ready`.",
         "properties": {
           "mint": {
             "type": "string"
@@ -2313,11 +2313,11 @@
           "partial_holder_data",
           "census_refused"
         ],
-        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply (never-evicted holder rows), so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again. `partial_holder_data`: the mint has holder rows but no complete holder census, so the field is withheld. `census_refused`: the source refused the census (the largest tokens), so the field is withheld until one can be taken."
+        "description": "`ready`: published. `stale_holder_data`: the rows this field reads sum above stored supply, so no honest number exists. `no_supply`: supply unknown. `no_holder_data`: this mint has no holder snapshot yet. `insufficient_holders`: fewer than two holders, so a Gini coefficient is undefined (gini only). `computing`: a read failed; the field is listed in `unavailable` and the response is not cacheable; ask again. `partial_holder_data`: the mint has holder rows but no complete holder census, so the field is withheld. `census_refused`: the source refused the census (the largest tokens), so the field is withheld until one can be taken."
       },
       "SnapshotNowResponse": {
         "type": "object",
-        "description": "Acknowledgement returned by `POST /tokens/{mint}/snapshot-now`. The refresh runs out of band; this response only confirms it was queued.",
+        "description": "Acknowledgement returned by `POST /tokens/{mint}/snapshot-now`. The refresh runs in the background; this response only confirms it was queued.",
         "properties": {
           "mint": {
             "type": "string"
@@ -2400,14 +2400,17 @@
             "description": "Bucket timestamp, Unix epoch milliseconds."
           },
           "value": {
-            "type": "number",
-            "description": "Point-in-time count for the requested series."
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Point-in-time count for the requested series. On the snipers, insiders and bundlers charts, `null` means the mint had not been tagged yet when that bucket was computed (see `tag_status`); it is not a count of 0."
           }
         }
       },
       "ActorChartSingleResponse": {
         "type": "object",
-        "description": "Response for a single-series actor chart endpoint (`/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`). Rows exist only for hours the mint traded — gaps are expected, not bugs. Forward-fill the last value for quiet hours. An empty `results` array carries a `coverage_note` explaining the no-backfill policy.",
+        "description": "Response for a single-series actor chart endpoint (`/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`). Rows exist only for hours the mint traded — gaps are expected, not bugs. Forward-fill the last value for quiet hours. On the snipers, insiders and bundlers charts a value is `null` where the mint had not been tagged yet, and `tag_status` says why (see `TagStatus`). A `coverage_note` is included when `results` is empty (history starts 2026-05-28 and there is no earlier data) or when any value is `null`.",
         "required": [
           "results",
           "computed_at"
@@ -2419,6 +2422,9 @@
               "$ref": "#/components/schemas/ActorChartSinglePoint"
             }
           },
+          "tag_status": {
+            "$ref": "#/components/schemas/TagStatus"
+          },
           "computed_at": {
             "type": "integer",
             "format": "int64",
@@ -2426,7 +2432,7 @@
           },
           "coverage_note": {
             "type": "string",
-            "description": "Present on empty results (no-backfill policy) or for the bundlers endpoint (Phase 5 placeholder)."
+            "description": "Present when `results` is empty (chart history starts 2026-05-28, and there is no earlier data) or when any value is `null`."
           }
         }
       },
@@ -2460,7 +2466,7 @@
           "dev_held_pct": {
             "type": "number",
             "format": "float",
-            "description": "Developer's share of supply, as a **percent** (0-100), capped at 100. Present when `dev` is in the requested series. **Changed in Dexploit-Swaps#987**: this was a 0.0-1.0 fraction, which made it disagree with `top10_pct` on the same point and with `/screener` and `/search` (Dexploit-Swaps#944). Every `dev_held_pct` the API serves is now 0-100."
+            "description": "Developer's share of supply, as a **percent** (0-100), capped at 100. Present when `dev` is in the requested series. Earlier versions returned a 0.0-1.0 fraction; it is now a percent (0-100), consistent with `top10_pct` on the same point and with `/screener` and `/search`."
           }
         }
       },
@@ -2485,7 +2491,7 @@
           },
           "coverage_note": {
             "type": "string",
-            "description": "Present on empty results — no pre-launch backfill; charts grow forward from Phase 3 launch (2026-05-28)."
+            "description": "Present on empty results: chart history starts 2026-05-28, and there is no earlier data."
           }
         }
       },
@@ -2548,7 +2554,7 @@
       },
       "HoldingsResponse": {
         "type": "object",
-        "description": "Response from `/wallets/{w}/holdings`. `holdings_source` indicates whether the token list came from Shyft (authoritative) or fell back to FIFO-derived data.",
+        "description": "Response from `/wallets/{w}/holdings`. `holdings_source` indicates whether the token list came from on-chain balances (authoritative) or fell back to FIFO-derived data.",
         "required": [
           "wallet",
           "holdings_source",
@@ -2565,7 +2571,7 @@
               "shyft",
               "fifo_fallback"
             ],
-            "description": "`shyft` = authoritative on-chain balances. `fifo_fallback` = Shyft was temporarily unavailable; list is derived from Dexploit's swap index only."
+            "description": "`shyft` = authoritative on-chain balances. `fifo_fallback` = on-chain balances were temporarily unavailable; list is derived from Dexploit's swap index only."
           },
           "holdings": {
             "type": "array",
@@ -2582,7 +2588,7 @@
       },
       "HoldingsBasicResponse": {
         "type": "object",
-        "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index — no Shyft call, no USD values (SOL only). Fast (~30 ms). Only covers tokens traded through indexed DEXes. Unlike `/holdings`, entries omit `no_cost_basis` and any USD fields.",
+        "description": "Response from `/wallets/{w}/holdings/basic`. FIFO-derived holdings from Dexploit's own swap index — no external call, no USD values (SOL only). Fast (~30 ms). Only covers tokens traded through indexed DEXes. Unlike `/holdings`, entries omit `no_cost_basis` and any USD fields.",
         "required": [
           "wallet",
           "holdings"
@@ -2714,7 +2720,7 @@
           },
           "coverage_note": {
             "type": "string",
-            "description": "Always present in Phase 4. Explains that `hide_arb` and `parse_jupiter` are no-ops until Phase 5."
+            "description": "Always present. States that `hide_arb` and `parse_jupiter` are reserved and currently have no effect."
           }
         }
       },
@@ -2735,7 +2741,7 @@
           },
           "value_sol": {
             "type": "number",
-            "description": "Portfolio value in SOL on this day, computed from historical `ohlcv_1d` closes."
+            "description": "Portfolio value in SOL on this day, computed from historical daily closes."
           },
           "value_usd": {
             "type": "number",
@@ -2789,7 +2795,7 @@
       },
       "PnlBasicResponse": {
         "type": "object",
-        "description": "FIFO realized + unrealized PnL for a wallet. Includes a `warning` pointing to Phase 8 for full multi-lot PnL.",
+        "description": "FIFO realized + unrealized PnL for a wallet. Includes a `warning` field stating this is basic FIFO PnL; for position-level cost basis use `GET /v2/pnl/wallets/{wallet}`.",
         "required": [
           "wallet",
           "window",
@@ -2851,7 +2857,7 @@
           },
           "warning": {
             "type": "string",
-            "description": "Always present. Explains that this is basic FIFO PnL and that full cost-basis ships in Phase 8."
+            "description": "Always present. States that this is basic FIFO realized PnL and is not suitable for tax calculations or cross-wallet analysis."
           },
           "unrealized_price_basis": {
             "type": "string",
@@ -2913,13 +2919,13 @@
           },
           "reconciliation_source": {
             "type": "string",
-            "description": "What supplied on-chain truth (`shyft`), or `unavailable` when the response is not reconciled."
+            "description": "The on-chain data provider that supplied the reconciliation (`shyft`), or `unavailable` when the response is not reconciled."
           }
         }
       },
       "SolBalanceResponse": {
         "type": "object",
-        "description": "Native SOL balance for a wallet. `sol_balance` is `null` when Shyft's `getBalance` call fails; the response is still 200.",
+        "description": "Native SOL balance for a wallet. `sol_balance` is `null` when the balance lookup is unavailable; the response is still 200.",
         "required": [
           "wallet",
           "computed_at"
@@ -2933,7 +2939,7 @@
               "number",
               "null"
             ],
-            "description": "Native SOL balance (not lamports). `null` on Shyft error."
+            "description": "Native SOL balance (not lamports). `null` when the balance lookup is unavailable."
           },
           "sol_balance_usd": {
             "type": [
@@ -3039,7 +3045,7 @@
         "properties": {
           "raw": {
             "type": "number",
-            "description": "Net cash-flow in SOL: Σ(SOL received from sells) − Σ(SOL spent on buys). **Not realized PnL** — it ignores cost basis and counts every buy (including zero-token buys), so it diverges from `strict`/`adjusted` whenever a position still holds open lots (Wave 6.5 / QW-9)."
+            "description": "Net cash-flow in SOL: Σ(SOL received from sells) − Σ(SOL spent on buys). **Not realized PnL** — it ignores cost basis and counts every buy (including zero-token buys), so it diverges from `strict`/`adjusted` whenever a position still holds open lots."
           },
           "strict": {
             "type": "number",
@@ -3130,7 +3136,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Inline per-(wallet, mint) wallet-intel tags."
+            "description": "Inline per-(wallet, mint) wallet tags."
           },
           "realized_usd": {
             "type": [
@@ -3270,7 +3276,7 @@
       },
       "PnlV2Summary": {
         "type": "object",
-        "description": "Cost-basis PnL summary for a wallet (Phase 8 engine). All `*_sol` fields are SOL. `unrealized_sol` is read-time spot Σ(price−avg_cost)*balance; null-priced mints contribute 0. Wallets with no positions return zeros and an empty `positions` array.",
+        "description": "Cost-basis PnL summary for a wallet. All `*_sol` fields are SOL. `unrealized_sol` is read-time spot Σ(price−avg_cost)*balance; null-priced mints contribute 0. Wallets with no positions return zeros and an empty `positions` array.",
         "properties": {
           "wallet": {
             "type": "string"
@@ -3653,7 +3659,7 @@
       },
       "ScreenerResultV2": {
         "type": "object",
-        "description": "Full Phase-7 V2 screener result row (`compact=false`).",
+        "description": "Full screener result row (`compact=false`).",
         "properties": {
           "mint": {
             "type": "string"
@@ -3732,7 +3738,7 @@
           },
           "dev_held_pct": {
             "type": "number",
-            "description": "Creator-held share of supply, as a **percent** (0-100). Was a 0-1 fraction before Dexploit-Swaps#944. Unlike the three fields above this one is capped: it is clamped against supply before scaling, so it cannot exceed 100."
+            "description": "Creator-held share of supply, as a **percent** (0-100). Earlier versions returned a 0-1 fraction; it is now a percent (0-100). Unlike the three fields above this one is capped: it is clamped against supply before scaling, so it cannot exceed 100."
           },
           "insider_count": {
             "type": "integer",
@@ -3740,7 +3746,7 @@
           },
           "insider_pct": {
             "type": "number",
-            "description": "Insider share of holders, as a **percent**. `insider_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944. Can exceed 100 for the same reason as `bundler_pct`."
+            "description": "Insider share of holders, as a **percent**. `insider_count / holder_count * 100`. Earlier versions returned a 0-1 fraction; it is now a percent (0-100). Can exceed 100 for the same reason as `bundler_pct`."
           },
           "sniper_count": {
             "type": "integer",
@@ -3748,7 +3754,7 @@
           },
           "sniper_pct": {
             "type": "number",
-            "description": "Sniper share of holders, as a **percent**. `sniper_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944. Can exceed 100 for the same reason as `bundler_pct`."
+            "description": "Sniper share of holders, as a **percent**. `sniper_count / holder_count * 100`. Earlier versions returned a 0-1 fraction; it is now a percent (0-100). Can exceed 100 for the same reason as `bundler_pct`."
           },
           "bundler_count": {
             "type": "integer",
@@ -3756,7 +3762,7 @@
           },
           "bundler_pct": {
             "type": "number",
-            "description": "Bundler share of holders, as a **percent**. `bundler_count / holder_count * 100`. Was a 0-1 fraction before Dexploit-Swaps#944. **Can exceed 100**: `bundler_count` is counted independently of `holder_count`, and where the holder snapshot undercounts (Dexploit-Swaps#980) the ratio goes above 1 — values up to ~3,500 are present in stored history."
+            "description": "Bundler share of holders, as a **percent**. `bundler_count / holder_count * 100`. Earlier versions returned a 0-1 fraction; it is now a percent (0-100). **Can exceed 100**: counts are measured independently of the holder count."
           },
           "graduated_ts": {
             "type": "integer",
@@ -3782,7 +3788,7 @@
       },
       "ScreenerResultV2Compact": {
         "type": "object",
-        "description": "Compact Phase-7 V2 screener result row (`compact=true`).",
+        "description": "Compact screener result row (`compact=true`).",
         "properties": {
           "mint": {
             "type": "string"
@@ -3819,7 +3825,7 @@
       },
       "ScreenerFiltersV2": {
         "type": "object",
-        "description": "Phase-7 V2 screener filters (~40 fields, all optional, combined as AND). Replaces the legacy 6-field `ScreenerFilters`. Range filters take `{min, max}`. Volume/change windows default to `1h`.",
+        "description": "Screener filters (~40 fields, all optional, combined as AND). Range filters take `{min, max}`. Volume/change windows default to `1h`.",
         "properties": {
           "liquidity_sol": {
             "type": "object",
@@ -4161,7 +4167,7 @@
                 "type": null
               }
             },
-            "description": "Deferred — currently produces a warning rather than filtering."
+            "description": "Reserved — currently produces a warning rather than filtering."
           }
         }
       },
@@ -4200,7 +4206,7 @@
               "integer",
               "null"
             ],
-            "description": "True total of distinct wallets tagged `bundler` for this mint — not the page size, so it can exceed `bundlers.length`. `null` when `tag_status` is not `ok`: the tagger has not covered the mint (yet), which is not the same as a count of `0`."
+            "description": "True total of distinct wallets tagged `bundler` for this mint — not the page size, so it can exceed `bundlers.length`. `null` when `tag_status` is not `ok`: the mint has not been tagged yet, which is not the same as a count of `0`."
           },
           "bundlers": {
             "type": [
@@ -5414,7 +5420,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Comma-separated list (max 3) of additional windows to populate `change_pct_by_window` on each result (e.g. `5m,24h`). Each extra window is one parallel ClickHouse query, so don't ask for more than you'll use."
+            "description": "Comma-separated list (max 3) of additional windows to populate `change_pct_by_window` on each result (e.g. `5m,24h`). Each extra window is one parallel query, so don't ask for more than you'll use."
           }
         ],
         "responses": {
@@ -5888,8 +5894,8 @@
     },
     "/screener": {
       "post": {
-        "summary": "Filter tokens (Phase-7 V2 screener)",
-        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries deferred-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being deferred).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
+        "summary": "Filter tokens (screener)",
+        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries reserved-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being reserved).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
         "operationId": "runScreener",
         "tags": [
           "Screener"
@@ -6119,7 +6125,7 @@
     "/tokens/{mint}/audit": {
       "get": {
         "summary": "On-chain audit flags",
-        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served by a separate service (CT106) at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n\n`top10_pct.status` is one of the values listed on `Top10Pct`. Everything except `ready` means the value is withheld, not zero.\n- **Malformed** (non-base58) mint → `400`.",
+        "description": "On-chain authority + LP-burn rug-check signals for a token. Cheaper than `/tokens/{mint}` when you only need audit flags.\n\n**Public — no API key required.** This is one of three intentionally keyless endpoints (along with [/api/v1/stats](#tag/stats-trends/get/api/v1/stats) and [/api/v1/protocols](#tag/stats-trends/get/api/v1/protocols)).\n\n**Served at the root path** — `https://api.dexploit.dev/tokens/{mint}/audit`, *not* under `/api/v1`.\n\n**Response semantics:**\n- Valid base58 mint, **indexed** → `200` with `indexed: true` and populated flags.\n- Valid base58 mint, **not yet indexed** → `200` with the unindexed sentinel: `indexed: false`, all flags `null`, and `top10_pct: {value: null, status: \"no_holder_data\", computed_at: null}`. It does **not** 404.\n\n`top10_pct.status` is one of the values listed on `Top10Pct`. Everything except `ready` means the value is withheld, not zero.\n- **Malformed** (non-base58) mint → `400`.",
         "operationId": "getTokenAudit",
         "security": [],
         "tags": [
@@ -6266,7 +6272,7 @@
     "/tokens/{mint}/holders": {
       "get": {
         "summary": "Token holders (paginated)",
-        "description": "Wallets currently holding non-zero balance of `{mint}`, sorted by balance descending. Cursor-paginated (default 100, max 200).\n\nPass `?enrich=identity` to populate the `tags[]` field on each row from `wallet_tags` (e.g. `sniper`, `insider`, `smart_money`, `whale`). Enrichment adds a JOIN; expect ~30% higher cold-path latency.",
+        "description": "Wallets currently holding non-zero balance of `{mint}`, sorted by balance descending. Cursor-paginated (default 100, max 200).\n\nPass `?enrich=identity` to populate the `tags[]` field on each row (e.g. `sniper`, `insider`, `smart_money`, `whale`). Enrichment adds latency.",
         "operationId": "listTokenHolders",
         "tags": [
           "Tokens"
@@ -6388,7 +6394,7 @@
     "/tokens/{mint}/snipers": {
       "get": {
         "summary": "Snipers holding this mint",
-        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /snipers/chart/{token}`](/api-reference/time-series-charts/sniper-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).\n\n**Coverage.** `tag_status` says whether the tagger has completed a `sniper` pass over this mint. When it is not `ok`, `results` and `next_cursor` are `null`, not `[]`: an empty list is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).",
+        "description": "Wallets tagged `sniper` for this specific mint who currently hold non-zero balance. A sniper is a wallet that bought within the first 30 slots of the mint's first swap.\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /snipers/chart/{token}`](/api-reference/time-series-charts/sniper-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected.\n\n**Coverage.** `tag_status` says whether `sniper` tagging has completed for this mint. When it is not `ok`, `results` and `next_cursor` are `null`, not `[]`: an empty list is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).",
         "operationId": "listTokenSnipers",
         "tags": [
           "Tokens"
@@ -6458,7 +6464,7 @@
     "/tokens/{mint}/insiders": {
       "get": {
         "summary": "Insiders holding this mint",
-        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of `pump_swaps`).\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /insiders/chart/{token}`](/api-reference/time-series-charts/insider-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected (Dexploit-Swaps#947).\n\n**Coverage.** `tag_status` says whether the tagger has completed an `insider` pass over this mint. When it is not `ok`, `results` and `next_cursor` are `null`, not `[]`: an empty list is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).",
+        "description": "Wallets tagged `insider` for this specific mint who currently hold non-zero balance. An insider is a wallet that received tokens but has never appeared as a swapper on-DEX (e.g. via airdrop or bonding-curve purchase outside of DEX swaps).\n\nCursor-paginated (default 50, max 200).\n\n**Currently-holding only.** Compare [`GET /insiders/chart/{token}`](/api-reference/time-series-charts/insider-count-time-series-for-a-token), which counts every wallet ever tagged for the mint and therefore cannot fall. An empty list here beside a non-zero chart value is expected.\n\n**Coverage.** `tag_status` says whether `insider` tagging has completed for this mint. When it is not `ok`, `results` and `next_cursor` are `null`, not `[]`: an empty list is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).",
         "operationId": "listTokenInsiders",
         "tags": [
           "Tokens"
@@ -6754,7 +6760,7 @@
     "/tokens/{mint}/ath": {
       "get": {
         "summary": "Token all-time-high price",
-        "description": "Per-mint all-time high across every pair the mint has traded in. Computed continuously via a `maxState(close) + argMaxState(timestamp, close) + argMaxState(pair_address, close)` Aggregating MV over `ohlcv_1d`. `ath_price_usd` is the SOL ATH multiplied by the current SOL/USD rate — it's a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
+        "description": "Per-mint all-time high across every pair the mint has traded in. Computed from daily candles. `ath_price_usd` is the SOL all-time high multiplied by the current SOL/USD rate — a today-equivalent USD value, not the USD price at the moment of the ATH.\n\nReturns `ath_price_sol: null` (and the other ATH fields null) when the mint has no daily candles yet.",
         "operationId": "getTokenAth",
         "tags": [
           "Tokens"
@@ -6816,7 +6822,7 @@
     "/tokens/{mint}/bundlers": {
       "get": {
         "summary": "Bundler wallets for a mint",
-        "description": "Wallets tagged `bundler` for this mint — wallets that acquired the token in the same bundled transaction batch at launch.\n\nReturns the tagged wallets (most recently tagged first) and `count`, the **true total** of distinct tagged wallets for the mint rather than the page size — so `count` can exceed `bundlers.length` (`limit` defaults to 100, max 500). A `coverage_note` is included only when `tag_status` is `ok` (or absent) and `count` is 0: bundler tagging began 2026-05-28, and mints first observed before then read 0 until re-observed.\n\n**Coverage.** `tag_status` says whether the tagger has completed a bundler pass over this mint. When it is not `ok`, `count` and `bundlers` are `null`, not `0` and `[]`, and there is no `coverage_note`: a zero count is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).\n\n**Lifetime-tagged, not currently-holding.** Unlike [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint) and [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), this route does not join current balances, so a wallet stays listed after selling out and `count` cannot fall.\n\nCompare [`GET /bundlers/chart/{token}`](/api-reference/time-series-charts/bundler-count-time-series-for-a-token-stub), which returns `0` in every bucket regardless of this count — that series is not yet wired to the tag data (Dexploit-Swaps#940). A non-empty list here beside a flat-zero chart is expected today.",
+        "description": "Wallets tagged `bundler` for this mint — wallets that acquired the token in the same bundled transaction batch at launch.\n\nReturns the tagged wallets (most recently tagged first) and `count`, the **true total** of distinct tagged wallets for the mint rather than the page size — so `count` can exceed `bundlers.length` (`limit` defaults to 100, max 500). A `coverage_note` is included only when `tag_status` is `ok` (or absent) and `count` is 0: bundler tagging data starts 2026-05-28, and tokens first seen earlier read 0 until seen again.\n\n**Coverage.** `tag_status` says whether bundler tagging has completed for this mint. When it is not `ok`, `count` and `bundlers` are `null`, not `0` and `[]`, and there is no `coverage_note`: a zero count is an answer only when `tag_status` is `ok`. `untagged` is not necessarily final (see `tag_status`).\n\n**Lifetime-tagged, not currently-holding.** Unlike [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint) and [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), this route does not join current balances, so a wallet stays listed after selling out and `count` cannot fall.\n\nCompare [`GET /bundlers/chart/{token}`](/api-reference/time-series-charts/bundler-count-time-series-for-a-token), which gives the bundler count per hour.",
         "operationId": "getTokensBundlers",
         "tags": [
           "Tokens"
@@ -6870,7 +6876,7 @@
     "/tokens/{mint}/concentration": {
       "get": {
         "summary": "Holder concentration",
-        "description": "Holder-concentration metrics for a mint, sourced from the latest `holder-snapshot` for the token: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** the endpoint does not 404.\n\n- A malformed `mint` (not 32–44 base58 characters) returns `400`.\n- A valid mint with no snapshot yet returns `200` with `status: \"no_holder_data\"`, and `total_holders`, `top10_pct`, `top100_pct` and `gini` all `null`; `field_status` gives `no_holder_data` for each. \"No data\" is never reported as `0`% or `0` holders.\n- A mint with holder rows but no complete holder census returns `200` with `status` `partial_holder_data` or `census_refused`: `top10_pct`, `top100_pct` and `gini` are `null`, `field_status` gives the same status for each, and `snapshot_ts` is `null`. `total_holders` is still served (see its description).\n- When the holder data cannot be read just now (a transient database error), the response is `200` with `status: \"computing\"`, the same four fields `null`, all three balance-derived fields listed in `unavailable`, and `Cache-Control: no-store`. Ask again.",
+        "description": "Holder-concentration metrics for a mint, from its latest holder snapshot: top-10 / top-100 supply share, the Gini coefficient, and the total holder count.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\n**Response semantics:** the endpoint does not 404.\n\n- A malformed `mint` (not 32–44 base58 characters) returns `400`.\n- A valid mint with no snapshot yet returns `200` with `status: \"no_holder_data\"`, and `total_holders`, `top10_pct`, `top100_pct` and `gini` all `null`; `field_status` gives `no_holder_data` for each. \"No data\" is never reported as `0`% or `0` holders.\n- A mint with holder rows but no complete holder census returns `200` with `status` `partial_holder_data` or `census_refused`: `top10_pct`, `top100_pct` and `gini` are `null`, `field_status` gives the same status for each, and `snapshot_ts` is `null`. `total_holders` is still served (see its description).\n- When the holder data cannot be read just now (a transient error), the response is `200` with `status: \"computing\"`, the same four fields `null`, all three balance-derived fields listed in `unavailable`, and `Cache-Control: no-store`. Ask again.",
         "operationId": "getTokenConcentration",
         "tags": [
           "Tokens"
@@ -6931,8 +6937,8 @@
     },
     "/tokens/{mint}/snapshot-now": {
       "post": {
-        "summary": "Trigger a holder-snapshot refresh",
-        "description": "Forces the `holder-snapshot` service to re-snapshot the mint's holder set out of band. This is a **trigger, not a read** — it enqueues a refresh and returns immediately with `queued: true` and an `estimated_seconds` hint; it does not return holder data and is never cached.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\nReturns `202 Accepted` once the refresh is queued.",
+        "summary": "Refresh holder data for a token",
+        "description": "Requests a refresh of the token's holder data. This is a **trigger, not a read** — it queues a refresh and returns immediately with `queued: true` and an `estimated_seconds` hint; it does not return holder data and is never cached.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).\n\nReturns `202 Accepted` once the refresh is queued.",
         "operationId": "snapshotTokenNow",
         "tags": [
           "Tokens"
@@ -7242,7 +7248,7 @@
     "/price/multi": {
       "get": {
         "summary": "Batched price lookup",
-        "description": "Latest ohlcv_1m close × SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
+        "description": "Latest 1-minute close × SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
         "operationId": "getPriceMulti",
         "tags": [
           "Price"
@@ -7279,7 +7285,7 @@
     "/price/history": {
       "get": {
         "summary": "Historical price series for a token",
-        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically — pass `?token={mint}` and the handler picks the busiest pool. For explicit pair-level access use [GET /api/v1/candles](/api-reference/candles-ohlcv/historical-candles-for-a-pool).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution → MV mapping.",
+        "description": "OHLCV candles for the token's top-volume pair. The pair is resolved automatically — pass `?token={mint}` and the busiest pool is chosen. For explicit pair-level access use [GET /api/v1/candles](/api-reference/candles-ohlcv/historical-candles-for-a-pool).\n\nDefault resolution is `1m`. See [Timeframes & resolution](/concepts/timeframes-resolution) for the resolution mapping.",
         "operationId": "getPriceHistory",
         "tags": [
           "Price"
@@ -7378,7 +7384,7 @@
     "/price/history/timestamp": {
       "get": {
         "summary": "Price at-or-before a timestamp",
-        "description": "Returns the single most-recent 1m candle at or before `timestamp` (Unix ms) for the token's top-volume pair. Lookback window is 60 seconds — older queries return 404.\n\nResolution is fixed at `1m` (the highest-precision MV).",
+        "description": "Returns the single most-recent 1m candle at or before `timestamp` (Unix ms) for the token's top-volume pair. Lookback window is 60 seconds — older queries return 404.\n\nResolution is fixed at `1m` (the finest resolution).",
         "operationId": "getPriceHistoryTimestamp",
         "tags": [
           "Price"
@@ -7569,7 +7575,7 @@
     "/chart/{token}": {
       "get": {
         "summary": "Chart-ready candle series with market cap",
-        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close × current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply=true` is accepted but currently ignored — historical supply tracking from `tokens_supply_history` ships in Phase 5. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.",
+        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close × current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply` is reserved: accepted but currently has no effect. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.",
         "operationId": "getChart",
         "tags": [
           "Price"
@@ -7617,7 +7623,7 @@
               "type": "boolean",
               "default": false
             },
-            "description": "Reserved for Phase 5. Accepted but ignored today."
+            "description": "Reserved: accepted but currently has no effect."
           },
           {
             "name": "limit",
@@ -7688,7 +7694,7 @@
     "/holders/chart/{token}": {
       "get": {
         "summary": "Holder-count time series for a token",
-        "description": "Returns the distinct holder count for a token sampled once per hour (or per 6h/1d bucket). Data is event-driven — a row exists only for hours the mint traded. Quiet hours produce gaps, not zeros; frontends should forward-fill the last value.\n\nNo pre-launch backfill: history starts at Phase 3 launch (2026-05-28) and grows forward. Empty mints return `results: []` with a `coverage_note`.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** (point-in-time count, not a flow).\n\nData freshness is ~3–5 seconds after a trade.",
+        "description": "Returns the distinct holder count for a token sampled once per hour (or per 6h/1d bucket). Data is event-driven — a row exists only for hours the mint traded. Quiet hours produce gaps, not zeros; frontends should forward-fill the last value.\n\nHistory starts 2026-05-28; there is no earlier data. Empty mints return `results: []` with a `coverage_note`.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** (point-in-time count, not a flow).\n\nData freshness is ~3–5 seconds after a trade.",
         "operationId": "getHoldersChart",
         "tags": [
           "Time-series charts"
@@ -7786,7 +7792,7 @@
     "/snipers/chart/{token}": {
       "get": {
         "summary": "Sniper-count time series for a token",
-        "description": "Returns the sniper wallet count for a token over time. Snipers are wallets that bought within the first few blocks of a mint's launch, as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `sniper` for the mint. The served value is the hourly snapshot in `token_actor_history`, which the wallet-intel pipeline computes from the `wallet_tag_mint_counts` aggregate with no balance join — so it is independent of current balance and **cannot fall**. A value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThis series cannot be balance-gated retroactively: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten it. A currently-holding count over time is possible as a **new** column written going forward — that would be a separate metric, not a redefinition of this one.",
+        "description": "Returns the sniper wallet count for a token over time. Snipers are wallets that bought within the first few blocks of a mint's launch, as tagged by Dexploit.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. History starts 2026-05-28; there is no earlier data.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\nA bucket is `null` when the mint had not been tagged yet when it was computed (see `tag_status`); `null` is not a count of 0.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `sniper` for the mint, so it is independent of current balance and **cannot fall**. A value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/snipers`](/api-reference/tokens/snipers-holding-this-mint), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions.",
         "operationId": "getSnipersChart",
         "tags": [
           "Time-series charts"
@@ -7884,7 +7890,7 @@
     "/insiders/chart/{token}": {
       "get": {
         "summary": "Insider-count time series for a token",
-        "description": "Returns the insider wallet count for a token over time. Insiders are wallets with an informational edge at launch (pre-launch buys, team/dev-adjacent activity), as tagged by Dexploit's wallet-intel pipeline.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. No pre-launch backfill.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `insider` for the mint. The served value is the hourly snapshot in `token_actor_history`, which the wallet-intel pipeline computes from the `wallet_tag_mint_counts` aggregate with no balance join — so it is independent of current balance and **cannot fall**. A value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions (Dexploit-Swaps#947).\n\nThis series cannot be balance-gated retroactively: `holder_balances` is current state only, with no per-hour history, so gating would recompute every historical bucket against today's holders and flatten it. A currently-holding count over time is possible as a **new** column written going forward — that would be a separate metric, not a redefinition of this one.",
+        "description": "Returns the insider wallet count for a token over time. Insiders are wallets with an informational edge at launch (pre-launch buys, team/dev-adjacent activity), as tagged by Dexploit.\n\nSame sparsity and freshness semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token): rows exist only for hours the mint traded; gaps are expected; forward-fill for display. History starts 2026-05-28; there is no earlier data.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket**.\n\nA bucket is `null` when the mint had not been tagged yet when it was computed (see `tag_status`); `null` is not a count of 0.\n\n**Scope: lifetime, not currently-holding.** This series counts every distinct wallet ever tagged `insider` for the mint, so it is independent of current balance and **cannot fall**. A value stays flat after every tagged wallet has sold out.\n\nThat makes it deliberately different from [`GET /tokens/{mint}/insiders`](/api-reference/tokens/insiders-holding-this-mint), which returns only wallets holding a non-zero balance **right now**. The same mint can show a flat `4` here and an empty list there, and both are correct answers to different questions.",
         "operationId": "getInsidersChart",
         "tags": [
           "Time-series charts"
@@ -7981,8 +7987,8 @@
     },
     "/bundlers/chart/{token}": {
       "get": {
-        "summary": "Bundler-count time series for a token (stub)",
-        "description": "**Every value in this series is `0`, for every mint.** The handler emits one zero-valued point per hour that exists for the mint, so the x-axis lines up with the other actor charts, plus a `coverage_note`.\n\nThat `coverage_note` currently reads *\"bundler tagger ships in Phase 5; values are 0 until then\"*, and is **out of date**. Bundler tagging shipped 2026-05-28 and the per-hour `bundler_count` behind this route is populated for most mints; this endpoint does not read it yet (Dexploit-Swaps#940). Read the zeros as \"not wired up\", not as \"no bundlers\".\n\nFor a real bundler count today use [`GET /tokens/{mint}/bundlers`](/api-reference/tokens/bundler-wallets-for-a-mint), which returns the true total of tagged wallets for the mint. The response shape here will not change when the series is wired up, so a UI built against it now keeps working.\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token). No pre-launch backfill.",
+        "summary": "Bundler-count time series for a token",
+        "description": "Returns the hourly bundler wallet count for a token: wallets tagged `bundler` for the mint, counted over time like the other actor charts.\n\nLike the snipers and insiders charts, a bucket is `null` when the mint had not been tagged yet when it was computed, and `tag_status` and a `coverage_note` say so. `null` is not a count of 0. For the current total of tagged wallets use [`GET /tokens/{mint}/bundlers`](/api-reference/tokens/bundler-wallets-for-a-mint).\n\nSame sparsity semantics as [GET /holders/chart/{token}](/api-reference/time-series-charts/holder-count-time-series-for-a-token). History starts 2026-05-28; there is no earlier data.",
         "operationId": "getBundlersChart",
         "tags": [
           "Time-series charts"
@@ -8035,7 +8041,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Bundler-count series (all values 0 until Phase 5)",
+            "description": "Bundler-count series",
             "content": {
               "application/json": {
                 "schema": {
@@ -8080,7 +8086,7 @@
     "/tokens/{mint}/actor-chart": {
       "get": {
         "summary": "Combined actor time series (holders, snipers, insiders, dev)",
-        "description": "Returns wide rows with up to four actor series in a single call — **one request instead of four**. Each row has `ts_ms` plus whatever series you requested as keys.\n\nUse `?series=holders,snipers,insiders,dev` (comma-separated) to request a subset. Default: all four. The `dev` series returns as `dev_held_pct` (a 0.0–1.0 fraction of supply held by the deployer).\n\nSame sparsity and freshness semantics as the single-series endpoints: rows exist only for hours the mint traded; forward-fill for display. No pre-launch backfill — history starts at Phase 3 launch (2026-05-28).\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** for each series.",
+        "description": "Returns wide rows with up to four actor series in a single call — **one request instead of four**. Each row has `ts_ms` plus whatever series you requested as keys.\n\nUse `?series=holders,snipers,insiders,dev` (comma-separated) to request a subset. Default: all four. The `dev` series returns as `dev_held_pct` (a percent, 0–100, of supply held by the deployer).\n\nSame sparsity and freshness semantics as the single-series endpoints: rows exist only for hours the mint traded; forward-fill for display. History starts 2026-05-28; there is no earlier data.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** for each series.",
         "operationId": "getActorChart",
         "tags": [
           "Time-series charts"
@@ -8264,7 +8270,7 @@
     "/wallets/{wallet}/tags": {
       "get": {
         "summary": "Wallet classification tags",
-        "description": "Returns the set of tags Dexploit's wallet-intel pipeline has applied to a wallet (e.g. `sniper`, `insider`, `whale`, `smart_money`). Tags are computed asynchronously — `computed_at: 0` means we haven't profiled this wallet yet.",
+        "description": "Returns the set of tags Dexploit has applied to a wallet (e.g. `sniper`, `insider`, `whale`, `smart_money`). Tags are computed asynchronously — `computed_at: 0` means we haven't profiled this wallet yet.",
         "operationId": "getWalletTags",
         "tags": [
           "Wallet intel"
@@ -8296,7 +8302,7 @@
     "/deployer/{wallet}": {
       "get": {
         "summary": "Tokens deployed by a wallet",
-        "description": "Lists mints the wallet has deployed, newest first. Reads from the `tokens_by_creator` ReplacingMergeTree (sourced from `tokens.creator`). Results are hydrated into the same `TokenRow` shape as [POST /tokens/multi](/api-reference/tokens/batched-token-lookup).\n\nWhen there are no results, the response includes `coverage_note` explaining that creator capture began on 2026-05-26 (Phase 0) — older mints may be missing. See [Data coverage](/concepts/coverage).",
+        "description": "Lists mints the wallet has deployed, newest first. Results use the same `TokenRow` shape as [POST /tokens/multi](/api-reference/tokens/batched-token-lookup).\n\nWhen there are no results, the response includes `coverage_note` stating that creator data starts 2026-05-26 — older tokens may be missing. See [Data coverage](/concepts/coverage).",
         "operationId": "getDeployer",
         "tags": [
           "Wallet intel"
@@ -8369,7 +8375,7 @@
     "/wallets/{w}/holdings": {
       "get": {
         "summary": "On-chain holdings with cost-basis overlay",
-        "description": "Returns the wallet's current on-chain SPL token holdings sourced from Shyft's `all_tokens` API, with FIFO cost-basis and unrealized PnL overlaid where Dexploit has swap history.\n\nTokens acquired via airdrop or off-platform transfers will appear with `no_cost_basis: true` and `cost_basis_sol: null`.\n\nWhen Shyft is temporarily unavailable the endpoint degrades to FIFO-derived holdings and sets `holdings_source: \"fifo_fallback\"` — it never returns 5xx on a Shyft outage.\n\nResponse is cached 30 seconds per wallet. See [Wallet portfolio](/concepts/wallet-portfolio) for a full explanation of the two holdings sources.",
+        "description": "Returns the wallet's current on-chain SPL token holdings sourced from an on-chain data provider, with FIFO cost-basis and unrealized PnL overlaid where Dexploit has swap history.\n\nTokens acquired via airdrop or off-platform transfers will appear with `no_cost_basis: true` and `cost_basis_sol: null`.\n\nWhen the on-chain data provider is temporarily unavailable the endpoint degrades to FIFO-derived holdings and sets `holdings_source: \"fifo_fallback\"` — it never returns 5xx on a provider outage.\n\nResponse is cached 30 seconds per wallet. See [Wallet portfolio](/concepts/wallet-portfolio) for a full explanation of the two holdings sources.",
         "operationId": "getWalletHoldings",
         "tags": [
           "Wallet portfolio"
@@ -8391,7 +8397,7 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Filter FIFO cost-basis computation to a single DEX by integer ID. See `DexId` for the mapping. Has no effect on the Shyft on-chain token list."
+            "description": "Filter FIFO cost-basis computation to a single DEX by integer ID. See `DexId` for the mapping. Has no effect on the on-chain token list."
           }
         ],
         "responses": {
@@ -8440,8 +8446,8 @@
     },
     "/wallets/{w}/holdings/basic": {
       "get": {
-        "summary": "Fast FIFO-derived holdings (no Shyft)",
-        "description": "Returns holdings derived entirely from Dexploit's own swap index using FIFO lot matching. No external Shyft call — typically ~30 ms.\n\nOnly covers tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Tokens acquired via airdrop or off-platform will not appear. No USD values.\n\nUse this endpoint when you need a quick snapshot and completeness is less important than latency. Uncached.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio) for the trade-off between this endpoint and `/holdings`.",
+        "summary": "Fast FIFO-derived holdings",
+        "description": "Returns holdings derived entirely from Dexploit's own swap index using FIFO lot matching. No external call — typically ~30 ms.\n\nOnly covers tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Tokens acquired via airdrop or off-platform will not appear. No USD values.\n\nUse this endpoint when you need a quick snapshot and completeness is less important than latency. Uncached.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio) for the trade-off between this endpoint and `/holdings`.",
         "operationId": "getWalletHoldingsBasic",
         "tags": [
           "Wallet portfolio"
@@ -8513,7 +8519,7 @@
     "/wallets/{w}/trades": {
       "get": {
         "summary": "Wallet trade history with per-trade PnL",
-        "description": "Cursor-paginated trade history for a wallet, newest first. Per-trade `pnl_delta_sol` is the FIFO realized gain/loss on sells; `null` on buys.\n\nFilter by `from_token` or `to_token` to scope to a specific mint. For Phase 4 both params filter against the swap's token mint (pump.fun is single-mint-vs-SOL). True two-leg Jupiter routing attribution ships in Phase 5.\n\n`hide_arb` and `parse_jupiter` are accepted but are **no-ops in Phase 4**. The response always includes a `coverage_note` pointing to Phase 5. Wire them into your UI now so they take effect without a contract change.\n\nResponse cached 30 seconds.",
+        "description": "Cursor-paginated trade history for a wallet, newest first. Per-trade `pnl_delta_sol` is the FIFO realized gain/loss on sells; `null` on buys.\n\nFilter by `from_token` or `to_token` to scope to a specific mint; both filter on the swap's token mint.\n\n`hide_arb` and `parse_jupiter` are reserved: accepted but currently have no effect. The response always includes a `coverage_note` saying so.\n\nResponse cached 30 seconds.",
         "operationId": "getWalletTrades",
         "tags": [
           "Wallet portfolio"
@@ -8564,7 +8570,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to trades involving this token mint (alias of `from_token` in Phase 4; full two-leg routing in Phase 5)."
+            "description": "Filter to trades involving this token mint (same filter as `from_token`)."
           },
           {
             "name": "dex",
@@ -8582,7 +8588,7 @@
             "schema": {
               "type": "boolean"
             },
-            "description": "**No-op in Phase 4.** Will filter arbitrage round-trips when the arb tagger ships in Phase 5."
+            "description": "Reserved: accepted but currently has no effect."
           },
           {
             "name": "parse_jupiter",
@@ -8591,7 +8597,7 @@
             "schema": {
               "type": "boolean"
             },
-            "description": "**No-op in Phase 4.** Will expand Jupiter aggregator hops and attribute trades to source/destination tokens in Phase 5."
+            "description": "Reserved: accepted but currently has no effect."
           }
         ],
         "responses": {
@@ -8641,7 +8647,7 @@
     "/wallets/{w}/chart": {
       "get": {
         "summary": "Daily portfolio value chart",
-        "description": "Returns a daily portfolio-value series for the wallet. The chart is assembled on-demand with a cron-free model:\n\n1. **Closed days** are read from the store and returned as-is — they are immutable once written.\n2. **Gaps** (days between the last stored point and yesterday) are filled lazily: the FIFO engine replays the wallet's swaps to reconstruct end-of-day holdings, prices them against `ohlcv_1d` closes, and persists the result before returning.\n3. **Today** is always computed live and returned as `today` with `provisional: true` — never persisted.\n\n`value_usd` uses the **current** SOL/USD rate for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#cron-free-chart-freshness) for the full freshness model.",
+        "description": "Returns a daily portfolio-value series for the wallet. Past days are fixed once written. Missing days are computed on request from the wallet's swaps and priced with daily closes. Today is always computed live and returned as `today` with `provisional: true`.\n\n`value_usd` uses the **current** SOL/USD rate for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#chart-freshness) for the full freshness model.",
         "operationId": "getWalletChart",
         "tags": [
           "Wallet portfolio"
@@ -8720,7 +8726,7 @@
     "/wallets/{w}/pnl/basic": {
       "get": {
         "summary": "FIFO realized and unrealized PnL",
-        "description": "Returns FIFO realized + unrealized PnL for the wallet over the specified window. Lot-based matching: buy lots pushed in time order, each sell matches against the earliest open lots and realizes `proceeds − cost_matched`.\n\nThe response always includes a `warning` field:\n\n> `basic FIFO realized PnL; full cost-basis (cross-wallet, tax-lot, transfer-aware) ships in Phase 8`\n\nThis is intentional — FIFO is a good approximation for single-wallet trading but is not suitable for tax calculations or cross-wallet strategies. Full PnL ships in Phase 8.\n\nResponse cached 60 seconds.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#pnl-basic-fifo-realized-pnl).",
+        "description": "Returns FIFO realized + unrealized PnL for the wallet over the specified window. Lot-based matching: buy lots pushed in time order, each sell matches against the earliest open lots and realizes `proceeds − cost_matched`.\n\nThe response always includes a `warning` field stating that this is basic FIFO realized PnL and is not suitable for tax calculations or cross-wallet analysis. For position-level cost basis use `GET /v2/pnl/wallets/{wallet}`.\n\nResponse cached 60 seconds.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#pnl-basic-fifo-realized-pnl).",
         "operationId": "getWalletPnlBasic",
         "tags": [
           "Wallet portfolio"
@@ -8808,7 +8814,7 @@
     "/wallets/{w}/sol-balance": {
       "get": {
         "summary": "Native SOL balance",
-        "description": "Returns the wallet's current native SOL balance via Shyft's `getBalance` JSON-RPC call, plus USD conversion via Dexploit's SOL/USD rate.\n\nWhen Shyft is unavailable, `sol_balance` is `null` and the response still returns 200 — it never 500s on a Shyft blip. Response cached 30 seconds.",
+        "description": "Returns the wallet's current native SOL balance, plus USD conversion via Dexploit's SOL/USD rate.\n\nWhen the balance lookup is unavailable, `sol_balance` is `null` and the response still returns 200 — it never 500s on a lookup failure. Response cached 30 seconds.",
         "operationId": "getWalletSolBalance",
         "tags": [
           "Wallet portfolio"
@@ -9205,7 +9211,7 @@
     "/v2/pnl/wallets/{wallet}": {
       "get": {
         "summary": "Wallet cost-basis PnL summary",
-        "description": "Phase 8 cost-basis PnL summary for a wallet: realized + read-time-spot unrealized SOL, open/closed position counts, USD via Dexploit's SOL/USD rate, and a compact per-position list. Empty wallets return zeros and an empty `positions` array.\n\nCached 5s when any position traded in the last 5 minutes, otherwise 30s.",
+        "description": "Cost-basis PnL summary for a wallet: realized + read-time-spot unrealized SOL, open/closed position counts, USD via Dexploit's SOL/USD rate, and a compact per-position list. Empty wallets return zeros and an empty `positions` array.\n\nCached 5s when any position traded in the last 5 minutes, otherwise 30s.",
         "operationId": "getPnlV2Wallet",
         "tags": [
           "Wallet PnL (v2)"
@@ -10104,7 +10110,7 @@
     "/v2/pnl/wallets/{wallet}/highlights": {
       "get": {
         "summary": "Standout positions",
-        "description": "Standout positions for a wallet from one `wallet_positions` aggregate: biggest winner/loser, fastest flip, longest hold, most traded, biggest single buy/sell. Each highlight is `null` when no qualifying row matched. Cached 5s hot / 30s cold.",
+        "description": "Standout positions for a wallet from the wallet's positions: biggest winner/loser, fastest flip, longest hold, most traded, biggest single buy/sell. Each highlight is `null` when no qualifying row matched. Cached 5s hot / 30s cold.",
         "operationId": "getPnlV2Highlights",
         "tags": [
           "Wallet PnL (v2)"
@@ -11199,7 +11205,7 @@
     "/v2/pnl/leaderboard/top": {
       "get": {
         "summary": "Top wallets by realized PnL",
-        "description": "Wallets ranked by realized PnL over a trailing window (wallets with `last_trade_ts` in the window). Served from an event-driven per-wallet rollup (`wallet_pnl_rollup`), cache-warmed for sub-second response (300s cache).",
+        "description": "Wallets ranked by realized PnL over a trailing window (wallets with `last_trade_ts` in the window). Served from a precomputed per-wallet summary for fast responses (300s cache).",
         "operationId": "getLeaderboardTop",
         "tags": [
           "Leaderboards & KOLs"
@@ -12353,7 +12359,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Min risk score (deferred → warning)."
+            "description": "Min risk score (reserved: produces a warning)."
           },
           {
             "name": "maxRiskScore",
@@ -12362,7 +12368,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Max risk score (deferred → warning)."
+            "description": "Max risk score (reserved: produces a warning)."
           },
           {
             "name": "minVolume",
@@ -12590,7 +12596,7 @@
     "/exchange-traders": {
       "get": {
         "summary": "Known CEX wallets",
-        "description": "Global list of known centralized-exchange wallets from the `exchange_wallets` snapshot, ordered by wallet. `count` is the full distinct-wallet total (`count() OVER ()`), independent of paging.",
+        "description": "Global list of known centralized-exchange wallets ordered by wallet. `count` is the full distinct-wallet total, independent of paging.",
         "operationId": "getExchangeTraders",
         "tags": [
           "Screener"
@@ -12679,7 +12685,7 @@
     "/bot-traders": {
       "get": {
         "summary": "Bot-tagged wallets",
-        "description": "Wallets the bot tagger flagged (high swap frequency / cross-mint breadth over a rolling 1h window), from the `bot_wallets` snapshot, ordered by `swaps_1h` desc then `wallet` asc. `count` is the full total (`count() OVER ()`).",
+        "description": "Wallets flagged as bots (high swap frequency / cross-mint breadth over a rolling 1h window), ordered by `swaps_1h` desc then `wallet` asc. `count` is the full total.",
         "operationId": "getBotTraders",
         "tags": [
           "Screener"
@@ -12853,7 +12859,7 @@
                           },
                           "lp_sol_pulled": {
                             "type": "number",
-                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you — do **not** divide again)."
+                            "description": "SOL liquidity removed, **already in SOL** (the raw `lamports` value is divided by `1e9` for you — do **not** divide again)."
                           },
                           "signature": {
                             "type": "string",
@@ -12982,7 +12988,7 @@
                           },
                           "lp_sol_pulled": {
                             "type": "number",
-                            "description": "SOL liquidity removed, **already in SOL** (the handler divides the raw `lamports` by `1e9` for you — do **not** divide again)."
+                            "description": "SOL liquidity removed, **already in SOL** (the raw `lamports` value is divided by `1e9` for you — do **not** divide again)."
                           },
                           "signature": {
                             "type": "string",
@@ -13054,7 +13060,7 @@
         ],
         "deprecated": true,
         "summary": "Trending tokens (legacy, SOL-only)",
-        "description": "**Deprecated legacy endpoint** served by a separate service. Prefer [`GET /trending`](#tag/stats-trends/get/trending), which returns USD values, richer scoring (`formula_breakdown`), and `offset`/`total` pagination. This endpoint is SOL-only and has no USD fields, no `offset`, and no `total`.",
+        "description": "**Deprecated legacy endpoint.** Prefer [`GET /trending`](#tag/stats-trends/get/trending), which returns USD values, richer scoring (`formula_breakdown`), and `offset`/`total` pagination. This endpoint is SOL-only and has no USD fields, no `offset`, and no `total`.",
         "parameters": [
           {
             "name": "timeframe",
