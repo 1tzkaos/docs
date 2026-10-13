@@ -37,9 +37,9 @@ Paid tiers are capped by requests-per-second only, with unlimited monthly volume
 | Tier | Price | Requests per second | Requests per month | History |
 | --- | --- | --- | --- | --- |
 | Free | $0 | 10 | 10,000 | last 14 days |
-| Developer | $50/mo | 100 | unlimited | full |
-| Pro | $199/mo | 500 | unlimited | full |
-| Enterprise | Custom | unlimited | unlimited | full |
+| Developer | $50/mo | 100 | unlimited | full (see [Coverage](/concepts/coverage)) |
+| Pro | $199/mo | 500 | unlimited | full (see [Coverage](/concepts/coverage)) |
+| Enterprise | Custom | unlimited | unlimited | full (see [Coverage](/concepts/coverage)) |
 
 The cap is strict per second: requests are counted in fixed one-second windows, with no burst allowance above the cap. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
 
@@ -61,13 +61,19 @@ curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
   "current_window_used": 7,
   "current_window_remaining": 3,
   "monthly_used": 4321,
-  "monthly_used_note": "Free is capped at 10,000 requests per calendar month; paid tiers have no monthly cap",
+  "monthly_used_note": "counted across every API service; resets at monthly_resets_at",
+  "monthly_cap": 10000,
+  "monthly_remaining": 5679,
+  "monthly_resets_at": "2026-11-01T00:00:00Z",
+  "monthly_enforced": true,
   "tier_features": {
     "smart_money_access": false,
     "whales_access": false
   }
 }
 ```
+
+On paid tiers `monthly_cap`, `monthly_remaining` and `monthly_resets_at` are `null` and `monthly_enforced` is `false`. `monthly_resets_at` is 00:00 UTC on the 1st of the month. The Free monthly cap is applied only while `monthly_enforced` is `true`; see [Quotas & errors](/concepts/quotas-errors#free-tier-monthly-cap-and-history-window).
 
 ## Error responses
 
