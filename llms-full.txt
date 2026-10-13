@@ -346,7 +346,7 @@ If you're using one of those, mint is correct. Everywhere else, use `pair_addres
 
 Most Solana OHLCV APIs poll pool *account state* every block or two and build a candle from those snapshots. The price comes from `reserves_a / reserves_b`, the volume comes from differencing reserves between snapshots.
 
-Dexploit doesn't do that. Candles are built from each confirmed on-chain swap: we take every swap as it arrives, normalize it across protocols (Pump.fun, PumpSwap, Raydium, Meteora), and aggregate the events into bars.
+Dexploit doesn't do that. Candles are built from each successful on-chain swap as soon as the network processes it: we take every swap as it arrives, normalize it across protocols (Pump.fun, PumpSwap, Raydium, Meteora), and aggregate the events into bars.
 
 ## Why this matters for you
 
@@ -497,7 +497,7 @@ swaps in the window rather than reading the bar close.
 
 |  | Account-update model | Swap-event model (Dexploit) |
 | --- | --- | --- |
-| Source | Poll pool reserves | Each confirmed swap |
+| Source | Poll pool reserves | Each successful swap |
 | Volume accuracy | Approximate (delta of reserves) | Exact (sum of swap amounts) |
 | Empty bars | Carries forward last close | Skipped (no trades = no bar) |
 | Trade count | Not available | Per bar |
