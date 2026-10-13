@@ -215,7 +215,7 @@ connect();
 
 If you're rendering a live chart, key your local bar store by `(pair_address, timeframe, timestamp)` and *overwrite* the entry on every frame for that key — the latest frame is always the freshest snapshot of that bar. `is_closed: true` means the bar has closed, but a corrected close for the same key can follow — usually within a few seconds, and for up to 10 minutes — so keep overwriting on later closed frames too. If you trigger logic on close, allow for that correction.
 
-Repairs made after that are **not** sent on the stream. When missed trades are backfilled (for example after an ingestion outage), the corrected bars are written to storage and served by [`/api/v1/candles`](/api-reference), but no frame is sent for them. If you need exact history, re-read the affected window from REST: after a reconnect (see [Reconnect & backpressure](/streaming/reconnect-backpressure)), or when a window you hold is known to have been repaired.
+Repairs made after that are **not** sent on the stream. When missed trades are added afterwards (for example after a data outage), the corrected bars are written to storage and served by [`/api/v1/candles`](/api-reference), but no frame is sent for them. If you need exact history, re-read the affected window from REST: after a reconnect (see [Reconnect & backpressure](/streaming/reconnect-backpressure)), or when a window you hold is known to have been repaired.
 
 ### Changing the watched set at runtime
 

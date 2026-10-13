@@ -16,7 +16,7 @@
 - [Risk score algorithm](https://docs.dexploit.dev/concepts/risk-score)
 - [Data coverage](https://docs.dexploit.dev/concepts/coverage): the 10 supported DEX venues + per-venue caveats, when our index begins, which endpoints carry coverage notes
 - [Actor charts](https://docs.dexploit.dev/concepts/actor-charts): time-series of holder count, snipers, insiders, and dev holdings
-- [Wallet portfolio](https://docs.dexploit.dev/concepts/wallet-portfolio): holdings sources (Shyft vs basic), cron-free chart model, FIFO PnL, Phase-5 feature flags
+- [Wallet portfolio](https://docs.dexploit.dev/concepts/wallet-portfolio): holdings sources (on-chain vs basic), daily portfolio chart, FIFO PnL, reserved trade-history parameters
 
 ## REST endpoints
 
@@ -61,14 +61,14 @@
 - [GET /holders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/holders/chart/{token}): holder-count time series (1h/6h/1d, event-driven, ~3-5s freshness)
 - [GET /snipers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/snipers/chart/{token}): sniper wallet count over time
 - [GET /insiders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/insiders/chart/{token}): insider wallet count over time
-- [GET /bundlers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/bundlers/chart/{token}): bundler wallet count over time (stub; all values 0 until Phase 5)
+- [GET /bundlers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/bundlers/chart/{token}): bundler wallet count over time (null where the mint was not tagged yet)
 - [GET /tokens/{mint}/actor-chart](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/actor-chart): combined actor chart — holders, snipers, insiders, dev in one call
 
 ### Discovery
-- [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): Phase-7 V2 screener — ~40 filter fields, full/compact rows, warnings[], x-cache + x-total-matches-exact headers
+- [POST /screener](https://docs.dexploit.dev/api-reference/openapi/post/screener): token screener — ~40 filter fields, full/compact rows, warnings[], x-cache + x-total-matches-exact headers
 - [GET /search](https://docs.dexploit.dev/api-reference/openapi/get/search): flat query-string alias over POST /screener
 - [GET /exchange-traders](https://docs.dexploit.dev/api-reference/openapi/get/exchange-traders): known CEX wallets ({wallet,label}) + full count
-- [GET /bot-traders](https://docs.dexploit.dev/api-reference/openapi/get/bot-traders): bot-tagger wallets ({wallet,swaps_1h,mints_1h}) + full count
+- [GET /bot-traders](https://docs.dexploit.dev/api-reference/openapi/get/bot-traders): wallets classified as bots ({wallet,swaps_1h,mints_1h}) + full count
 - [GET /trending](https://docs.dexploit.dev/api-reference/openapi/get/trending): per-window trending ranking
 
 ### Wallet intel
@@ -77,16 +77,16 @@
 - [GET /deployer/{wallet}](https://docs.dexploit.dev/api-reference/openapi/get/deployer/{wallet}): mints deployed by a wallet (newest first; carries coverage_note)
 
 ### Wallet portfolio
-- [GET /wallets/{w}/holdings](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/holdings): on-chain holdings (Shyft) + USD + FIFO cost-basis overlay; degrades to fifo_fallback on Shyft error
+- [GET /wallets/{w}/holdings](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/holdings): on-chain holdings + USD + FIFO cost-basis overlay; falls back to fifo_fallback when the on-chain lookup is unavailable
 - [GET /wallets/{w}/holdings/basic](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/holdings/basic): fast FIFO-derived holdings from Dexploit's own swap index only (~30 ms, uncached)
 - [GET /wallets/{w}/trades](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/trades): cursor-paginated trade history, newest first, with per-trade pnl_delta_sol
 - [GET /wallets/{w}/chart](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/chart): daily portfolio value series; closed days immutable, today always live with provisional:true
-- [GET /wallets/{w}/pnl/basic](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/pnl/basic): FIFO realized + unrealized PnL; always includes warning pointing to Phase 8 for full PnL
-- [GET /wallets/{w}/sol-balance](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/sol-balance): native SOL balance + USD via Dexploit's SOL/USD rate; null on Shyft error, never 5xx
+- [GET /wallets/{w}/pnl/basic](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/pnl/basic): FIFO realized + unrealized PnL; always includes a warning field; use /v2/pnl/wallets/{wallet} for position-level cost basis
+- [GET /wallets/{w}/sol-balance](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/sol-balance): native SOL balance + USD via Dexploit's SOL/USD rate; null when the balance lookup is unavailable, never 5xx
 - [GET /wallets/{w}/stats](https://docs.dexploit.dev/api-reference/openapi/get/wallets/{w}/stats): best/worst trade, win-rate, total volume over a configurable window
 
 ### Wallet PnL (v2)
-Phase-8 cost-basis engine. `pnl_mode=raw|strict|adjusted` (default adjusted). All `*_sol` are SOL; `avg_cost_per_token`/spot price are lamports per atomic unit; PnL timestamps are epoch ms. Code-live on the wallet-pnl service; `/v2/pnl/*` needs the OVH HAProxy edge ACL to resolve on api.dexploit.dev.
+Cost-basis PnL. `pnl_mode=raw|strict|adjusted` (default adjusted). All `*_sol` are SOL; `avg_cost_per_token`/spot price are lamports per atomic unit; PnL timestamps are epoch ms.
 - [GET /v2/pnl/wallets/{wallet}](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}): cost-basis summary — realized + read-time-spot unrealized SOL, open/closed counts, USD, compact positions
 - [GET /v2/pnl/wallets/{wallet}/positions](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/positions): paginated positions (status/mint/min_value_sol/sort, breakdown=1)
 - [GET /v2/pnl/wallets/{wallet}/tokens/{token}](https://docs.dexploit.dev/api-reference/openapi/get/v2/pnl/wallets/{wallet}/tokens/{token}): single position, always glass-box (breakdown + tags); position:null when none
