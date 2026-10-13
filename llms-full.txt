@@ -684,7 +684,8 @@ The history check applies to these endpoints:
 
 | Service | Endpoint | Time parameter |
 | --- | --- | --- |
-| Swaps | `/swaps`, `/swaps/range` | `start_time`, `end_time` |
+| Swaps | `/swaps` | `signature` (the swap's own time) |
+| Swaps | `/swaps/range` | `start_time`, `end_time`, or `signature` (the swap's own time) |
 | Swaps | `/swaps/whale` | `since_ms` (`0` or less means the beginning of time) |
 | Swaps | `/swaps/{signature}` | the swap's own time |
 | Swaps | `/swaps/trader/{wallet}`, `/swaps/token/{mint}` | `cursor` |
