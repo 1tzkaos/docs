@@ -613,7 +613,7 @@ Endpoints live under different base paths, and one is served by a separate servi
 | --- | --- | --- |
 | `candles`, `candles/latest`, `pairs`, `protocols`, `stats`, `top-movers` | `/api/v1/...` | Versioned. |
 | `screener`, `trending`, `search`, `tokens/*` (intel, risk, holders, audit, …) | `/` (root) | Unversioned. |
-| `tokens/{mint}/audit` | `/` (root) | **Separate service (CT106)** — same host (`api.dexploit.dev`) but a different backend. Returns a `200` `indexed: false` sentinel for valid-but-unindexed mints and `400` for malformed mints. |
+| `tokens/{mint}/audit` | `/` (root) | **Separate backend** — same host (`api.dexploit.dev`). Returns a `200` `indexed: false` sentinel for valid-but-unindexed mints and `400` for malformed mints. |
 
 All paths share the same host, `https://api.dexploit.dev`, and the same `Authorization` / API-key auth.
 
@@ -928,31 +928,31 @@ Daily bars are kept forever, so `1d` is the timeframe to use for a full-history 
 
 ## Known data gaps
 
-These windows were measured at **2026-09-10 03:22Z**, and each status is as of that time: a window marked **May be filled** may since have been filled, or may have become impossible to fill.
+These windows were measured at **2026-09-10 03:22Z**, and each status is as of that time: a window marked **Recent** may since have been filled, and one marked **Older** may still be unfilled.
 
 A data outage leaves a venue with **no rows at all** for the affected hours — not partial data. Every window of 2 hours or more that was outstanding when this was measured is listed here. A window drops off this table at the first regeneration after it is filled.
 
 | Window (UTC) | Duration | Affected | Status |
 | --- | --- | --- | --- |
-| 2026-04-09 22:00Z → 2026-04-10 01:00Z | 3 h | `pumpfun` | Cannot be filled |
-| 2026-04-10 14:00Z → 2026-04-10 18:00Z | 4 h | `pumpfun` | Cannot be filled |
-| 2026-04-12 10:00Z → 2026-04-12 13:00Z | 3 h | `pumpfun` | Cannot be filled |
-| 2026-04-12 18:00Z → 2026-04-14 23:00Z | 2 d 5 h | `pumpfun` | Cannot be filled |
-| 2026-04-15 05:00Z → 2026-04-19 05:00Z | 4 d | `pumpfun` | Cannot be filled |
-| 2026-04-23 09:00Z → 2026-04-24 01:00Z | 16 h | `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm` | Cannot be filled |
-| 2026-05-18 10:00Z → 2026-06-09 05:00Z | 21 d 19 h | `raydium_clmm` | Cannot be filled |
-| 2026-06-25 21:00Z → 2026-06-26 04:00Z | 7 h | **every venue** | Cannot be filled |
-| 2026-06-29 05:00Z → 2026-06-30 05:00Z | 1 d | **every venue** | Cannot be filled |
-| 2026-08-30 22:00Z → 2026-08-31 01:00Z | 3 h | `orca` | Cannot be filled |
-| 2026-08-31 13:00Z → 2026-08-31 17:00Z | 4 h | all Raydium venues | Cannot be filled |
-| 2026-09-01 19:00Z → 2026-09-01 23:00Z | 4 h | all Raydium venues | Cannot be filled |
-| 2026-09-02 03:00Z → 2026-09-02 10:00Z | 7 h | all Raydium venues | Cannot be filled |
-| 2026-09-03 20:00Z → 2026-09-04 06:00Z | 10 h | all Raydium venues | Cannot be filled |
-| 2026-09-05 02:00Z → 2026-09-05 23:00Z | 21 h | all Raydium venues | Cannot be filled |
-| 2026-09-06 21:00Z → 2026-09-06 23:00Z | 2 h | all Meteora venues | May be filled |
-| 2026-09-09 02:00Z → 2026-09-09 12:00Z | 10 h | all Raydium venues | May be filled |
+| 2026-04-09 22:00Z → 2026-04-10 01:00Z | 3 h | `pumpfun` | Older |
+| 2026-04-10 14:00Z → 2026-04-10 18:00Z | 4 h | `pumpfun` | Older |
+| 2026-04-12 10:00Z → 2026-04-12 13:00Z | 3 h | `pumpfun` | Older |
+| 2026-04-12 18:00Z → 2026-04-14 23:00Z | 2 d 5 h | `pumpfun` | Older |
+| 2026-04-15 05:00Z → 2026-04-19 05:00Z | 4 d | `pumpfun` | Older |
+| 2026-04-23 09:00Z → 2026-04-24 01:00Z | 16 h | `pumpfun`, `pumpswap`, `raydium_amm`, `raydium_clmm`, `raydium_cpmm` | Older |
+| 2026-05-18 10:00Z → 2026-06-09 05:00Z | 21 d 19 h | `raydium_clmm` | Older |
+| 2026-06-25 21:00Z → 2026-06-26 04:00Z | 7 h | **every venue** | Older |
+| 2026-06-29 05:00Z → 2026-06-30 05:00Z | 1 d | **every venue** | Older |
+| 2026-08-30 22:00Z → 2026-08-31 01:00Z | 3 h | `orca` | Older |
+| 2026-08-31 13:00Z → 2026-08-31 17:00Z | 4 h | all Raydium venues | Older |
+| 2026-09-01 19:00Z → 2026-09-01 23:00Z | 4 h | all Raydium venues | Older |
+| 2026-09-02 03:00Z → 2026-09-02 10:00Z | 7 h | all Raydium venues | Older |
+| 2026-09-03 20:00Z → 2026-09-04 06:00Z | 10 h | all Raydium venues | Older |
+| 2026-09-05 02:00Z → 2026-09-05 23:00Z | 21 h | all Raydium venues | Older |
+| 2026-09-06 21:00Z → 2026-09-06 23:00Z | 2 h | all Meteora venues | Recent |
+| 2026-09-09 02:00Z → 2026-09-09 12:00Z | 10 h | all Raydium venues | Recent |
 
-**May be filled** means the source blocks were still available when this was measured, so the hole could be filled. **Cannot be filled** means the source blocks have aged out; those windows may never be filled, so treat them as permanent holes when you design around them.
+**Recent** means the gap was still inside the window our routine repair covers when this was measured. **Older** means it was past that window; it may stay unfilled, so don't assume it will be filled.
 
 ### Per-venue totals
 
@@ -1197,7 +1197,7 @@ Actor-chart history starts on 2026-05-28. There is no data before that date, bec
 
 A mint that doesn't trade for several hours has gaps (not zeros) in its chart for those hours — holder counts don't change when nothing trades. Frontends should forward-fill the last known value.
 
-The bundler series (`/bundlers/chart/{token}`) currently returns 0 in every bucket. For a bundler count use `/tokens/{mint}/bundlers`.
+On the snipers, insiders and bundlers charts, a bucket is `null` where the mint had not been tagged yet when it was computed (see `tag_status`); `null` is not a count of 0.
 
 
 ---
@@ -1230,9 +1230,9 @@ Use these when you only need one dimension or want to fan out to multiple chart 
 - `GET /holders/chart/{token}` — distinct holder count
 - `GET /snipers/chart/{token}` — sniper wallet count
 - `GET /insiders/chart/{token}` — insider wallet count
-- `GET /bundlers/chart/{token}` — bundler wallet count (currently 0 in every bucket; use `/tokens/{mint}/bundlers` for the count)
+- `GET /bundlers/chart/{token}` — bundler wallet count
 
-Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": <ms> }`.
+Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": <ms> }`. On the snipers, insiders and bundlers charts a `value` is `null` where the mint had not been tagged yet when that bucket was computed; `tag_status` and a `coverage_note` say so, and `null` is not a count of 0.
 
 ## Resolution and downsampling
 
@@ -1240,7 +1240,7 @@ Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": 
 
 ## Freshness and gaps
 
-Data updates within approximately 3–5 seconds of a trade. The underlying coalescing worker marks the mint dirty on each incoming swap event and recomputes all actor counts every 3 seconds.
+Data updates within approximately 3–5 seconds of a trade.
 
 A mint that doesn't trade for several hours will have gaps in its chart for the quiet hours — holder counts and actor counts don't change when nothing trades. This is correct behavior, not a bug. **Forward-fill the last known value** for display purposes.
 

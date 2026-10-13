@@ -274,8 +274,8 @@ def backfill_status(age_hours: int) -> str:
     for whoever runs the backfill.
     """
     if age_hours <= SHYFT_RETENTION_HOURS:
-        return "May be filled"
-    return "Cannot be filled"
+        return "Recent"
+    return "Older"
 
 
 def full_coverage_day(daily: list[dict]) -> str:
@@ -355,8 +355,8 @@ def render(census, gaps, ladder, generated_at: str, full_from: str) -> str:
     w("")
     w(
         f"These windows were measured at **{generated_at}**, and each status is as of "
-        "that time: a window marked **May be filled** may since have been filled, or "
-        "may have become impossible to fill."
+        "that time: a window marked **Recent** may since have been filled, and one marked **Older** "
+        "may still be unfilled."
     )
     w("")
 
@@ -384,11 +384,9 @@ def render(census, gaps, ladder, generated_at: str, full_from: str) -> str:
             )
         w("")
         w(
-            "**May be filled** means the source blocks were still available when this was "
-            "measured, so the hole could be filled. "
-            "**Cannot be filled** means the source blocks have aged out; those "
-            "windows may never be filled, so treat them as permanent holes when you "
-            "design around them."
+            "**Recent** means the gap was still inside the window our routine repair covers "
+            "when this was measured. **Older** means it was past that window; it may stay "
+            "unfilled, so don't assume it will be filled."
         )
         w("")
 

@@ -144,4 +144,4 @@ Actor-chart history starts on 2026-05-28. There is no data before that date, bec
 
 A mint that doesn't trade for several hours has gaps (not zeros) in its chart for those hours — holder counts don't change when nothing trades. Frontends should forward-fill the last known value.
 
-The bundler series (`/bundlers/chart/{token}`) currently returns 0 in every bucket. For a bundler count use `/tokens/{mint}/bundlers`.
+On the snipers, insiders and bundlers charts, a bucket is `null` where the mint had not been tagged yet when it was computed (see `tag_status`); `null` is not a count of 0.

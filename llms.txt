@@ -61,7 +61,7 @@
 - [GET /holders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/holders/chart/{token}): holder-count time series (1h/6h/1d, event-driven, ~3-5s freshness)
 - [GET /snipers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/snipers/chart/{token}): sniper wallet count over time
 - [GET /insiders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/insiders/chart/{token}): insider wallet count over time
-- [GET /bundlers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/bundlers/chart/{token}): bundler wallet count over time (currently 0 in every bucket; use /tokens/{mint}/bundlers for the count)
+- [GET /bundlers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/bundlers/chart/{token}): bundler wallet count over time (null where the mint was not tagged yet)
 - [GET /tokens/{mint}/actor-chart](https://docs.dexploit.dev/api-reference/openapi/get/tokens/{mint}/actor-chart): combined actor chart — holders, snipers, insiders, dev in one call
 
 ### Discovery

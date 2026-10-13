@@ -28,9 +28,9 @@ Use these when you only need one dimension or want to fan out to multiple chart 
 - `GET /holders/chart/{token}` — distinct holder count
 - `GET /snipers/chart/{token}` — sniper wallet count
 - `GET /insiders/chart/{token}` — insider wallet count
-- `GET /bundlers/chart/{token}` — bundler wallet count (currently 0 in every bucket; use `/tokens/{mint}/bundlers` for the count)
+- `GET /bundlers/chart/{token}` — bundler wallet count
 
-Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": <ms> }`.
+Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": <ms> }`. On the snipers, insiders and bundlers charts a `value` is `null` where the mint had not been tagged yet when that bucket was computed; `tag_status` and a `coverage_note` say so, and `null` is not a count of 0.
 
 ## Resolution and downsampling
 
@@ -38,7 +38,7 @@ Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": 
 
 ## Freshness and gaps
 
-Data updates within approximately 3–5 seconds of a trade. The underlying coalescing worker marks the mint dirty on each incoming swap event and recomputes all actor counts every 3 seconds.
+Data updates within approximately 3–5 seconds of a trade.
 
 A mint that doesn't trade for several hours will have gaps in its chart for the quiet hours — holder counts and actor counts don't change when nothing trades. This is correct behavior, not a bug. **Forward-fill the last known value** for display purposes.
 

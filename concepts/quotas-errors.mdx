@@ -49,7 +49,7 @@ Endpoints live under different base paths, and one is served by a separate servi
 | --- | --- | --- |
 | `candles`, `candles/latest`, `pairs`, `protocols`, `stats`, `top-movers` | `/api/v1/...` | Versioned. |
 | `screener`, `trending`, `search`, `tokens/*` (intel, risk, holders, audit, …) | `/` (root) | Unversioned. |
-| `tokens/{mint}/audit` | `/` (root) | **Separate service (CT106)** — same host (`api.dexploit.dev`) but a different backend. Returns a `200` `indexed: false` sentinel for valid-but-unindexed mints and `400` for malformed mints. |
+| `tokens/{mint}/audit` | `/` (root) | **Separate backend** — same host (`api.dexploit.dev`). Returns a `200` `indexed: false` sentinel for valid-but-unindexed mints and `400` for malformed mints. |
 
 All paths share the same host, `https://api.dexploit.dev`, and the same `Authorization` / API-key auth.
 
