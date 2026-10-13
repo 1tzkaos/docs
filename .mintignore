@@ -1,0 +1,6 @@
+# Files that are not documentation: keep them out of the published site.
+CLAUDE.md
+AGENTS.md
+README.md
+.claude/
+scripts/
