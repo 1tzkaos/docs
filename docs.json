@@ -9,7 +9,7 @@
     "og:image": "/logo/light.png",
     "og:locale": "en_US",
     "twitter:card": "summary_large_image",
-    "twitter:site": "@dexploit",
+    "twitter:site": "@DexploitDev",
     "twitter:image": "/logo/light.png",
     "robots": "index, follow",
     "googlebot": "index, follow, max-image-preview:large, max-snippet:-1",
@@ -336,7 +336,8 @@
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/dexploit",
+      "x": "https://x.com/DexploitDev",
+      "discord": "https://discord.gg/GX7qapPZ8d",
       "github": "https://github.com/DexploitV1"
     }
   },
