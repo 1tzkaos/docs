@@ -733,7 +733,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "The fee as decoded from the transaction; `null` when it was not decoded. Unlike REST, the stream does not withhold a fee that is not known to be correct, so a frame can carry a number where REST returns `null` for the same swap, and on some venues that number is not in lamports. For fee figures you will sum or compare, use REST."
+            "description": "Fee paid, in lamports, or `null` when the fee is unknown. **`null` means unknown, not zero.** `null` for the same swaps REST and GraphQL return `null` for."
           },
           "creator_fee": {
             "type": [
@@ -741,7 +741,7 @@
               "null"
             ],
             "format": "int64",
-            "description": "The token creator's fee as decoded; `null` when it was not decoded. The same caveat as `fee` applies: prefer REST for fee figures."
+            "description": "The token creator's fee, or `null` when the fee is unknown. **`null` means unknown, not zero.** `null` for the same swaps REST and GraphQL return `null` for."
           },
           "creator_fee_bps": {
             "type": "integer"
