@@ -729,7 +729,7 @@ Each API key has one allowance of concurrent streams, set by its tier. Every ope
 
 The allowance is counted per streaming server today, so while your streams are spread across servers you may be allowed more than your tier's cap. Do not rely on that: the cap will be enforced across all servers.
 
-Opening a stream past the cap is refused once the cap is reached on the server that receives it: gRPC returns `RESOURCE_EXHAUSTED` (`stream cap exceeded; tier=… cap=…`), and a WebSocket is closed with code `1013`. A slot is freed as soon as its stream closes.
+Opening a stream past the cap is refused once the cap is reached on the server that receives it: gRPC returns `RESOURCE_EXHAUSTED` (`stream cap exceeded; tier=… cap=…`), and a WebSocket is closed with code `1013`. A slot is freed once the server sees the stream close, which can take a few seconds after your client disconnects. A client that reconnects immediately can therefore still get `RESOURCE_EXHAUSTED` (or `1013`): wait a few seconds, or retry with a short backoff.
 
 The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
