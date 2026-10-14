@@ -10,7 +10,7 @@ The `dexploit.v1.SwapStream` gRPC service delivers Solana DEX swaps in real time
 - Host: `grpc.dexploit.dev:443` (TLS)
 - Service: `dexploit.v1.SwapStream`
 - Auth: `x-api-key` metadata header (or `authorization: Bearer …`)
-- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/swaps/typescript/grpc/proto/swap_stream.proto)
+- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/grpc/typescript/swaps-stream/proto/swap_stream.proto)
 
 ## RPCs
 
@@ -20,7 +20,7 @@ Live tail. Streams every new swap that matches your filter until the connection 
 
 ```typescript
 import { credentials, Metadata } from "@grpc/grpc-js";
-// ... (see the full example at https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/grpc)
+// ... (see the full example at https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/swaps-stream)
 
 const stream = client.StreamLive(
   { filter: { dexes: ["pumpfun"], minSol: "1000000" } },

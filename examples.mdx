@@ -6,22 +6,22 @@ description: "Working sample apps for the most common integration patterns. Sour
 Each card below points at a folder of [DexploitV1/Dexploit-Examples](https://github.com/DexploitV1/Dexploit-Examples) — clone the repo, follow the per-folder README.
 
 <Columns cols={2}>
-  <Card title="Stream all swap events (WebSocket)" icon="bolt" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-basic">
+  <Card title="Stream all swap events (WebSocket)" icon="bolt" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-all">
     Subscribe to every swap with no filter — useful for indexers and full-firehose pipelines.
   </Card>
-  <Card title="Whale-trade alerter (WebSocket)" icon="dollar-sign" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-whale-feed">
+  <Card title="Whale-trade alerter (WebSocket)" icon="dollar-sign" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-whale-feed">
     Filter on `min_sol` to surface large trades only.
   </Card>
-  <Card title="Stream by token (WebSocket)" icon="coins" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-by-token">
+  <Card title="Stream by token (WebSocket)" icon="coins" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-filter-by-token">
     Watch every pool of a specific token across DEXs.
   </Card>
-  <Card title="Stream by trader wallet (WebSocket)" icon="wallet" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-by-wallet">
+  <Card title="Stream by trader wallet (WebSocket)" icon="wallet" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-filter-by-wallet">
     Follow specific traders in real time.
   </Card>
-  <Card title="Custom filter combinations (WebSocket)" icon="sliders" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-stacked-filters">
+  <Card title="Custom filter combinations (WebSocket)" icon="sliders" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-stacked-filters">
     Stack token, dex and amount filters; a swap must match all of them.
   </Card>
-  <Card title="gRPC stream in Rust" icon="rust" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/rust/grpc">
+  <Card title="gRPC stream in Rust" icon="rust" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/rust/swaps-stream">
     Idiomatic `tonic` client for the swap stream, with filters via env vars.
   </Card>
 </Columns>
