@@ -2164,7 +2164,7 @@ For the **raw swap feed** with rich server-side filtering (tokens / traders / po
 
 - Host: `grpc.dexploit.dev:443` (TLS)
 - Service: `dexploit.v1.PriceStream`
-- Proto: [`price_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/ohlcv/typescript/grpc/proto/price_stream.proto)
+- Proto: [`price_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/grpc/typescript/ohlcv-price-stream/proto/price_stream.proto)
 
 TLS is required. Authenticate via gRPC metadata — `x-api-key` or `authorization: Bearer`:
 
@@ -2299,7 +2299,7 @@ The `dexploit.v1.SwapStream` gRPC service delivers Solana DEX swaps in real time
 - Host: `grpc.dexploit.dev:443` (TLS)
 - Service: `dexploit.v1.SwapStream`
 - Auth: `x-api-key` metadata header (or `authorization: Bearer …`)
-- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/swaps/typescript/grpc/proto/swap_stream.proto)
+- Proto: [`swap_stream.proto`](https://github.com/DexploitV1/Dexploit-Examples/blob/main/grpc/typescript/swaps-stream/proto/swap_stream.proto)
 
 ## RPCs
 
@@ -2309,7 +2309,7 @@ Live tail. Streams every new swap that matches your filter until the connection 
 
 ```typescript
 import { credentials, Metadata } from "@grpc/grpc-js";
-// ... (see the full example at https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/grpc)
+// ... (see the full example at https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/typescript/swaps-stream)
 
 const stream = client.StreamLive(
   { filter: { dexes: ["pumpfun"], minSol: "1000000" } },
@@ -2453,22 +2453,22 @@ Without these, half-open TCP hangs (firewall idle-timeouts, NAT drops, ungracefu
 Each card below points at a folder of [DexploitV1/Dexploit-Examples](https://github.com/DexploitV1/Dexploit-Examples) — clone the repo, follow the per-folder README.
 
 <Columns cols={2}>
-  <Card title="Stream all swap events (WebSocket)" icon="bolt" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-basic">
+  <Card title="Stream all swap events (WebSocket)" icon="bolt" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-all">
     Subscribe to every swap with no filter — useful for indexers and full-firehose pipelines.
   </Card>
-  <Card title="Whale-trade alerter (WebSocket)" icon="dollar-sign" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-whale-feed">
+  <Card title="Whale-trade alerter (WebSocket)" icon="dollar-sign" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-whale-feed">
     Filter on `min_sol` to surface large trades only.
   </Card>
-  <Card title="Stream by token (WebSocket)" icon="coins" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-by-token">
+  <Card title="Stream by token (WebSocket)" icon="coins" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-filter-by-token">
     Watch every pool of a specific token across DEXs.
   </Card>
-  <Card title="Stream by trader wallet (WebSocket)" icon="wallet" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-by-wallet">
+  <Card title="Stream by trader wallet (WebSocket)" icon="wallet" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-filter-by-wallet">
     Follow specific traders in real time.
   </Card>
-  <Card title="Custom filter combinations (WebSocket)" icon="sliders" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/typescript/websocket-stacked-filters">
+  <Card title="Custom filter combinations (WebSocket)" icon="sliders" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/websockets/typescript/swaps-stacked-filters">
     Stack token, dex and amount filters; a swap must match all of them.
   </Card>
-  <Card title="gRPC stream in Rust" icon="rust" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/swaps/rust/grpc">
+  <Card title="gRPC stream in Rust" icon="rust" href="https://github.com/DexploitV1/Dexploit-Examples/tree/main/grpc/rust/swaps-stream">
     Idiomatic `tonic` client for the swap stream, with filters via env vars.
   </Card>
 </Columns>
