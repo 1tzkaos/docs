@@ -1876,20 +1876,20 @@
           },
           "rps_cap": {
             "type": "integer",
-            "description": "Requests allowed per window (`rps_window_secs`). Enterprise reports 4294967295 (uncapped)."
+            "description": "Requests per second: the strict cap on Free, the sustained rate on Developer and Pro. Enterprise reports 4294967295 (uncapped)."
           },
           "rps_window_secs": {
             "type": "integer",
-            "description": "Length of the rate-limit window in seconds. Always 1: the cap is strict per second.",
+            "description": "Reads 1. On Free the cap is strict per second. On Developer and Pro `rps_cap` is a rate with a short burst allowed, not a strict count in a one-second window.",
             "example": 1
           },
           "current_window_used": {
             "type": "integer",
-            "description": "Requests counted in the current one-second window."
+            "description": "On Free, the requests counted in the current second. On Developer and Pro, how much of your allowance is in use right now, on the same scale as `rps_cap`: 0 when you have been idle, and `rps_cap` when it is used up and the next request would get a 429. It is not a count of the requests in the last second."
           },
           "current_window_remaining": {
             "type": "integer",
-            "description": "`rps_cap` minus `current_window_used`."
+            "description": "`rps_cap` minus `current_window_used`. 0 means the next request would get a 429."
           },
           "monthly_used": {
             "type": "integer",
@@ -8207,7 +8207,7 @@
     "/credits": {
       "get": {
         "summary": "RPS-tier usage snapshot",
-        "description": "Returns your tier, RPS cap, usage in the current one-second window, monthly_used (informational only — no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
+        "description": "Returns your tier, RPS cap, how much of your per-second allowance is in use, monthly_used (informational only — no monthly cap on Dexploit), and per-feature gate flags. See [Authentication](/authentication#inspecting-your-usage) for the full payload.",
         "operationId": "getCredits",
         "tags": [
           "Account"

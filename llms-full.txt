@@ -177,13 +177,13 @@ Paid tiers are capped by requests-per-second only, with unlimited monthly volume
 | Pro | $199/mo | 500 | unlimited | full (see [Coverage](/concepts/coverage)) |
 | Enterprise | Custom | unlimited | unlimited | full (see [Coverage](/concepts/coverage)) |
 
-The cap is strict per second: requests are counted in fixed one-second windows, with no burst allowance above the cap. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
+Free is strict: 10 requests in any one second. Developer and Pro allow short bursts: a whole second's worth sent at once can be refused, and Developer never gets more than about 120 in any one second. Over the limit you get a 429 with `Retry-After: 1`. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
 
 Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
 
 ## Inspecting your usage
 
-Call `GET /credits` at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
+Call `GET /credits` at any time to see your current tier, RPS cap, how much of your per-second allowance is in use, and feature flags:
 
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits
@@ -236,6 +236,14 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 
 # changelog
 
+
+<Update label="2026-10-15" description="Changed: Developer rate limit allows short bursts">
+**Changed.** The Developer and Pro limits are now a rate with a short burst allowed, not a strict count per second. Free (strict 10 per second) is unchanged.
+
+- **Developer and Pro:** the rates are the same, 100 and 500 requests per second sustained. Developer never gets more than about 120 in any one second. Before, a key could send its whole second's budget in one go. A client that does that can now get 429s, even though it is under its rate over the second. Spread your requests across the second.
+- **429:** a `RATE_LIMIT_EXCEEDED` response carries `Retry-After: 1` (seconds), on every tier, Free included.
+- **`GET /credits`:** on Developer and Pro, `current_window_used` is how much of your allowance is in use right now, on the same scale as `rps_cap` (0 when idle, `rps_cap` when used up). It is no longer a count of the requests in the last second. `current_window_remaining` is `rps_cap` minus that, and 0 means the next request would get a 429. `rps_window_secs` still reads 1. Free is unchanged.
+</Update>
 
 <Update label="2026-10-07" description="Breaking: GET /swaps/{signature} returns every swap of the transaction">
 **Breaking.** `GET /swaps/{signature}` now answers with an envelope that holds every swap of the transaction, instead of one swap object.
@@ -628,11 +636,15 @@ Paid tiers are **capped requests-per-second with unlimited monthly usage.** The 
 | Pro | 500 | unlimited | full (see [Coverage](/concepts/coverage)) |
 | Enterprise | unlimited | unlimited | full (see [Coverage](/concepts/coverage)) |
 
-The cap is strict per second. Requests are counted in fixed one-second windows (`rps_window_secs: 1` in [`/credits`](#inspecting-your-usage)), and the first request over the cap within a second gets a 429. There is no burst allowance above it: a Free-tier client gets 10 requests in any one second, not more by staying quiet the rest of the minute.
+**Free is strict.** You get 10 requests in any one second, and the 11th gets a 429. Staying quiet beforehand earns no extra.
+
+**Developer and Pro allow short bursts.** Developer sustains 100 requests per second and Pro 500. Developer can send a short burst above its rate, but never more than about 120 in any one second. A burst bigger than the allowance can be refused even when you are under your rate over a whole second, so spread your requests across the second instead of sending a second's worth at once.
+
+Over the limit you get a 429 with `Retry-After: 1`.
 
 ## Inspecting your usage
 
-Call `GET /credits` at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
+Call `GET /credits` at any time to see your current tier, RPS cap, how much of your per-second allowance is in use, and feature flags:
 
 ```json
 {
@@ -654,11 +666,13 @@ Call `GET /credits` at any time to see your current tier, RPS cap, requests used
 }
 ```
 
+On Free, `current_window_used` is the number of requests counted in the current second and `rps_window_secs` is 1. On Developer and Pro the limit is a rate, so `current_window_used` is how much of your allowance is in use right now, on the same scale as `rps_cap`: 0 when you have been idle, and `rps_cap` when it is used up and the next request would get a 429. It is not a count of the requests in the last second, and `rps_window_secs` (still 1) is not a window you are counted in. `current_window_remaining` is `rps_cap` minus `current_window_used`.
+
 `monthly_used` is your cumulative request count for the current calendar month. On paid tiers `monthly_cap`, `monthly_remaining` and `monthly_resets_at` are `null` and `monthly_enforced` is `false`; the count is informational, so you can size up your typical load. On the Free tier the cap is 10,000 requests per month and `monthly_resets_at` is 00:00 UTC on the 1st. The cap is applied only while `monthly_enforced` is `true`.
 
 ## Rate limiting
 
-When you exceed your tier's RPS cap you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"`. Back off and retry. Windows are one second long, so a short backoff is enough; [`GET /credits`](#inspecting-your-usage) shows the current window's usage.
+When you go over your tier's limit you get HTTP 429 with `code: "RATE_LIMIT_EXCEEDED"` and a `Retry-After: 1` header. Wait that long and retry; [`GET /credits`](#inspecting-your-usage) shows how much of your allowance is in use.
 
 ## Free-tier monthly cap and history window
 
@@ -739,7 +753,7 @@ The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently 
 | --- | --- | --- | --- |
 | `UNAUTHORIZED` | 401 | Key missing, malformed, or revoked. | Generate a new key in the dashboard. |
 | `FORBIDDEN` | 403 | Authenticated, but not allowed. | Check your tier; some endpoints require Pro or Enterprise. |
-| `RATE_LIMIT_EXCEEDED` | 429 | RPS cap exceeded in the current one-second window. | Back off briefly and retry; windows are one second long. |
+| `RATE_LIMIT_EXCEEDED` | 429 | Over your tier's per-second limit. | Wait the `Retry-After` seconds (1) and retry. |
 | `MONTHLY_QUOTA_EXCEEDED` | 429 | Free tier: the 10,000-requests-per-month cap is used up. | Wait for the reset time in the response, or upgrade. |
 | `HISTORY_WINDOW_EXCEEDED` | 403 | Free tier: the request names a time older than 14 days. | Use a time on or after `oldest_allowed`, or upgrade. |
 | `RATE_LIMITED` | 429 | The edge's own limits: more than 500 requests per second on one key, or too many attempts on an authentication endpoint. | Back off and retry. On a 429, branch on the status, since both codes mean "slow down". |
