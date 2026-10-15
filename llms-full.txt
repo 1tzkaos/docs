@@ -177,7 +177,7 @@ Paid tiers are capped by requests-per-second only, with unlimited monthly volume
 | Pro | $199/mo | 500 | unlimited | full (see [Coverage](/concepts/coverage)) |
 | Enterprise | Custom | unlimited | unlimited | full (see [Coverage](/concepts/coverage)) |
 
-Free is strict: 10 requests in any one second. Developer allows a short burst above 100 per second, but never more than about 120 in any one second. Over the limit you get a 429 with `Retry-After: 1`. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
+Free is strict: 10 requests in any one second. Developer and Pro allow short bursts: a whole second's worth sent at once can be refused, and Developer never gets more than about 120 in any one second. Over the limit you get a 429 with `Retry-After: 1`. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
 
 Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
 
@@ -238,9 +238,9 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 
 
 <Update label="2026-10-15" description="Changed: Developer rate limit allows short bursts">
-**Changed.** The Developer limit is now a rate with a short burst allowed, not a strict count per second. Free (strict 10 per second) and the Pro rate (500 per second) are unchanged.
+**Changed.** The Developer and Pro limits are now a rate with a short burst allowed, not a strict count per second. Free (strict 10 per second) is unchanged.
 
-- **Developer:** 100 requests per second sustained, and never more than about 120 in any one second. Before, a Developer key could send up to 100 in one go. A client that sends a whole second's budget at once can now get 429s, even though it is under 100 over the second. Spread your requests across the second.
+- **Developer and Pro:** the rates are the same, 100 and 500 requests per second sustained. Developer never gets more than about 120 in any one second. Before, a key could send its whole second's budget in one go. A client that does that can now get 429s, even though it is under its rate over the second. Spread your requests across the second.
 - **429:** a `RATE_LIMIT_EXCEEDED` response carries `Retry-After: 1` (seconds), on every tier, Free included.
 - **`GET /credits`:** on Developer and Pro, `current_window_used` is how much of your allowance is in use right now, on the same scale as `rps_cap` (0 when idle, `rps_cap` when used up). It is no longer a count of the requests in the last second. `current_window_remaining` is `rps_cap` minus that, and 0 means the next request would get a 429. `rps_window_secs` still reads 1. Free is unchanged.
 </Update>
@@ -638,9 +638,7 @@ Paid tiers are **capped requests-per-second with unlimited monthly usage.** The 
 
 **Free is strict.** You get 10 requests in any one second, and the 11th gets a 429. Staying quiet beforehand earns no extra.
 
-**Developer allows short bursts.** The rate is 100 requests per second sustained. You can send a short burst above that, but never more than about 120 in any one second. A burst bigger than the allowance can be refused even when you are under 100 over a whole second, so spread your requests across the second instead of sending it all at once.
-
-**Pro** is 500 requests per second.
+**Developer and Pro allow short bursts.** Developer sustains 100 requests per second and Pro 500. Developer can send a short burst above its rate, but never more than about 120 in any one second. A burst bigger than the allowance can be refused even when you are under your rate over a whole second, so spread your requests across the second instead of sending a second's worth at once.
 
 Over the limit you get a 429 with `Retry-After: 1`.
 

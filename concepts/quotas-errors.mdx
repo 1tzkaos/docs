@@ -66,9 +66,7 @@ Paid tiers are **capped requests-per-second with unlimited monthly usage.** The 
 
 **Free is strict.** You get 10 requests in any one second, and the 11th gets a 429. Staying quiet beforehand earns no extra.
 
-**Developer allows short bursts.** The rate is 100 requests per second sustained. You can send a short burst above that, but never more than about 120 in any one second. A burst bigger than the allowance can be refused even when you are under 100 over a whole second, so spread your requests across the second instead of sending it all at once.
-
-**Pro** is 500 requests per second.
+**Developer and Pro allow short bursts.** Developer sustains 100 requests per second and Pro 500. Developer can send a short burst above its rate, but never more than about 120 in any one second. A burst bigger than the allowance can be refused even when you are under your rate over a whole second, so spread your requests across the second instead of sending a second's worth at once.
 
 Over the limit you get a 429 with `Retry-After: 1`.
 
