@@ -41,13 +41,13 @@ Paid tiers are capped by requests-per-second only, with unlimited monthly volume
 | Pro | $199/mo | 500 | unlimited | full (see [Coverage](/concepts/coverage)) |
 | Enterprise | Custom | unlimited | unlimited | full (see [Coverage](/concepts/coverage)) |
 
-The cap is strict per second: requests are counted in fixed one-second windows, with no burst allowance above the cap. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
+Free is strict: 10 requests in any one second. Developer allows a short burst above 100 per second, but never more than about 120 in any one second. Over the limit you get a 429 with `Retry-After: 1`. The Free monthly cap and history window are described in [Quotas & errors](/concepts/quotas-errors#rate-limits).
 
 Some endpoints are tier-gated (`/tokens/{mint}/smart-money`, `/tokens/{mint}/whales`). Free callers receive HTTP 200 with `tier_locked: true` rather than 429 — see [Quotas & errors](/concepts/quotas-errors#tier-locked-features).
 
 ## Inspecting your usage
 
-Call `GET /credits` at any time to see your current tier, RPS cap, requests used in the current window, and feature flags:
+Call `GET /credits` at any time to see your current tier, RPS cap, how much of your per-second allowance is in use, and feature flags:
 
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' https://api.dexploit.dev/credits

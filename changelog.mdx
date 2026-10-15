@@ -3,6 +3,14 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-10-15" description="Changed: Developer rate limit allows short bursts">
+**Changed.** The Developer limit is now a rate with a short burst allowed, not a strict count per second. Free (strict 10 per second) and the Pro rate (500 per second) are unchanged.
+
+- **Developer:** 100 requests per second sustained, and never more than about 120 in any one second. Before, a Developer key could send up to 100 in one go. A client that sends a whole second's budget at once can now get 429s, even though it is under 100 over the second. Spread your requests across the second.
+- **429:** a `RATE_LIMIT_EXCEEDED` response carries `Retry-After: 1` (seconds), on every tier, Free included.
+- **`GET /credits`:** on Developer and Pro, `current_window_used` is how much of your allowance is in use right now, on the same scale as `rps_cap` (0 when idle, `rps_cap` when used up). It is no longer a count of the requests in the last second. `current_window_remaining` is `rps_cap` minus that, and 0 means the next request would get a 429. `rps_window_secs` still reads 1. Free is unchanged.
+</Update>
+
 <Update label="2026-10-07" description="Breaking: GET /swaps/{signature} returns every swap of the transaction">
 **Breaking.** `GET /swaps/{signature}` now answers with an envelope that holds every swap of the transaction, instead of one swap object.
 
