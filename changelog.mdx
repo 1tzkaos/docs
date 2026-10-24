@@ -3,6 +3,15 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-10-24" description="Additive: launch_at on token objects">
+**Additive.** Token objects (`/tokens/latest`, `/tokens/multi`, `/tokens/multi/graduating`, `/tokens/multi/graduated`, `/deployer/{wallet}`) now carry the token's launch time. A client that ignores keys it does not know is unaffected.
+
+- **`launch_at`:** Unix epoch seconds when the token launched, or `null` when the launch is not known.
+- **`launch_at_source`:** how it was found: `mint_created_event`, `pool_init_event` or `unknown`.
+- **`registry_inserted_at`:** when Dexploit registered the token, the same value as `created_at`.
+- **Unchanged:** `created_at` still means when Dexploit registered the token. It is not the launch time; use `launch_at` for that.
+</Update>
+
 <Update label="2026-10-15" description="Changed: Developer rate limit allows short bursts">
 **Changed.** The Developer and Pro limits are now a rate with a short burst allowed, not a strict count per second. Free (strict 10 per second) is unchanged.
 

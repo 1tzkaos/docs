@@ -1736,7 +1736,22 @@
           },
           "created_at": {
             "type": "integer",
-            "description": "Unix epoch seconds."
+            "description": "Unix epoch seconds when Dexploit registered the token. Not the launch time: see `launch_at`."
+          },
+          "launch_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix epoch seconds when the token launched. `null` when the launch is not known."
+          },
+          "launch_at_source": {
+            "type": "string",
+            "description": "How `launch_at` was found: `mint_created_event`, `pool_init_event`, or `unknown`. Empty until the token has been checked."
+          },
+          "registry_inserted_at": {
+            "type": "integer",
+            "description": "Unix epoch seconds when Dexploit registered the token. Same value as `created_at`."
           }
         }
       },
