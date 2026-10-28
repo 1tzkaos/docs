@@ -38,7 +38,7 @@ Each returns `{ "results": [{"ts_ms": <ms>, "value": <number>}], "computed_at": 
 
 ## Freshness and gaps
 
-Data updates within approximately 3–5 seconds of a trade.
+Values are refreshed about every 15 minutes, and up to 1 hour for tokens with 10,000 or more holders. `computed_at` tells you when the reading was computed.
 
 A mint that doesn't trade for several hours will have gaps in its chart for the quiet hours — holder counts and actor counts don't change when nothing trades. This is correct behavior, not a bug. **Forward-fill the last known value** for display purposes.
 
