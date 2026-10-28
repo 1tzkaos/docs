@@ -7707,7 +7707,7 @@
     "/holders/chart/{token}": {
       "get": {
         "summary": "Holder-count time series for a token",
-        "description": "Returns the distinct holder count for a token sampled once per hour (or per 6h/1d bucket). Data is event-driven — a row exists only for hours the mint traded. Quiet hours produce gaps, not zeros; frontends should forward-fill the last value.\n\nHistory starts 2026-05-28; there is no earlier data. Empty mints return `results: []` with a `coverage_note`.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** (point-in-time count, not a flow).\n\nData freshness is ~3–5 seconds after a trade.",
+        "description": "Returns the distinct holder count for a token sampled once per hour (or per 6h/1d bucket). Data is event-driven — a row exists only for hours the mint traded. Quiet hours produce gaps, not zeros; frontends should forward-fill the last value.\n\nHistory starts 2026-05-28; there is no earlier data. Empty mints return `results: []` with a `coverage_note`.\n\nDownsampling at `6h`/`1d` returns the **last value in the bucket** (point-in-time count, not a flow).\n\nValues are refreshed about every 15 minutes, and up to 1 hour for tokens with 10,000 or more holders. `computed_at` tells you when the reading was computed.",
         "operationId": "getHoldersChart",
         "tags": [
           "Time-series charts"

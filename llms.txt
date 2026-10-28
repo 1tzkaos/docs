@@ -58,7 +58,7 @@
 - [GET /chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/chart/{token}): chart-ready candles with optional per-row market_cap_sol
 
 ### Time-series charts
-- [GET /holders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/holders/chart/{token}): holder-count time series (1h/6h/1d, event-driven, ~3-5s freshness)
+- [GET /holders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/holders/chart/{token}): holder-count time series (1h/6h/1d, event-driven, refreshed every ~15 min, up to 1 h for 10,000+ holders)
 - [GET /snipers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/snipers/chart/{token}): sniper wallet count over time
 - [GET /insiders/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/insiders/chart/{token}): insider wallet count over time
 - [GET /bundlers/chart/{token}](https://docs.dexploit.dev/api-reference/openapi/get/bundlers/chart/{token}): bundler wallet count over time (null where the mint was not tagged yet)

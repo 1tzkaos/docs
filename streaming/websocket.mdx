@@ -279,7 +279,7 @@ Unless noted, every room delivers the **room-mode wrapper** — `{ "type": "mess
 | Graduating | `graduating` | Tokens crossing the bonding-curve completion threshold (the `mints.completing` lifecycle event). |
 | Graduated | `graduated` | Tokens that migrated to a tradeable AMM pool (the `mints.graduated` lifecycle event). |
 | Rugs (global) | `rugs` | Every `rug_detected` across all venues — the **full `RugRecord`** (`classification`, `drained_pct`, `lp_sol_pulled` in **lamports**, `dex`, plus `reason`). See below. |
-| Token safety | `safety:{mint}` | The mint's full actor/safety snapshot (holder/sniper/insider/bundler counts, top-holder %, dev-held %, …), re-pushed on-change (~3–5 s coalesced). |
+| Token safety | `safety:{mint}` | The mint's full actor/safety snapshot (holder/sniper/insider/bundler counts, top-holder %, dev-held %, …), re-pushed when it is recomputed (about every 15 minutes, up to 1 hour for tokens with 10,000 or more holders). |
 | Price bars | `price:{addr}:{tf}` | Live OHLCV bar updates for `addr` (a **mint OR pool**) at timeframe `tf`. `tf` ∈ `1s 30s 1m 5m 15m 1h 4h 1d`. A mint-keyed room interleaves the mint's pairs (each frame carries `pair_address`). |
 | Wallet trades | `wallet:{wallet}` | Every `swap` where `wallet` is the trader (a live per-wallet trade tape). |
 | Transaction (token) | `transaction:{mint}` | Interleaved `swap` + `lp_deposit`/`lp_withdraw`/`token_burn` + `rug_detected` for one mint (all pools). |
