@@ -473,6 +473,8 @@ It's computed on these venues:
 | `pumpfun`, `pumpswap` | Against the pool's own reserves at the time of the trade (virtual reserves on `pumpfun`, real reserves on `pumpswap`), truncated toward zero. On `pumpfun` it's measured against the curve after the trade, so it reads zero or negative. | The impact was under 1 bp. |
 | `orca`, `raydium_amm`, `raydium_cpmm`, `raydium_clmm`, `meteora_dlmm`, `meteora_damm_v2` | The executed price against the pool's price just **before** the trade, with the pool's fee included, rounded to the nearest bp. Positive means the price moved against the trader. | These venues don't return `0`: every pool charges at least 1 bp, and the fee is part of the value. |
 
+The value is capped at 32767 (≥ 327.67%): a `32767` means the price moved against the trader by at least that much, and the true figure isn't stored. `-32768` is the same bound in the other direction.
+
 It's `null`:
 
 - on `meteora_dbc` and `meteora_pools`;
@@ -1093,6 +1095,8 @@ It's computed on these venues:
 | `pumpfun`, `pumpswap` | Against the pool's own reserves at the time of the trade (virtual reserves on `pumpfun`, real reserves on `pumpswap`), truncated toward zero. On `pumpfun` it's measured against the curve after the trade, so it reads zero or negative. | The impact was under 1 bp. |
 | `orca`, `raydium_amm`, `raydium_cpmm`, `raydium_clmm`, `meteora_dlmm`, `meteora_damm_v2` | The executed price against the pool's price just **before** the trade, with the pool's fee included, rounded to the nearest bp. Positive means the price moved against the trader. | These venues don't return `0`: every pool charges at least 1 bp, and the fee is part of the value. |
 
+The value is capped at 32767 (≥ 327.67%): a `32767` means the price moved against the trader by at least that much, and the true figure isn't stored. `-32768` is the same bound in the other direction.
+
 It's `null`:
 
 - on `meteora_dbc` and `meteora_pools`;
@@ -1514,6 +1518,8 @@ It's computed on these venues:
 | --- | --- | --- |
 | `pumpfun`, `pumpswap` | Against the pool's own reserves at the time of the trade (virtual reserves on `pumpfun`, real reserves on `pumpswap`), truncated toward zero. On `pumpfun` it's measured against the curve after the trade, so it reads zero or negative. | The impact was under 1 bp. |
 | `orca`, `raydium_amm`, `raydium_cpmm`, `raydium_clmm`, `meteora_dlmm`, `meteora_damm_v2` | The executed price against the pool's price just **before** the trade, with the pool's fee included, rounded to the nearest bp. Positive means the price moved against the trader. | These venues don't return `0`: every pool charges at least 1 bp, and the fee is part of the value. |
+
+The value is capped at 32767 (≥ 327.67%): a `32767` means the price moved against the trader by at least that much, and the true figure isn't stored. `-32768` is the same bound in the other direction.
 
 It's `null`:
 
