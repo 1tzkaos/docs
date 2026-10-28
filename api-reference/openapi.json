@@ -4809,7 +4809,7 @@
     "/swaps/range": {
       "get": {
         "summary": "Swaps in a time or slot range",
-        "description": "Page through historical swaps within a `[start_time, end_time]` (Unix epoch **seconds**) or `[start_slot, end_slot]` range. Combine with the same filters as [/swaps](#tag/swaps/get/swaps).",
+        "description": "Page through historical swaps within a `[start_time, end_time]` (Unix epoch **seconds**) or `[start_slot, end_slot]` range. Combine with the same filters as [/swaps](#tag/swaps/get/swaps). A time window is limited to 31 days: a wider one (or an `end_time` with no `start_time`) is refused with `400`; split the request into windows of 31 days or less.",
         "operationId": "listSwapsRange",
         "tags": [
           "Swaps"
