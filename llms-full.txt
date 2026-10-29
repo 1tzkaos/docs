@@ -237,6 +237,13 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-10-29" description="Now documented: reconciled and reconciliation_source on positions, risk, chart and the batch routes">
+**Additive, documentation only.** These keys were already in the responses; they were not described. A client that ignores keys it does not know is unaffected.
+
+- **`reconciled` and `reconciliation_source`** tell you whether a figure was checked against the wallet's on-chain holdings. They are now described on `GET /v2/pnl/wallets/{wallet}/positions` and `/risk` (`live`, `snapshot` or `unavailable`), on `GET /v2/pnl/wallets/{wallet}/chart` inside `summary` (`live` or `unavailable`), and on `POST /v2/pnl/wallets/{wallet}/positions/batch` (`live` or `unavailable`).
+- **`POST /v2/pnl/positions/batch`, `POST /v2/pnl/tokens/{token}/positions/batch` and `POST /v2/pnl/wallets/batch`:** the response carries the pair at the top level, where `reconciled` is `true` only when every item was checked and `reconciliation_source` is `live`, or `partial` when at least one was not. On the two positions batches each position also carries its own pair (`live` or `unavailable`); the summaries of `POST /v2/pnl/wallets/batch` already did.
+</Update>
+
 <Update label="2026-10-29" description="Additive: wallet stats fields, wallet window and DEX filters, pnl_mode on empty token position">
 **Additive.** A client that ignores keys it does not know is unaffected.
 
