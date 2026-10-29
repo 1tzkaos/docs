@@ -3,6 +3,13 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-10-29" description="Breaking: token sectors are not available">
+**Breaking.** Token sectors are not available during the beta. The sector lists were empty, so these routes returned empty lists and the sector filters matched nothing, or returned the unfiltered list.
+
+- **Routes:** `GET /tokens/sectors` and `GET /tokens/sectors/{sector}/mints` now answer `404`.
+- **Parameters:** `sector` on `GET /trending`, and `sectors` on `POST /screener` and `GET /search`, now answer `400` with `INVALID_PARAM`. Remove the parameter from your request.
+</Update>
+
 <Update label="2026-10-15" description="Changed: Developer rate limit allows short bursts">
 **Changed.** The Developer and Pro limits are now a rate with a short burst allowed, not a strict count per second. Free (strict 10 per second) is unchanged.
 
