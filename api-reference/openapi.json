@@ -5208,7 +5208,7 @@
             }
           },
           "503": {
-            "description": "The wallet's stats did not finish within 40 seconds and no stored copy younger than 10 minutes exists (`error: service_unavailable`). Retry after the `Retry-After` interval.",
+            "description": "The request ran out of time (`error: service_unavailable`) and no stored copy younger than 10 minutes exists to serve instead. Retry after the `Retry-After` interval.",
             "headers": {
               "Retry-After": {
                 "description": "Seconds to wait before retrying.",
@@ -5391,7 +5391,7 @@
             }
           },
           "503": {
-            "description": "The wallet's stats did not finish within 40 seconds and no stored copy younger than 10 minutes exists (`error: service_unavailable`). Retry after the `Retry-After` interval.",
+            "description": "The request ran out of time (`error: service_unavailable`) and no stored copy younger than 10 minutes exists to serve instead. Retry after the `Retry-After` interval.",
             "headers": {
               "Retry-After": {
                 "description": "Seconds to wait before retrying.",

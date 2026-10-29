@@ -186,7 +186,7 @@ A few wallet routes answer from a short-lived copy so that a burst of identical 
 | `/wallets/{w}/chart` | 6 minutes |
 | `/stats/trader/{wallet}`, the `stats` block of `/swaps/trader/{wallet}`, and GraphQL `trader { stats }` | 60 seconds for a wallet whose stats compute quickly, about 4 minutes for the largest wallets, and never more than 10 minutes |
 
-If a refresh fails or times out, the `/stats/trader`, `/swaps/trader` and GraphQL `trader` routes return the stored copy (no older than 10 minutes, marked stale) instead of an error. With no copy to fall back on, a computation that does not finish within 40 seconds is a `503` with `Retry-After: 5` and `{ "error": "service_unavailable", ... }`: retry. GraphQL returns the same message in `errors[]`.
+If a refresh fails or times out, the `/stats/trader`, `/swaps/trader` and GraphQL `trader` routes return the stored copy (no older than 10 minutes, marked stale) instead of an error. With no copy to fall back on, a computation that runs out of time (the database's time limit or 40 seconds in total) is a `503` with `Retry-After: 5` and `{ "error": "service_unavailable", ... }`: retry. GraphQL returns the same message in `errors[]`. This is true of every `/swaps/*` and `/stats/*` route: a request that times out is a `503`, never a `500`.
 
 ## Error codes
 
