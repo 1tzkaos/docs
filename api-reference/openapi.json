@@ -2661,10 +2661,6 @@
                 }
               }
             }
-          },
-          "truncated": {
-            "type": "boolean",
-            "description": "`true` when the wallet's history is too large to compute this answer. Only `wallet` and `truncated` are returned."
           }
         }
       },
@@ -2754,10 +2750,6 @@
           "coverage_note": {
             "type": "string",
             "description": "Always present. States that `hide_arb` and `parse_jupiter` are reserved and currently have no effect."
-          },
-          "truncated": {
-            "type": "boolean",
-            "description": "`true` when the wallet's history is too large to compute this answer. Only `wallet` and `truncated` are returned."
           }
         }
       },
@@ -2964,10 +2956,6 @@
               "null"
             ],
             "description": "`total_volume_sol` in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
-          },
-          "truncated": {
-            "type": "boolean",
-            "description": "`true` when the wallet's history is too large to compute this answer. Only `wallet` and `truncated` are returned."
           }
         }
       },
@@ -4359,6 +4347,26 @@
         "example": {
           "error": "not_found",
           "message": "Swap not found: 43nGAPtVqZxiar6cbdqBg4DRTkG6gM2EsPzPz1igqWkLraYDZcygonrGXkAynXkFr8QocyG4BnefMBzVXMkbDYX2"
+        }
+      },
+      "WalletTruncated": {
+        "type": "object",
+        "description": "The answer when the wallet's history is too large to compute this response. Only `wallet` and `truncated` are returned.",
+        "required": [
+          "wallet",
+          "truncated"
+        ],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Always `true`."
+          }
         }
       }
     }
@@ -8483,7 +8491,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter the cost-basis computation to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. Has no effect on the on-chain token list."
+            "description": "Filter the cost-basis computation to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty. Has no effect on the on-chain token list."
           }
         ],
         "responses": {
@@ -8555,7 +8563,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one or more DEXes — a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `0,3`). See `DexId` for the id↔name mapping."
+            "description": "Filter to one or more DEXes — a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `0,3`). See `DexId` for the id↔name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           }
         ],
         "responses": {
@@ -8564,7 +8572,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HoldingsBasicResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/HoldingsBasicResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WalletTruncated"
+                    }
+                  ]
                 }
               }
             }
@@ -8665,7 +8680,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping."
+            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           },
           {
             "name": "hide_arb",
@@ -8692,7 +8707,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TradesResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TradesResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WalletTruncated"
+                    }
+                  ]
                 }
               }
             }
@@ -8852,7 +8874,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping."
+            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           }
         ],
         "responses": {
@@ -8861,7 +8883,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PnlBasicResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PnlBasicResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WalletTruncated"
+                    }
+                  ]
                 }
               }
             }
@@ -9005,7 +9034,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping."
+            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           }
         ],
         "responses": {
