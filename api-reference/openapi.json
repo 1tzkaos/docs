@@ -2596,6 +2596,14 @@
             "type": "integer",
             "format": "int64",
             "description": "Unix epoch milliseconds when this response was assembled."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "`true` when the wallet's history is too large to compute cost basis; holdings are still returned from on-chain balances with `no_cost_basis` set on every row."
+          },
+          "cost_basis_available": {
+            "type": "boolean",
+            "description": "`false` when cost basis could not be computed (see `truncated`)."
           }
         }
       },
@@ -2704,6 +2712,14 @@
               "null"
             ],
             "description": "FIFO realized PnL in SOL on this sell (`proceeds − matched_cost`). Always `null` on buys."
+          },
+          "from_token": {
+            "type": "string",
+            "description": "Token mint of the trade (same value as `mint`)."
+          },
+          "to_token": {
+            "type": "string",
+            "description": "Token mint of the trade (same value as `mint`)."
           }
         }
       },
@@ -2825,7 +2841,7 @@
           },
           "window": {
             "type": "string",
-            "description": "The time window used (`all`, `30d`, `90d`, `1y`)."
+            "description": "The time window used (`all`, `24h`, `7d`, `30d`, `90d`, `1y`)."
           },
           "realized_sol": {
             "type": "number",
@@ -2933,6 +2949,13 @@
           "reconciliation_source": {
             "type": "string",
             "description": "Where the reconciliation against on-chain holdings came from: `live` (on-chain holdings read within the last 5 minutes), or `unavailable` when the response is not reconciled. After a failed read, `unavailable` can persist for up to 2 minutes."
+          },
+          "total_volume_usd": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "`total_volume_sol` in USD via Dexploit's SOL/USD rate. `null` when the rate is unavailable."
           }
         }
       },
@@ -2980,7 +3003,8 @@
             "type": "string"
           },
           "window": {
-            "type": "string"
+            "type": "string",
+            "description": "The time window used (`all`, `24h`, `7d`, `30d`, `90d`, `1y`)."
           },
           "total_trades": {
             "type": "integer"
@@ -3002,28 +3026,48 @@
               "number",
               "null"
             ],
-            "description": "Realized PnL of the single most profitable sell, in SOL."
+            "description": "Realized PnL of the single most profitable sell, in SOL. `null` when the window has no sell."
           },
           "best_trade_mint": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Mint of the best trade."
+            "description": "Mint of the best trade. `null` when the window has no sell."
           },
           "worst_trade_pnl_sol": {
             "type": [
               "number",
               "null"
             ],
-            "description": "Realized PnL of the single worst sell, in SOL."
+            "description": "Realized PnL of the single worst sell, in SOL. `null` when the window has no sell."
           },
           "worst_trade_mint": {
             "type": [
               "string",
               "null"
             ],
-            "description": "Mint of the worst trade."
+            "description": "Mint of the worst trade. `null` when the window has no sell."
+          },
+          "sell_count": {
+            "type": "integer",
+            "description": "Number of sells in the window."
+          },
+          "winning_sells": {
+            "type": "integer",
+            "description": "Same value as `win_count`."
+          },
+          "best_trade_sol": {
+            "type": "number",
+            "description": "Same value as `best_trade_pnl_sol`; `0` when the window has no sell."
+          },
+          "worst_trade_sol": {
+            "type": "number",
+            "description": "Same value as `worst_trade_pnl_sol`; `0` when the window has no sell."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "`true` when the wallet's history is too large to compute this answer. Only `wallet`, `window` and `truncated` are returned."
           }
         }
       },
@@ -3427,6 +3471,23 @@
               "null"
             ],
             "description": "`unrealized_floor_sol` in USD via Dexploit's SOL/USD rate. `null` when there is no floor or the rate is unavailable."
+          },
+          "reconciled": {
+            "type": "boolean",
+            "description": "Whether the open-position set was checked against on-chain holdings. `false` means the stored positions were served as they are."
+          },
+          "reconciliation_source": {
+            "type": "string",
+            "enum": [
+              "live",
+              "snapshot",
+              "unavailable"
+            ],
+            "description": "Where the on-chain holdings came from: `live` (read at request time), `snapshot` (a recent stored copy of that read, used for very large wallets), or `unavailable` when the response is not reconciled."
+          },
+          "truncated": {
+            "type": "boolean",
+            "description": "`true` on the degraded answer returned when the positions read times out: only `wallet`, `pnl_mode`, `truncated`, `positions_truncated` and an empty `positions` are returned."
           }
         }
       },
@@ -4286,6 +4347,26 @@
         "example": {
           "error": "not_found",
           "message": "Swap not found: 43nGAPtVqZxiar6cbdqBg4DRTkG6gM2EsPzPz1igqWkLraYDZcygonrGXkAynXkFr8QocyG4BnefMBzVXMkbDYX2"
+        }
+      },
+      "WalletTruncated": {
+        "type": "object",
+        "description": "The answer when the wallet's history is too large to compute this response. Only `wallet` and `truncated` are returned.",
+        "required": [
+          "wallet",
+          "truncated"
+        ],
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "truncated": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Always `true`."
+          }
         }
       }
     }
@@ -8408,9 +8489,9 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             },
-            "description": "Filter FIFO cost-basis computation to a single DEX by integer ID. See `DexId` for the mapping. Has no effect on the on-chain token list."
+            "description": "Filter the cost-basis computation to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty. Has no effect on the on-chain token list."
           }
         ],
         "responses": {
@@ -8482,7 +8563,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter to one or more DEXes — a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `0,3`). See `DexId` for the id↔name mapping."
+            "description": "Filter to one or more DEXes — a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `0,3`). See `DexId` for the id↔name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           }
         ],
         "responses": {
@@ -8491,7 +8572,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HoldingsBasicResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/HoldingsBasicResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WalletTruncated"
+                    }
+                  ]
                 }
               }
             }
@@ -8590,9 +8678,9 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             },
-            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           },
           {
             "name": "hide_arb",
@@ -8619,7 +8707,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/TradesResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/TradesResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WalletTruncated"
+                    }
+                  ]
                 }
               }
             }
@@ -8761,6 +8856,8 @@
             "schema": {
               "type": "string",
               "enum": [
+                "24h",
+                "7d",
                 "30d",
                 "90d",
                 "1y",
@@ -8775,9 +8872,9 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             },
-            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           }
         ],
         "responses": {
@@ -8786,7 +8883,14 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PnlBasicResponse"
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/PnlBasicResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/WalletTruncated"
+                    }
+                  ]
                 }
               }
             }
@@ -8912,6 +9016,8 @@
             "schema": {
               "type": "string",
               "enum": [
+                "24h",
+                "7d",
                 "30d",
                 "90d",
                 "1y",
@@ -8926,9 +9032,9 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer"
+              "type": "string"
             },
-            "description": "Filter to a single DEX by integer ID. See `DexId` for the mapping."
+            "description": "Filter to one or more DEXes: a comma-separated list of integer IDs and/or lowercase names (e.g. `pumpfun,raydium_clmm` or `1,4`). See `DexId` for the id-to-name mapping. A name that is not in `DexId` is ignored; if none of the values match, the result is empty."
           }
         ],
         "responses": {
@@ -9544,7 +9650,13 @@
                       "type": "string"
                     },
                     "pnl_mode": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "raw",
+                        "strict",
+                        "adjusted"
+                      ],
+                      "description": "The PnL mode used. Always present, including when `position` is `null`."
                     },
                     "position": {
                       "oneOf": [
@@ -9555,7 +9667,19 @@
                           "type": "null"
                         }
                       ],
-                      "description": "Full position object (realized_breakdown always present), or `null`."
+                      "description": "Full position object (`realized_breakdown` always present), or `null` when the wallet has no open position in this token."
+                    },
+                    "reconciled": {
+                      "type": "boolean",
+                      "description": "Whether the position was checked against on-chain holdings. Absent when there is no position row to check."
+                    },
+                    "reconciliation_source": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "unavailable"
+                      ],
+                      "description": "Where the on-chain holdings came from: `live`, or `unavailable` when the response is not reconciled. Absent when there is no position row to check."
                     }
                   }
                 }

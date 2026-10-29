@@ -237,6 +237,15 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-10-29" description="Additive: wallet stats fields, wallet window and DEX filters, pnl_mode on empty token position">
+**Additive.** A client that ignores keys it does not know is unaffected.
+
+- **`GET /wallets/{w}/stats`:** now returns `window`, `win_count`, `win_rate`, `best_trade_pnl_sol`, `best_trade_mint`, `worst_trade_pnl_sol` and `worst_trade_mint`, as the response schema describes. `sell_count`, `winning_sells`, `best_trade_sol` and `worst_trade_sol` are still returned and are now documented.
+- **`GET /v2/pnl/wallets/{wallet}/tokens/{token}`:** `pnl_mode` is returned when `position` is `null`, as it is when there is a position.
+- **`window` and `dex` on the wallet routes:** `window` on `/wallets/{w}/pnl/basic` and `/wallets/{w}/stats` also accepts `24h` and `7d`. `dex` on `/wallets/{w}/pnl/basic`, `/stats`, `/trades` and `/holdings` takes a comma-separated list of integer IDs and/or names, as `/holdings/basic` already did; a name that is not a DEX is ignored. These worked before; they were not documented.
+- **Now documented:** `total_volume_usd` on `/wallets/{w}/pnl/basic`; `from_token` and `to_token` on each trade; `truncated` and `cost_basis_available` on `/wallets/{w}/holdings`; the `{ wallet, truncated }` answer that `/wallets/{w}/pnl/basic`, `/trades` and `/holdings/basic` send for a wallet whose history is too large to compute; `reconciled`, `reconciliation_source` and `truncated` on the `/v2/pnl/wallets/{wallet}` summary.
+</Update>
+
 <Update label="2026-10-15" description="Changed: Developer rate limit allows short bursts">
 **Changed.** The Developer and Pro limits are now a rate with a short burst allowed, not a strict count per second. Free (strict 10 per second) is unchanged.
 
