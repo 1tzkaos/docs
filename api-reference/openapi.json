@@ -5103,7 +5103,7 @@
     "/swaps/trader/{wallet}": {
       "get": {
         "summary": "Swap history for a trader (with lifetime stats)",
-        "description": "All swaps a wallet has made, across pools and DEXs, plus the same `TraderStats` block returned by [/stats/trader/{wallet}](#tag/stats-trends/get/stats/trader/{wallet}) — saves a second round-trip when rendering a wallet page.",
+        "description": "All swaps a wallet has made, across pools and DEXs, plus the same `TraderStats` block returned by [/stats/trader/{wallet}](#tag/stats-trends/get/stats/trader/{wallet}) — saves a second round-trip when rendering a wallet page. The `stats` block comes from a per-wallet copy; when it is past its refresh age the response carries `X-Cache: stale` (see [Stale responses](/concepts/quotas-errors#stale-responses)).",
         "operationId": "listTraderSwaps",
         "tags": [
           "Swaps"
@@ -5184,10 +5184,40 @@
                   }
                 }
               }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "Present, with the value `stale`, only when the body was served past its refresh age while a refresh runs: it may predate the wallet's latest trade. Absent on a fresh body. See [Stale responses](/concepts/quotas-errors#stale-responses).",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "stale"
+                  ]
+                }
+              }
             }
           },
           "400": {
             "description": "Invalid parameter: an `offset` above 0, or a malformed `cursor`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapsApiError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The request ran out of time (`error: service_unavailable`) and no stored copy younger than 10 minutes exists to serve instead. Retry after the `Retry-After` interval.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "example": 5
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -5323,7 +5353,7 @@
     "/stats/trader/{wallet}": {
       "get": {
         "summary": "Stats for a trader",
-        "description": "Lifetime stats for a single wallet. Returns the `TraderStats` block directly.",
+        "description": "Lifetime stats for a single wallet. Returns the `TraderStats` block directly. Served from a per-wallet copy that can carry `X-Cache: stale`; see [Stale responses](/concepts/quotas-errors#stale-responses).",
         "operationId": "getTraderStats",
         "tags": [
           "Stats & trends"
@@ -5345,6 +5375,36 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TraderStats"
+                }
+              }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "Present, with the value `stale`, only when the body was served past its refresh age while a refresh runs: it may predate the wallet's latest trade. Absent on a fresh body. See [Stale responses](/concepts/quotas-errors#stale-responses).",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "stale"
+                  ]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The request ran out of time (`error: service_unavailable`) and no stored copy younger than 10 minutes exists to serve instead. Retry after the `Retry-After` interval.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "integer",
+                  "example": 5
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SwapsApiError"
                 }
               }
             }
@@ -8415,7 +8475,7 @@
     "/wallets/{w}/holdings/basic": {
       "get": {
         "summary": "Fast FIFO-derived holdings",
-        "description": "Returns holdings derived entirely from Dexploit's own swap index using FIFO lot matching. No external call — typically ~30 ms.\n\nOnly covers tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Tokens acquired via airdrop or off-platform will not appear. No USD values.\n\nUse this endpoint when you need a quick snapshot and completeness is less important than latency. Uncached.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio) for the trade-off between this endpoint and `/holdings`.",
+        "description": "Returns holdings derived entirely from Dexploit's own swap index using FIFO lot matching. No external call — typically ~30 ms.\n\nOnly covers tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Tokens acquired via airdrop or off-platform will not appear. No USD values.\n\nUse this endpoint when you need a quick snapshot and completeness is less important than latency. Cached 15 seconds per wallet.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio) for the trade-off between this endpoint and `/holdings`.",
         "operationId": "getWalletHoldingsBasic",
         "tags": [
           "Wallet portfolio"
@@ -8629,7 +8689,7 @@
     "/wallets/{w}/chart": {
       "get": {
         "summary": "Daily portfolio value chart",
-        "description": "Returns a daily portfolio-value series for the wallet. Past days are fixed once written. Missing days are computed on request from the wallet's swaps and priced with daily closes. Today is always computed live and returned as `today` with `provisional: true`.\n\n`value_usd` uses the **current** SOL/USD rate for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#chart-freshness) for the full freshness model.",
+        "description": "Returns a daily portfolio-value series for the wallet. Past days are fixed once written. Missing days are computed on request from the wallet's swaps and priced with daily closes. Today is returned as `today` with `provisional: true`, valued at current prices. The assembled series is fresh for 5 minutes, then served for up to 60 s more with `X-Cache: stale` while it refreshes.\n\n`value_usd` uses the **current** SOL/USD rate for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#chart-freshness) for the full freshness model.",
         "operationId": "getWalletChart",
         "tags": [
           "Wallet portfolio"
@@ -8668,6 +8728,17 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/PortfolioChartResponse"
+                }
+              }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "Present, with the value `stale`, only when the body was served past its refresh age while a refresh runs: it may predate the wallet's latest trade. Absent on a fresh body. See [Stale responses](/concepts/quotas-errors#stale-responses).",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "stale"
+                  ]
                 }
               }
             }
@@ -9609,7 +9680,7 @@
     "/v2/pnl/wallets/{wallet}/history": {
       "get": {
         "summary": "Daily PnL history series",
-        "description": "Compute-on-read daily PnL series. `from`/`to` are inclusive UTC `YYYY-MM-DD`. Sparse — one point per active day. Malformed dates return `400`. Cached 30s.",
+        "description": "Compute-on-read daily PnL series. `from`/`to` are inclusive UTC `YYYY-MM-DD`. Sparse — one point per active day. Malformed dates return `400`. Fresh for 30 s, then served for up to 60 s more with `X-Cache: stale` while it refreshes.",
         "operationId": "getPnlV2History",
         "tags": [
           "Wallet PnL (v2)"
@@ -9697,6 +9768,17 @@
                   }
                 }
               }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "Present, with the value `stale`, only when the body was served past its refresh age while a refresh runs: it may predate the wallet's latest trade. Absent on a fresh body. See [Stale responses](/concepts/quotas-errors#stale-responses).",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "stale"
+                  ]
+                }
+              }
             }
           },
           "400": {
@@ -9735,7 +9817,7 @@
     "/v2/pnl/wallets/{wallet}/chart": {
       "get": {
         "summary": "PnL chart + summary header",
-        "description": "Same compute-on-read daily series as `/history`, chart-shaped (`t`/`realized`/`unrealized`/`value`) plus a summary header whose `unrealized_sol` is read-time spot (reconciles with `/v2/pnl/wallets/{wallet}`). Cached 30s.",
+        "description": "Same compute-on-read daily series as `/history`, chart-shaped (`t`/`realized`/`unrealized`/`value`) plus a summary header whose `unrealized_sol` is read-time spot (reconciles with `/v2/pnl/wallets/{wallet}`). Fresh for 30 s, then served for up to 60 s more with `X-Cache: stale` while it refreshes.",
         "operationId": "getPnlV2Chart",
         "tags": [
           "Wallet PnL (v2)"
@@ -9912,6 +9994,17 @@
                   }
                 }
               }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "Present, with the value `stale`, only when the body was served past its refresh age while a refresh runs: it may predate the wallet's latest trade. Absent on a fresh body. See [Stale responses](/concepts/quotas-errors#stale-responses).",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "stale"
+                  ]
+                }
+              }
             }
           },
           "400": {
@@ -9950,7 +10043,7 @@
     "/v2/pnl/wallets/{wallet}/performance": {
       "get": {
         "summary": "Streaks, drawdown & best/worst day",
-        "description": "Compute-on-read streak / drawdown / best-worst-day analytics. Headline drawdown is peak-to-trough of cumulative realized PnL; a secondary close-based equity-curve drawdown is also returned. Cached 5s hot / 30s cold.",
+        "description": "Compute-on-read streak / drawdown / best-worst-day analytics. Headline drawdown is peak-to-trough of cumulative realized PnL; a secondary close-based equity-curve drawdown is also returned. Fresh for 5 s (30 s if the wallet has not traded in the last 5 minutes), then served for up to 10 s more with `X-Cache: stale` while it refreshes.",
         "operationId": "getPnlV2Performance",
         "tags": [
           "Wallet PnL (v2)"
@@ -10106,6 +10199,17 @@
                       "type": "integer"
                     }
                   }
+                }
+              }
+            },
+            "headers": {
+              "X-Cache": {
+                "description": "Present, with the value `stale`, only when the body was served past its refresh age while a refresh runs: it may predate the wallet's latest trade. Absent on a fresh body. See [Stale responses](/concepts/quotas-errors#stale-responses).",
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "stale"
+                  ]
                 }
               }
             }

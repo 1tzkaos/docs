@@ -107,6 +107,8 @@ curl -X POST -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
 
 An error inside a well-formed query comes back as HTTP `200` with the GraphQL `errors` array. A request body that is not valid JSON is rejected before it runs, with HTTP `400` and the REST [error envelope](/concepts/quotas-errors#response-envelope) (`INVALID_PARAM`).
 
+`trader { stats }` reads the same per-wallet copy as `GET /stats/trader/{wallet}`. When that copy is past its refresh age the HTTP response carries `X-Cache: stale`; see [Stale responses](/concepts/quotas-errors#stale-responses).
+
 ## When to use GraphQL vs REST
 
 | Need | Use |

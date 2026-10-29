@@ -175,6 +175,19 @@ Opening a stream past the cap is refused once the cap is reached on the server t
 
 The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
+## Stale responses
+
+A few wallet routes answer from a short-lived copy so that a burst of identical requests runs one computation. When the copy is past its refresh age you still get it at once, one refresh runs behind it, and the response carries the header `X-Cache: stale`. A response without that header is fresh. A stale body can predate the wallet's latest trade: request again after a few seconds to get the refreshed one.
+
+| Route | Oldest a stale body can be |
+| --- | --- |
+| `/v2/pnl/wallets/{wallet}/history` and `/chart` | 90 seconds |
+| `/v2/pnl/wallets/{wallet}/performance` | 15 seconds for a wallet that traded in the last 5 minutes, otherwise 40 seconds |
+| `/wallets/{w}/chart` | 6 minutes |
+| `/stats/trader/{wallet}`, the `stats` block of `/swaps/trader/{wallet}`, and GraphQL `trader { stats }` | 60 seconds for a wallet whose stats compute quickly, about 4 minutes for the largest wallets, and never more than 10 minutes |
+
+If a refresh fails or times out, the `/stats/trader`, `/swaps/trader` and GraphQL `trader` routes return the stored copy (no older than 10 minutes, marked stale) instead of an error. With no copy to fall back on, a computation that runs out of time (the database's time limit or 40 seconds in total) is a `503` with `Retry-After: 5` and `{ "error": "service_unavailable", ... }`: retry. GraphQL returns the same message in `errors[]`. This is true of every `/swaps/*` and `/stats/*` route: a request that times out is a `503`, never a `500`.
+
 ## Error codes
 
 | Code | Status | Meaning | Remedy |
