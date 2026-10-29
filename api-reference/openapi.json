@@ -3040,7 +3040,7 @@
           },
           "confidence": {
             "type": "number",
-            "description": "Uncertainty around `price`, in USD (±): half the disagreement between the stablecoin markets the rate was derived from, with a small floor."
+            "description": "Uncertainty around `price`, as an absolute amount in USD (±), not a 0 to 1 score: for `price` 118.20 a `confidence` of 0.12 means ±$0.12, and a smaller number means a tighter rate. It is half the spread between the prices of the pools the rate was derived from, with a floor of 0.02% of `price`."
           },
           "published_at": {
             "type": "integer",
@@ -3048,7 +3048,7 @@
           },
           "source": {
             "type": "string",
-            "description": "Oracle source identifier. Currently `dexploit-swaps-derived`: the rate is computed from Dexploit's own indexed swaps."
+            "description": "Oracle source identifier. Currently always `dexploit-swaps-derived`: the rate is computed from Dexploit's own indexed SOL/USDC swaps."
           }
         }
       },
