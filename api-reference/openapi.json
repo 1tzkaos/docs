@@ -4368,6 +4368,23 @@
             "description": "Always `true`."
           }
         }
+      },
+      "PositionReconciliation": {
+        "type": "object",
+        "properties": {
+          "reconciled": {
+            "type": "boolean",
+            "description": "Whether this position was checked against on-chain holdings. `false` means the stored position was served as it is."
+          },
+          "reconciliation_source": {
+            "type": "string",
+            "enum": [
+              "live",
+              "unavailable"
+            ],
+            "description": "Where the on-chain holdings came from: `live` (read at request time), or `unavailable` when this position was not checked."
+          }
+        }
       }
     }
   },
@@ -9553,6 +9570,19 @@
                       "items": {
                         "$ref": "#/components/schemas/PnlPosition"
                       }
+                    },
+                    "reconciled": {
+                      "type": "boolean",
+                      "description": "Whether the positions were checked against on-chain holdings. `false` means the stored positions were served as they are."
+                    },
+                    "reconciliation_source": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "snapshot",
+                        "unavailable"
+                      ],
+                      "description": "Where the on-chain holdings came from: `live` (read at request time), `snapshot` (a recent stored copy of that read, used for very large wallets), or `unavailable` when the response is not reconciled."
                     }
                   }
                 }
@@ -10007,6 +10037,18 @@
                         },
                         "closed_positions": {
                           "type": "integer"
+                        },
+                        "reconciled": {
+                          "type": "boolean",
+                          "description": "Whether the open and closed counts and the unrealized and total value were checked against on-chain holdings. `false` means the stored positions were used as they are."
+                        },
+                        "reconciliation_source": {
+                          "type": "string",
+                          "enum": [
+                            "live",
+                            "unavailable"
+                          ],
+                          "description": "Where the on-chain holdings came from: `live` (read at request time), or `unavailable` when the figures are not reconciled."
                         }
                       }
                     }
@@ -10549,6 +10591,19 @@
                     },
                     "open_count": {
                       "type": "integer"
+                    },
+                    "reconciled": {
+                      "type": "boolean",
+                      "description": "Whether the positions were checked against on-chain holdings. `false` means the stored positions were served as they are."
+                    },
+                    "reconciliation_source": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "snapshot",
+                        "unavailable"
+                      ],
+                      "description": "Where the on-chain holdings came from: `live` (read at request time), `snapshot` (a recent stored copy of that read, used for very large wallets), or `unavailable` when the response is not reconciled."
                     }
                   }
                 }
@@ -10929,7 +10984,14 @@
                       "items": {
                         "oneOf": [
                           {
-                            "$ref": "#/components/schemas/PnlPosition"
+                            "allOf": [
+                              {
+                                "$ref": "#/components/schemas/PnlPosition"
+                              },
+                              {
+                                "$ref": "#/components/schemas/PositionReconciliation"
+                              }
+                            ]
                           },
                           {
                             "type": "null"
@@ -10937,6 +10999,18 @@
                         ]
                       },
                       "description": "Aligned to input order; `null` where no position exists."
+                    },
+                    "reconciled": {
+                      "type": "boolean",
+                      "description": "`true` only when every item was checked against on-chain holdings."
+                    },
+                    "reconciliation_source": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "partial"
+                      ],
+                      "description": "`live` when every item was checked against on-chain holdings; `partial` when at least one could not be (`reconciled` is then `false`). Each item also carries its own pair."
                     }
                   }
                 }
@@ -11062,6 +11136,18 @@
                           }
                         ]
                       }
+                    },
+                    "reconciled": {
+                      "type": "boolean",
+                      "description": "Whether the positions were checked against on-chain holdings. `false` means the stored positions were served as they are."
+                    },
+                    "reconciliation_source": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "unavailable"
+                      ],
+                      "description": "Where the on-chain holdings came from: `live` (read at request time), or `unavailable` when the positions were not checked."
                     }
                   }
                 }
@@ -11180,13 +11266,32 @@
                       "items": {
                         "oneOf": [
                           {
-                            "$ref": "#/components/schemas/PnlPositionByWallet"
+                            "allOf": [
+                              {
+                                "$ref": "#/components/schemas/PnlPositionByWallet"
+                              },
+                              {
+                                "$ref": "#/components/schemas/PositionReconciliation"
+                              }
+                            ]
                           },
                           {
                             "type": "null"
                           }
                         ]
                       }
+                    },
+                    "reconciled": {
+                      "type": "boolean",
+                      "description": "`true` only when every item was checked against on-chain holdings."
+                    },
+                    "reconciliation_source": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "partial"
+                      ],
+                      "description": "`live` when every item was checked against on-chain holdings; `partial` when at least one could not be (`reconciled` is then `false`). Each item also carries its own pair."
                     }
                   }
                 }
@@ -11300,6 +11405,18 @@
                           }
                         ]
                       }
+                    },
+                    "reconciled": {
+                      "type": "boolean",
+                      "description": "`true` only when every item was checked against on-chain holdings."
+                    },
+                    "reconciliation_source": {
+                      "type": "string",
+                      "enum": [
+                        "live",
+                        "partial"
+                      ],
+                      "description": "`live` when every wallet was checked against on-chain holdings; `partial` when at least one could not be (`reconciled` is then `false`). Each summary carries its own pair."
                     }
                   }
                 }
