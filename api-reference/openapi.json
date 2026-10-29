@@ -247,14 +247,14 @@
               "null"
             ],
             "format": "int64",
-            "description": "The token creator's fee on venues that charge one, in lamports where the venue records it that way, or `null` when the fee is unknown. **`null` means unknown, not zero.** A number is the stored figure."
+            "description": "The token creator's fee on venues that charge one, in lamports where the venue records it that way, or `null` when the fee is unknown. **`null` means unknown, not zero**, except on venues that have no creator fee (`raydium_amm` and `raydium_clmm`), where it is always `null`. A number is the stored figure."
           },
           "creator_fee_bps": {
             "type": [
               "integer",
               "null"
             ],
-            "description": "The creator fee as a rate in basis points, or `null` when the rate is unknown. **`null` means unknown, not zero.**"
+            "description": "The creator fee as a rate in basis points, or `null` when the rate is unknown. **`null` means unknown, not zero**, except on venues that have no creator fee (`raydium_amm` and `raydium_clmm`), where it is always `null`."
           },
           "price_per_token": {
             "type": "number",
