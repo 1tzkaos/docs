@@ -2346,59 +2346,6 @@
           }
         }
       },
-      "Sector": {
-        "type": "object",
-        "description": "One token sector and the count of mints currently assigned to it.",
-        "properties": {
-          "id": {
-            "type": "string",
-            "description": "Sector identifier used as the `sector` path parameter (e.g. `ai`, `dog`, `frog`)."
-          },
-          "name": {
-            "type": "string",
-            "description": "Human-readable sector name."
-          },
-          "emoji": {
-            "type": "string"
-          },
-          "description": {
-            "type": "string"
-          },
-          "mint_count": {
-            "type": "integer",
-            "description": "Number of mints currently assigned to this sector."
-          }
-        }
-      },
-      "SectorsResponse": {
-        "type": "object",
-        "description": "The catalogue of defined token sectors.",
-        "properties": {
-          "sectors": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Sector"
-            }
-          }
-        }
-      },
-      "SectorMintsResponse": {
-        "type": "object",
-        "description": "Mints assigned to a sector. `mints` is empty when the sector is unknown or has no assignments.",
-        "properties": {
-          "sector": {
-            "type": "string",
-            "description": "Echoes the requested sector id."
-          },
-          "mints": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "Base58 mint addresses assigned to the sector."
-          }
-        }
-      },
       "ActorChartSinglePoint": {
         "type": "object",
         "description": "One point in a single-series actor chart. `value` is an integer count for holders/snipers/insiders/bundlers.",
@@ -3993,12 +3940,6 @@
               }
             }
           },
-          "sectors": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "dexes": {
             "type": "array",
             "items": {
@@ -5496,15 +5437,6 @@
             "description": "Page offset — skip the first N scored results. Combined with `limit` for stable-cache-window pagination."
           },
           {
-            "name": "sector",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Restrict to one sector tag (e.g. `meme`, `defi`)."
-          },
-          {
             "name": "include_score",
             "in": "query",
             "required": false,
@@ -6006,7 +5938,7 @@
     "/screener": {
       "post": {
         "summary": "Filter tokens (screener)",
-        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries reserved-filter and cold-cache notes (e.g. `sectors_filter_skipped_cold_cache`, `total_matches_is_lower_bound`, and risk_score being reserved).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
+        "description": "Server-side filtered + sorted token search. Filters combine as AND. Volume/change windows default to `1h`.\n\nThe NL-style query bar and chip bar on the Dexploit terminal screener serialize into this same JSON body. The flat `GET /search` alias maps query-string params onto the same filters.\n\nResponse is **top-level** — `{ results, total_matches, limit, offset, warnings }` with **no** `{success, data, error}` wrapper. (Errors are still enveloped — see below.)\n\nResponse headers: `x-cache` (`HIT`|`MISS`) and `x-total-matches-exact` (`true`|`false` — when `false`, `total_matches` is a lower bound). `warnings` carries reserved-filter notes (e.g. `total_matches_is_lower_bound`, and risk_score being reserved).\n\n**Two failure modes:**\n- **Malformed address filter** (`mint`, `mints[]`, or `creator` not valid base58) → **HTTP 400** with the enveloped body `{\"success\":false,\"error\":{\"code\":\"INVALID_PARAM\",\"message\":\"invalid parameter: invalid_filter:mint|creator|mints\"}}`.\n- **Unsupported filter** (e.g. `risk_score`) → stays **HTTP 200**; the filter is ignored and a note is appended to the `warnings[]` array rather than failing the request.\n\nThe `GET /search` alias inherits both behaviors.",
         "operationId": "runScreener",
         "tags": [
           "Screener"
@@ -7091,81 +7023,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tokens/sectors": {
-      "get": {
-        "summary": "List sectors",
-        "description": "Returns the catalogue of defined token sectors (AI, Dog, Frog, Food, Gaming, Political, Celebrity, Other meme, …), each with its `id`, display `name`, `emoji`, `description`, and the current `mint_count` of mints assigned to it. Use a sector `id` with [`/tokens/sectors/{sector}/mints`](#tag/tokens/get/tokens/sectors/{sector}/mints) to list its mints.\n\n**API key required.** Send the key as `Authorization: Bearer ohlcv_live_sk_<key>` or `?api_key=<key>` (the `X-API-Key` header is not accepted on this route).",
-        "operationId": "listSectors",
-        "tags": [
-          "Tokens"
-        ],
-        "responses": {
-          "200": {
-            "description": "Sectors",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SectorsResponse"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/tokens/sectors/{sector}/mints": {
-      "get": {
-        "summary": "Mints in a sector",
-        "description": "Returns the mints currently assigned to a sector. The `sector` path parameter is a sector `id` from [`/tokens/sectors`](#tag/tokens/get/tokens/sectors) (e.g. `ai`, `dog`, `frog`). An unknown or empty sector returns `200` with an empty `mints` array.\n\n**Public — no API key required.**",
-        "operationId": "listSectorMints",
-        "tags": [
-          "Tokens"
-        ],
-        "security": [],
-        "parameters": [
-          {
-            "name": "sector",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Sector mints",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SectorMintsResponse"
                 }
               }
             }
@@ -12691,15 +12548,6 @@
               ]
             },
             "description": "Change window."
-          },
-          {
-            "name": "sectors",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Comma-separated sector tags."
           },
           {
             "name": "dexes",
