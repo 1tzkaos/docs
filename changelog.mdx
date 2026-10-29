@@ -3,6 +3,13 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-10-29" description="Added: X-Cache: stale on wallet routes">
+**Added.** Some wallet routes now answer from a short-lived per-wallet copy and mark an older copy with the response header `X-Cache: stale`. A response without the header is fresh. Nothing in the body changed.
+
+- **Routes:** `/v2/pnl/wallets/{wallet}/history`, `/chart` and `/performance`; `/wallets/{w}/chart`; `/stats/trader/{wallet}`, the `stats` block of `/swaps/trader/{wallet}`, and GraphQL `trader { stats }`. How old a stale body can be is on [Quotas & errors](/concepts/quotas-errors#stale-responses).
+- **`/wallets/{w}/holdings/basic`:** now cached 15 seconds per wallet. It was uncached.
+- **`/stats/trader` and `/swaps/trader`:** if a refresh fails you get the stored copy (no older than 10 minutes, marked stale) instead of an error. With none to fall back on, a computation that does not finish in time is a `503` with `Retry-After: 5`.
+
 <Update label="2026-10-29" description="Now documented: reconciled and reconciliation_source on positions, risk, chart and the batch routes">
 **Additive, documentation only.** These keys were already in the responses; they were not described. A client that ignores keys it does not know is unaffected.
 

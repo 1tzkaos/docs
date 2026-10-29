@@ -25,7 +25,7 @@ Response is cached 30 seconds per wallet.
 
 This endpoint runs the FIFO engine over the wallet's swap history in Dexploit's own index, with no external calls. It returns holdings with cost-basis and unrealized PnL but only for tokens the wallet traded through indexed DEXes (pump.fun, pumpswap, Raydium, Meteora, Orca). Airdrops and off-platform positions are invisible here.
 
-Use `/holdings/basic` when you need a quick snapshot and completeness is less important than latency (~30 ms cold, uncached).
+Use `/holdings/basic` when you need a quick snapshot and completeness is less important than latency (~30 ms cold; cached 15 seconds per wallet).
 
 ## Chart freshness
 
@@ -35,9 +35,9 @@ When you request the chart:
 
 1. **Closed days are returned as stored.** A past day's value does not change once it has been computed, because the wallet's swap history for that day can't change.
 2. **Missing days are computed on request.** If days are missing between the last stored point and yesterday (because the wallet hasn't been queried recently), they are computed now: the wallet's swaps up to the end of each day are replayed through the FIFO engine and the resulting holdings are priced at that day's close. They are stored, so the next request is faster.
-3. **Today is always computed live.** The current day is not stored — it hasn't closed. It appears in the response as `today` with `provisional: true`, valued at current prices rather than a daily close.
+3. **Today is computed, not stored.** The current day hasn't closed. It appears in the response as `today` with `provisional: true`, valued at current prices rather than a daily close.
 
-Closed days never go stale, and today is recomputed on every request.
+Closed days never go stale. The assembled series is kept for 5 minutes, so today's point can be that old; for up to 60 seconds after that it is served at once with `X-Cache: stale` while it refreshes (see [Stale responses](/concepts/quotas-errors#stale-responses)).
 
 **USD basis note.** `value_usd` in the series uses the **current** SOL/USD rate for all points, including historical ones. Dexploit does not keep a daily SOL/USD history. If you need historically accurate USD values, apply your own SOL/USD rate to `value_sol`, which is computed from actual historical prices.
 
