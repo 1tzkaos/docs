@@ -47,13 +47,19 @@ After the connection is up, send a `subscribe` message. Filters are optional —
 }
 ```
 
-You'll receive:
+The server sends a `subscribed` message when you connect, before you subscribe:
 
 ```json
-{ "type": "subscribed", "message": "Subscribed: pools" }
+{ "type": "subscribed", "message": "Connected as client-123. Send {\"type\":\"subscribe\",\"filters\":{...}} to set filters." }
 ```
 
-Then `swap` messages flow as trades happen.
+After your `subscribe` you receive:
+
+```json
+{ "type": "subscribed", "message": "Filter updated" }
+```
+
+Then `swap` messages flow as trades happen. The `message` text is informational — match on `type`.
 
 ### Supported filters
 
@@ -461,7 +467,7 @@ For production hardening (resubscribe state, gap-filling via REST, idle pings), 
 
 | `type` | When |
 | --- | --- |
-| `subscribed` | After your `subscribe`. |
+| `subscribed` | On connect, and again after your `subscribe`. |
 | `unsubscribed` | After your `unsubscribe`. |
 | `swap` | A trade matched your filters. |
 | `pong` | Reply to your `ping`. |
