@@ -3,6 +3,10 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-11-03" description="Now documented: census_too_large status on concentration, audit and intel">
+**Additive, documentation only.** The status `census_too_large` was already returned for a mint that is too large for a holder census; it is now listed. It appears in `status` on `GET /tokens/{mint}/concentration` (and per field), in `top10_pct.status` on `/audit` and `/intel`, and in `holder_data_status` on `/intel`. The affected fields are withheld, and it does not clear on its own. Treat it like `census_refused`.
+</Update>
+
 <Update label="2026-11-03" description="Changed: one shared stream cap per key, including /ws/ohlcv">
 **Changed.** Each API key now has one pool of concurrent streams that covers `/ws/swaps` (and `/ws`), `/ws/ohlcv`, and gRPC `SwapStream` and `PriceStream`. The pool is shared across all of our streaming servers. Free is 1, Developer 10, Pro 50, Enterprise unlimited.
 
