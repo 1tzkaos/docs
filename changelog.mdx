@@ -6,7 +6,7 @@ description: "Changes to the Dexploit API that affect your client, newest first.
 <Update label="2026-11-03" description="Changed: one shared stream cap per key, including /ws/ohlcv">
 **Changed.** Each API key now has one pool of concurrent streams that covers `/ws/swaps` (and `/ws`), `/ws/ohlcv`, and gRPC `SwapStream` and `PriceStream`. The pool is shared across all of our streaming servers. Free is 1, Developer 10, Pro 50, Enterprise unlimited.
 
-- **`/ws/ohlcv`:** it used to have its own allowance (Free 5). It now draws from the shared pool, so a Free key holding a `/ws/swaps` connection is refused on `/ws/ohlcv`, and the other way round.
+- **`/ws/ohlcv`:** it used to have its own allowance (Free and Developer 5). It now draws from the shared pool, so a Free key holding a `/ws/swaps` connection is refused on `/ws/ohlcv`, and the other way round.
 - **How a refusal arrives:** gRPC `RESOURCE_EXHAUSTED`, `/ws/swaps` close code `1013`, `/ws/ohlcv` close code `4029`. The message is `stream cap exceeded; tier=<tier> cap=<n>; shared by all of this key's WebSocket, gRPC and OHLCV streams`.
 - **Streams already open at rollout were dropped** and had to reconnect; a key that held more streams than its cap got back as many as the cap allows. Details are on [Quotas & errors](/concepts/quotas-errors#streaming-caps).
 </Update>

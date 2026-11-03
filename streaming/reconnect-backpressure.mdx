@@ -50,3 +50,4 @@ Without these, half-open TCP hangs (firewall idle-timeouts, NAT drops, ungracefu
 | Events stop after a key rotation | Using the old key | Update your client to the new key; old key works for 7 days during grace, then 401s mid-stream. |
 | Constant disconnects under load | Backpressure overflow | Move work off the receive loop or filter more narrowly. |
 | Closed with `1013` (`/ws/swaps`) or `4029` (`/ws/ohlcv`), or gRPC `RESOURCE_EXHAUSTED`, right after connecting | Your key's shared [stream cap](/concepts/quotas-errors#streaming-caps) is full: another WebSocket, gRPC or OHLCV stream of the same key still holds the slot | Close the stream you no longer need, wait a few seconds after a drop, and retry with a short backoff. Upgrade for a larger pool. |
+| 429 immediately on connect | Free-tier rate limit on connections | Add backoff or upgrade. |
