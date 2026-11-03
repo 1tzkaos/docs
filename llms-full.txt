@@ -242,6 +242,7 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 
 - **`/ws/ohlcv`:** it used to have its own allowance (Free and Developer 5). It now draws from the shared pool, so a Free key holding a `/ws/swaps` connection is refused on `/ws/ohlcv`, and the other way round.
 - **How a refusal arrives:** gRPC `RESOURCE_EXHAUSTED`, `/ws/swaps` close code `1013`, `/ws/ohlcv` close code `4029`. The message is `stream cap exceeded; tier=<tier> cap=<n>; shared by all of this key's WebSocket, gRPC and OHLCV streams`.
+- **Dead connections free their slot sooner:** a WebSocket that sends no frame and answers no Ping for 75 seconds is closed (code `1011`), and a gRPC connection to a client that has vanished is dropped after about 60 seconds. Both free the slot.
 - **Streams already open at rollout were dropped** and had to reconnect; a key that held more streams than its cap got back as many as the cap allows. Details are on [Quotas & errors](/concepts/quotas-errors#streaming-caps).
 </Update>
 
@@ -789,7 +790,7 @@ stream cap exceeded; tier=free cap=1; shared by all of this key's WebSocket, gRP
 | `/ws/swaps` (and `/ws`) | WebSocket close code `1013` |
 | `/ws/ohlcv` | WebSocket close code `4029` |
 
-A slot is freed as soon as the server sees the stream close. A connection that dies without closing (a dropped NAT mapping, a laptop that went to sleep) is invisible to the server until TCP gives up, so its slot stays taken until the server's network stack gives up on it, which can take minutes. Close sockets explicitly when you can, and expect a refusal for a while after an unclean drop. A client that reconnects at once can also be refused while its previous connection is being torn down: wait a few seconds, or retry with a short backoff. A refusal means the pool is full, not that the server is busy, so do not retry in a tight loop.
+A slot is freed as soon as the server sees the stream close. A connection that dies without closing (a dropped NAT mapping, a laptop that went to sleep) is detected by the server, and its slot freed, within about 75 seconds for a WebSocket and about 60 seconds for gRPC. A WebSocket that sends no frame and answers none of our Pings for 75 seconds is closed with code `1011`, so keep your client library answering Pings (most do automatically). Close sockets explicitly when you can, and expect a refusal for up to that long after an unclean drop. A client that reconnects at once can also be refused while its previous connection is being torn down: wait a few seconds, or retry with a short backoff. A refusal means the pool is full, not that the server is busy, so do not retry in a tight loop.
 
 The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
