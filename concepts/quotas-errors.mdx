@@ -160,7 +160,7 @@ Currently tier-locked endpoints: `/tokens/{mint}/smart-money`, `/tokens/{mint}/w
 
 ## Streaming caps
 
-Each API key has one allowance of concurrent streams, set by its tier. Every open stream on every transport counts against it: a gRPC `dexploit.v1.SwapStream` stream, a gRPC `dexploit.v1.PriceStream` stream, and a `/ws` or `/ws/swaps` WebSocket.
+Each API key has **one pool** of concurrent streams, sized by its tier. Every open stream on every transport draws from that same pool: a gRPC `dexploit.v1.SwapStream` stream, a gRPC `dexploit.v1.PriceStream` stream, a `/ws` or `/ws/swaps` WebSocket, and a `/ws/ohlcv` WebSocket. The pool is shared across all of our streaming servers, so your cap is the same wherever your streams land.
 
 | Tier | Max concurrent streams per key |
 |---|---|
@@ -169,9 +169,21 @@ Each API key has one allowance of concurrent streams, set by its tier. Every ope
 | Pro | 50 |
 | Enterprise | unlimited |
 
-The allowance is counted per streaming server today, so while your streams are spread across servers you may be allowed more than your tier's cap. Do not rely on that: the cap will be enforced across all servers.
+A Free key holding one `/ws/swaps` connection is therefore refused when it opens `/ws/ohlcv`, and the other way round.
 
-Opening a stream past the cap is refused once the cap is reached on the server that receives it: gRPC returns `RESOURCE_EXHAUSTED` (`stream cap exceeded; tier=… cap=…`), and a WebSocket is closed with code `1013`. A slot is freed once the server sees the stream close, which can take a few seconds after your client disconnects. A client that reconnects immediately can therefore still get `RESOURCE_EXHAUSTED` (or `1013`): wait a few seconds, or retry with a short backoff.
+Opening a stream when the pool is full is refused with this message:
+
+```
+stream cap exceeded; tier=free cap=1; shared by all of this key's WebSocket, gRPC and OHLCV streams
+```
+
+| Transport | How the refusal arrives |
+|---|---|
+| gRPC (`SwapStream`, `PriceStream`) | status `RESOURCE_EXHAUSTED` |
+| `/ws/swaps` (and `/ws`) | WebSocket close code `1013` |
+| `/ws/ohlcv` | WebSocket close code `4029` |
+
+A slot is freed as soon as the server sees the stream close. A connection that dies without closing (a dropped NAT mapping, a laptop that went to sleep) is invisible to the server until TCP gives up, so its slot stays taken until the server's network stack gives up on it, which can take minutes. Close sockets explicitly when you can, and expect a refusal for a while after an unclean drop. A client that reconnects at once can also be refused while its previous connection is being torn down: wait a few seconds, or retry with a short backoff. A refusal means the pool is full, not that the server is busy, so do not retry in a tight loop.
 
 The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
