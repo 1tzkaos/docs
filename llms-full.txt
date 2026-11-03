@@ -237,6 +237,14 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-11-03" description="Changed: one shared stream cap per key, including /ws/ohlcv">
+**Changed.** Each API key now has one pool of concurrent streams that covers `/ws/swaps` (and `/ws`), `/ws/ohlcv`, and gRPC `SwapStream` and `PriceStream`. The pool is shared across all of our streaming servers. Free is 1, Developer 10, Pro 50, Enterprise unlimited.
+
+- **`/ws/ohlcv`:** it used to have its own allowance (Free 5). It now draws from the shared pool, so a Free key holding a `/ws/swaps` connection is refused on `/ws/ohlcv`, and the other way round.
+- **How a refusal arrives:** gRPC `RESOURCE_EXHAUSTED`, `/ws/swaps` close code `1013`, `/ws/ohlcv` close code `4029`. The message is `stream cap exceeded; tier=<tier> cap=<n>; shared by all of this key's WebSocket, gRPC and OHLCV streams`.
+- **Streams already open at rollout were dropped** and had to reconnect; a key that held more streams than its cap got back as many as the cap allows. Details are on [Quotas & errors](/concepts/quotas-errors#streaming-caps).
+</Update>
+
 <Update label="2026-10-29" description="Added: X-Cache: stale on wallet routes">
 **Added.** Some wallet routes now answer from a short-lived per-wallet copy and mark an older copy with the response header `X-Cache: stale`. A response without the header is fresh. Nothing in the body changed.
 
@@ -758,7 +766,7 @@ Currently tier-locked endpoints: `/tokens/{mint}/smart-money`, `/tokens/{mint}/w
 
 ## Streaming caps
 
-Each API key has one allowance of concurrent streams, set by its tier. Every open stream on every transport counts against it: a gRPC `dexploit.v1.SwapStream` stream, a gRPC `dexploit.v1.PriceStream` stream, and a `/ws` or `/ws/swaps` WebSocket.
+Each API key has **one pool** of concurrent streams, sized by its tier. Every open stream on every transport draws from that same pool: a gRPC `dexploit.v1.SwapStream` stream, a gRPC `dexploit.v1.PriceStream` stream, a `/ws` or `/ws/swaps` WebSocket, and a `/ws/ohlcv` WebSocket. The pool is shared across all of our streaming servers, so your cap is the same wherever your streams land.
 
 | Tier | Max concurrent streams per key |
 |---|---|
@@ -767,9 +775,21 @@ Each API key has one allowance of concurrent streams, set by its tier. Every ope
 | Pro | 50 |
 | Enterprise | unlimited |
 
-The allowance is counted per streaming server today, so while your streams are spread across servers you may be allowed more than your tier's cap. Do not rely on that: the cap will be enforced across all servers.
+A Free key holding one `/ws/swaps` connection is therefore refused when it opens `/ws/ohlcv`, and the other way round.
 
-Opening a stream past the cap is refused once the cap is reached on the server that receives it: gRPC returns `RESOURCE_EXHAUSTED` (`stream cap exceeded; tier=… cap=…`), and a WebSocket is closed with code `1013`. A slot is freed once the server sees the stream close, which can take a few seconds after your client disconnects. A client that reconnects immediately can therefore still get `RESOURCE_EXHAUSTED` (or `1013`): wait a few seconds, or retry with a short backoff.
+Opening a stream when the pool is full is refused with this message:
+
+```
+stream cap exceeded; tier=free cap=1; shared by all of this key's WebSocket, gRPC and OHLCV streams
+```
+
+| Transport | How the refusal arrives |
+|---|---|
+| gRPC (`SwapStream`, `PriceStream`) | status `RESOURCE_EXHAUSTED` |
+| `/ws/swaps` (and `/ws`) | WebSocket close code `1013` |
+| `/ws/ohlcv` | WebSocket close code `4029` |
+
+A slot is freed as soon as the server sees the stream close. A connection that dies without closing (a dropped NAT mapping, a laptop that went to sleep) is invisible to the server until TCP gives up, so its slot stays taken until the server's network stack gives up on it, which can take minutes. Close sockets explicitly when you can, and expect a refusal for a while after an unclean drop. A client that reconnects at once can also be refused while its previous connection is being torn down: wait a few seconds, or retry with a short backoff. A refusal means the pool is full, not that the server is busy, so do not retry in a tight loop.
 
 The `wallet_tags` filter is Pro+ only — on lower tiers the filter is silently dropped and the response carries `x-dexploit-tier-locked-filter: wallet_tags` metadata. See [gRPC: SwapStream](/streaming/grpc-swaps) for the full reference.
 
@@ -1397,6 +1417,8 @@ Authorization: Bearer ohlcv_live_sk_<your_key>
 # or, for browsers where setting headers is awkward:
 wss://ws.dexploit.dev/ws/swaps?api_key=ohlcv_live_sk_<your_key>
 ```
+
+Each connection takes one slot from your key's shared stream pool (Free 1, Developer 10, Pro 50, Enterprise unlimited), which also covers `/ws/ohlcv` and gRPC streams. When the pool is full the server accepts the upgrade and then closes with code **`1013`** and the reason `stream cap exceeded; tier=<tier> cap=<n>; shared by all of this key's WebSocket, gRPC and OHLCV streams`. See [Streaming caps](/concepts/quotas-errors#streaming-caps).
 
 ## Subscribe
 
@@ -2092,12 +2114,14 @@ The replace is **atomic**: if the new set would exceed the [per-connection subje
 
 ## Limits and errors
 
-Two independent limits apply:
+Two independent per-connection limits apply, and a separate per-key cap on how many streams you can hold open at all:
 
 | Limit | Bounds | Env | Default |
 | --- | --- | --- | --- |
 | `pair_addresses` per frame | The pool count of a **single** `subscribe` / `add` / `subscribe`-replace frame. | `MAX_PAIRS_PER_SUBSCRIBE` | 1000 |
 | Live subjects per connection | The **cumulative** live `(pool × timeframe)` set across all your `add`s. | `MAX_SUBJECTS_PER_CONNECTION` | 5000 |
+
+**Stream cap per key.** `/ws/ohlcv` connections draw from the same pool as your swaps WebSocket and gRPC streams: Free 1, Developer 10, Pro 50, Enterprise unlimited (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). A connection opened when the pool is full is closed immediately with code **`4029`** and the reason `stream cap exceeded; tier=<tier> cap=<n>; shared by all of this key's WebSocket, gRPC and OHLCV streams`. Unlike the errors below, this one closes the socket.
 
 Mid-stream errors are **non-fatal** — the socket stays open and a later valid frame still works. (Only an error on the **initial** subscribe frame closes the connection, as before.)
 
@@ -2237,7 +2261,7 @@ x-api-key: ohlcv_live_sk_<your_key>
 
 Server reflection is enabled, so `grpcurl grpc.dexploit.dev:443 list` resolves the service set (`dexploit.v1.PriceStream`, `dexploit.v1.SwapStream`) without the `.proto`.
 
-Each `Subscribe` stream counts against your key's concurrent-stream allowance, which it shares with `SwapStream` and the `/ws` WebSocket: Free 1, Developer 10, Pro 50, Enterprise unlimited. A stream past the cap on the server that receives it returns `RESOURCE_EXHAUSTED`. The allowance is counted per streaming server today, so while your streams are spread across servers you may be allowed more than your cap; do not rely on that, it will be enforced across all servers. See [Streaming caps](/concepts/quotas-errors#streaming-caps).
+Each `Subscribe` stream counts against your key's one shared pool of concurrent streams, which also covers `SwapStream`, the `/ws` and `/ws/swaps` WebSockets and `/ws/ohlcv`: Free 1, Developer 10, Pro 50, Enterprise unlimited. The pool is shared across all streaming servers. A stream past the cap returns `RESOURCE_EXHAUSTED`. See [Streaming caps](/concepts/quotas-errors#streaming-caps).
 
 ## Service definition
 
@@ -2408,7 +2432,7 @@ stream.on("data", (swap) => console.log(swap));
 | Pro | 50 | allowed |
 | Enterprise | unlimited | allowed |
 
-The cap is one allowance per key, shared with `PriceStream` and the `/ws` WebSocket (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). Exceeding it on the server that receives the stream returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`. The allowance is counted per streaming server today, so a key spread across servers may be allowed more than its cap; do not rely on that, it will be enforced across all servers.
+The cap is one pool per key, shared with `PriceStream`, the `/ws` and `/ws/swaps` WebSockets and `/ws/ohlcv` (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). The pool is shared across all streaming servers. A stream past the cap returns `RESOURCE_EXHAUSTED` with `stream cap exceeded; tier=developer cap=10; shared by all of this key's WebSocket, gRPC and OHLCV streams`.
 
 ### `wallet_tags` tier gating
 
@@ -2505,7 +2529,7 @@ Without these, half-open TCP hangs (firewall idle-timeouts, NAT drops, ungracefu
 | Reconnect succeeds but no events | Forgot to re-subscribe | Re-send your subscribe message after every connect. |
 | Events stop after a key rotation | Using the old key | Update your client to the new key; old key works for 7 days during grace, then 401s mid-stream. |
 | Constant disconnects under load | Backpressure overflow | Move work off the receive loop or filter more narrowly. |
-| 429 immediately on connect | Free-tier rate limit on connections | Add backoff or upgrade. |
+| Closed with `1013` (`/ws/swaps`) or `4029` (`/ws/ohlcv`), or gRPC `RESOURCE_EXHAUSTED`, right after connecting | Your key's shared [stream cap](/concepts/quotas-errors#streaming-caps) is full: another WebSocket, gRPC or OHLCV stream of the same key still holds the slot | Close the stream you no longer need, wait a few seconds after a drop, and retry with a short backoff. Upgrade for a larger pool. |
 
 
 ---

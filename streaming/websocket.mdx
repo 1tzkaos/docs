@@ -34,6 +34,8 @@ Authorization: Bearer ohlcv_live_sk_<your_key>
 wss://ws.dexploit.dev/ws/swaps?api_key=ohlcv_live_sk_<your_key>
 ```
 
+Each connection takes one slot from your key's shared stream pool (Free 1, Developer 10, Pro 50, Enterprise unlimited), which also covers `/ws/ohlcv` and gRPC streams. When the pool is full the server accepts the upgrade and then closes with code **`1013`** and the reason `stream cap exceeded; tier=<tier> cap=<n>; shared by all of this key's WebSocket, gRPC and OHLCV streams`. See [Streaming caps](/concepts/quotas-errors#streaming-caps).
+
 ## Subscribe
 
 After the connection is up, send a `subscribe` message. Filters are optional — empty filters mean "every swap on every pool".

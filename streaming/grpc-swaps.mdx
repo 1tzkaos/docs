@@ -56,7 +56,7 @@ stream.on("data", (swap) => console.log(swap));
 | Pro | 50 | allowed |
 | Enterprise | unlimited | allowed |
 
-The cap is one allowance per key, shared with `PriceStream` and the `/ws` WebSocket (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). Exceeding it on the server that receives the stream returns `RESOURCE_EXHAUSTED` with a message like `stream cap exceeded; tier=developer cap=10`. The allowance is counted per streaming server today, so a key spread across servers may be allowed more than its cap; do not rely on that, it will be enforced across all servers.
+The cap is one pool per key, shared with `PriceStream`, the `/ws` and `/ws/swaps` WebSockets and `/ws/ohlcv` (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). The pool is shared across all streaming servers. A stream past the cap returns `RESOURCE_EXHAUSTED` with `stream cap exceeded; tier=developer cap=10; shared by all of this key's WebSocket, gRPC and OHLCV streams`.
 
 ### `wallet_tags` tier gating
 

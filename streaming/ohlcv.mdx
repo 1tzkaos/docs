@@ -150,12 +150,14 @@ The replace is **atomic**: if the new set would exceed the [per-connection subje
 
 ## Limits and errors
 
-Two independent limits apply:
+Two independent per-connection limits apply, and a separate per-key cap on how many streams you can hold open at all:
 
 | Limit | Bounds | Env | Default |
 | --- | --- | --- | --- |
 | `pair_addresses` per frame | The pool count of a **single** `subscribe` / `add` / `subscribe`-replace frame. | `MAX_PAIRS_PER_SUBSCRIBE` | 1000 |
 | Live subjects per connection | The **cumulative** live `(pool × timeframe)` set across all your `add`s. | `MAX_SUBJECTS_PER_CONNECTION` | 5000 |
+
+**Stream cap per key.** `/ws/ohlcv` connections draw from the same pool as your swaps WebSocket and gRPC streams: Free 1, Developer 10, Pro 50, Enterprise unlimited (see [Streaming caps](/concepts/quotas-errors#streaming-caps)). A connection opened when the pool is full is closed immediately with code **`4029`** and the reason `stream cap exceeded; tier=<tier> cap=<n>; shared by all of this key's WebSocket, gRPC and OHLCV streams`. Unlike the errors below, this one closes the socket.
 
 Mid-stream errors are **non-fatal** — the socket stays open and a later valid frame still works. (Only an error on the **initial** subscribe frame closes the connection, as before.)
 
