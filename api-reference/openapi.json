@@ -1222,7 +1222,7 @@
       },
       "ActorAggregates": {
         "type": "object",
-        "description": "Per-tag count + concentration of wallets currently holding the mint. Keys are tag names (`sniper`, `insider`, `smart_money`, `whale`, `kol`, `fresh`, `dev`, `bot`) — only tags with at least one matching holder appear. Use `fetch_url` to deep-link to the full list endpoint.",
+        "description": "Per-tag count + concentration of wallets currently holding the mint. Keys are tag names (`sniper`, `insider`, `smart_money`, `whale`, `kol`, `fresh`, `dev`, `bot`) — only tags with at least one matching holder appear, except `sniper`, `insider` and `bundler`: when tagging has not completed for the mint, that key is present with `count` and `pct_of_circulating` null and a `tag_status` saying why (the same value as the matching list endpoint). Use `fetch_url` to deep-link to the full list endpoint.",
         "additionalProperties": {
           "$ref": "#/components/schemas/ActorAggregate"
         }
@@ -1231,11 +1231,22 @@
         "type": "object",
         "properties": {
           "count": {
-            "type": "integer"
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Number of wallets with this tag that hold the mint. Null for `sniper`, `insider` and `bundler` when `tag_status` is not `ok`: tagging has not completed for the mint, so the count is unknown, not zero."
           },
           "pct_of_circulating": {
-            "type": "number",
-            "description": "Sum of these wallets' balances divided by total supply (0.0–1.0)."
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Sum of these wallets' balances divided by total supply (0.0–1.0). Null when `count` is null."
+          },
+          "tag_status": {
+            "$ref": "#/components/schemas/TagStatus",
+            "description": "Only on `sniper`, `insider` and `bundler`. Whether tagging has completed for this mint; it is the value the matching list endpoint (`/snipers`, `/insiders`, `/bundlers`) returns for the same mint."
           },
           "fetch_url": {
             "type": "string",
