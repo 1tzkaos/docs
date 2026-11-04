@@ -3,6 +3,14 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-11-04" description="Changed: /intel sniper, insider and bundler counts are null until tagging has completed">
+**Changed.** In `GET /tokens/{mint}/intel`, the `actors.sniper`, `actors.insider` and `actors.bundler` entries now follow the same `tag_status` as `GET /tokens/{mint}/snipers`, `/insiders` and `/bundlers`. Before, `/intel` could show a count for a mint whose list endpoint answered `null` because tagging had not completed.
+
+- **Not completed** (`tag_status` is `computing`, `untagged` or `unavailable`): the entry is present with `count` and `pct_of_circulating` `null` and a `tag_status`, even if no wallet has been tagged yet. `null` means unknown, not zero.
+- **Completed** (`ok`): the entry is as before and also carries `tag_status: "ok"`. An empty cohort is still absent.
+- **Other cohorts** (`bot`, `whale`, `smart_money`, and so on) are unchanged. A client that reads `count` as a number must now handle `null` for these three.
+</Update>
+
 <Update label="2026-11-03" description="Now documented: census_too_large status on concentration, audit and intel">
 **Additive, documentation only.** The status `census_too_large` was already returned for a mint that is too large for a holder census; it is now listed. It appears in `status` on `GET /tokens/{mint}/concentration` (and per field), in `top10_pct.status` on `/audit` and `/intel`, and in `holder_data_status` on `/intel`. The affected fields are withheld, and it does not clear on its own. Treat it like `census_refused`.
 </Update>
