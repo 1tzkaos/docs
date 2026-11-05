@@ -5529,7 +5529,7 @@
               "type": "boolean",
               "default": false
             },
-            "description": "Include tokens whose price dropped by 90% or more inside the window. Default `false`."
+            "description": "Include rugged tokens: tokens whose price dropped by 90% or more inside the window, and pools whose liquidity was removed (the pool traded in the window but its SOL reserve is now under 0.001 SOL). For a removed-liquidity pool `change_pct` is `null` and `liquidity_sol` / `liquidity_usd` are `0`. Default `false`."
           },
           {
             "name": "extra_windows",
