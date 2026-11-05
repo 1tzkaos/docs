@@ -54,10 +54,11 @@ OHLCV_TABLES = [
     "ohlcv_1d",
 ]
 
-# Shyft's getBlock retention, measured 2026-09-09 (#710): OK at 90 h, refused
-# at 96 h. A gap younger than this is recoverable from Shyft at no credit cost;
-# an older one needs a paid archival RPC.
-SHYFT_RETENTION_HOURS = 90
+# Shyft's getBlock retention, measured 2026-09-23 (#982): about 64 h (the 90 h
+# measured on 2026-09-09, #710, no longer holds). A gap younger than this is
+# recoverable from Shyft at no credit cost; the healer routes ranges 3 d or more
+# old to the archival provider (svs), so an older gap is no longer lost for good.
+SHYFT_RETENTION_HOURS = 64
 
 # Per-venue hourly census. `absent` counts hours between a venue's first and
 # last indexed hour that carry no rows at all; hours before a venue was added
