@@ -3,6 +3,13 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-11-05" description="Changed: /trending leaves out pools whose liquidity was removed, and shows liquidity for graduated tokens">
+**Changed.** In `GET /trending`:
+
+- **Removed-liquidity pools are left out by default.** A pool that traded in the window but whose SOL reserve is now under 0.001 SOL (on pumpswap, Raydium, Orca and Meteora DAMM v2 / DLMM pools; launch curves are not affected) used to be listed with a liquidity of a few thousandths and a `change_pct` in the millions, taken from the dust trades left after the liquidity was pulled. They are now treated like other rugs: omitted unless `include_rugged=true`, and then `change_pct` is `null` and `liquidity_sol` / `liquidity_usd` are `0`.
+- **Graduated tokens now carry liquidity.** `liquidity_sol` and `liquidity_usd` were `null` for every token that had graduated, although its AMM pool has a reserve. They are now 2 x the pool's SOL reserve (and its USD value), like any other token on an AMM. They stay `null` only when the token's main pool is still a launch curve or its reserve is unknown.
+</Update>
+
 <Update label="2026-11-04" description="Changed: /intel sniper, insider and bundler counts are null until tagging has completed">
 **Changed.** In `GET /tokens/{mint}/intel`, the `actors.sniper`, `actors.insider` and `actors.bundler` entries now follow the same `tag_status` as `GET /tokens/{mint}/snipers`, `/insiders` and `/bundlers`. Before, `/intel` could show a count for a mint whose list endpoint answered `null` because tagging had not completed.
 
