@@ -8704,7 +8704,8 @@
     "/wallets/{w}/chart": {
       "get": {
         "summary": "Daily portfolio value chart",
-        "description": "Returns a daily portfolio-value series for the wallet. Past days are fixed once written. Missing days are computed on request from the wallet's swaps and priced with daily closes. Today is returned as `today` with `provisional: true`, valued at current prices. The assembled series is fresh for 5 minutes, then served for up to 60 s more with `X-Cache: stale` while it refreshes.\n\n`value_usd` uses the **current** SOL/USD rate for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#chart-freshness) for the full freshness model.",
+        "description": "**Deprecated.** Use [`GET /v2/pnl/wallets/{wallet}/chart`](#tag/wallet-pnl-v2/get/v2/pnl/wallets/{wallet}/chart) instead: it returns a PnL chart (realized, unrealized and value per day) with a summary header, where this endpoint returns only the daily portfolio value.\n\nReturns a daily portfolio-value series for the wallet. Past days are fixed once written. Missing days are computed on request from the wallet's swaps and priced with daily closes. Today is returned as `today` with `provisional: true`, valued at current prices. The assembled series is fresh for 5 minutes, then served for up to 60 s more with `X-Cache: stale` while it refreshes.\n\n`value_usd` uses the **current** SOL/USD rate for all points, including historical ones. Apply your own historical SOL/USD to `value_sol` if you need historically accurate USD values.\n\nSee [Wallet portfolio](/concepts/wallet-portfolio#chart-freshness) for the full freshness model.",
+        "deprecated": true,
         "operationId": "getWalletChart",
         "tags": [
           "Wallet portfolio"
