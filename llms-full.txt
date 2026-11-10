@@ -237,6 +237,25 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-11-10" description="Deprecated: GET /wallets/{w}/chart">
+**Deprecated.** `GET /wallets/{w}/chart` is deprecated; use `GET /v2/pnl/wallets/{wallet}/chart`, which returns a PnL chart (realized, unrealized and value per day) with a summary header. The old route is unchanged and still returns the daily portfolio value.
+</Update>
+
+<Update label="2026-11-05" description="Changed: /trending leaves out pools whose liquidity was removed, and shows liquidity for graduated tokens">
+**Changed.** In `GET /trending`:
+
+- **Removed-liquidity pools are left out by default.** A pool that traded in the window but whose SOL reserve is now under 0.001 SOL (on pumpswap, Raydium, Orca and Meteora DAMM v2 / DLMM pools; launch curves are not affected) used to be listed with a liquidity of a few thousandths and a `change_pct` in the millions, taken from the dust trades left after the liquidity was pulled. They are now treated like other rugs: omitted unless `include_rugged=true`, and then `change_pct` is `null` and `liquidity_sol` / `liquidity_usd` are `0`.
+- **Graduated tokens now carry liquidity.** `liquidity_sol` and `liquidity_usd` were `null` for every token that had graduated, although its AMM pool has a reserve. They are now 2 x the pool's SOL reserve (and its USD value), like any other token on an AMM. They stay `null` only when the token's main pool is still a launch curve or its reserve is unknown.
+</Update>
+
+<Update label="2026-11-04" description="Changed: /intel sniper, insider and bundler counts are null until tagging has completed">
+**Changed.** In `GET /tokens/{mint}/intel`, the `actors.sniper`, `actors.insider` and `actors.bundler` entries now follow the same `tag_status` as `GET /tokens/{mint}/snipers`, `/insiders` and `/bundlers`. Before, `/intel` could show a count for a mint whose list endpoint answered `null` because tagging had not completed.
+
+- **Not completed** (`tag_status` is `computing`, `untagged` or `unavailable`): the entry is present with `count` and `pct_of_circulating` `null` and a `tag_status`, even if no wallet has been tagged yet. `null` means unknown, not zero.
+- **Completed** (`ok`): the entry is as before and also carries `tag_status: "ok"`. An empty cohort is still absent.
+- **Other cohorts** (`bot`, `whale`, `smart_money`, and so on) are unchanged. A client that reads `count` as a number must now handle `null` for these three.
+</Update>
+
 <Update label="2026-11-03" description="Now documented: census_too_large status on concentration, audit and intel">
 **Additive, documentation only.** The status `census_too_large` was already returned for a mint that is too large for a holder census; it is now listed. It appears in `status` on `GET /tokens/{mint}/concentration` (and per field), in `top10_pct.status` on `/audit` and `/intel`, and in `holder_data_status` on `/intel`. The affected fields are withheld, and it does not clear on its own. Treat it like `census_refused`.
 </Update>
@@ -1360,7 +1379,7 @@ Use `/holdings/basic` when you need a quick snapshot and completeness is less im
 
 ## Chart freshness
 
-`/wallets/{w}/chart` returns a daily portfolio-value series, computed when you ask for it.
+`/wallets/{w}/chart` returns a daily portfolio-value series, computed when you ask for it. It is deprecated: use `/v2/pnl/wallets/{wallet}/chart` for a PnL chart with a summary header.
 
 When you request the chart:
 
