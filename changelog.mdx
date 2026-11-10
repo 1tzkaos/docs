@@ -3,6 +3,10 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-11-10" description="Added: status on GET /api/v1/pairs rows">
+**Added.** Each pair from `GET /api/v1/pairs?token_address=...` has a `status`: `migrated` on a pump.fun bonding-curve pair once its token has graduated to an AMM pool, `active` otherwise. A migrated pair is now listed after the token's other pairs, so the first pair is the one to chart.
+</Update>
+
 <Update label="2026-11-10" description="Deprecated: GET /wallets/{w}/chart">
 **Deprecated.** `GET /wallets/{w}/chart` is deprecated; use `GET /v2/pnl/wallets/{wallet}/chart`, which returns a PnL chart (realized, unrealized and value per day) with a summary header. The old route is unchanged and still returns the daily portfolio value.
 </Update>

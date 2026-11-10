@@ -85,13 +85,14 @@ You'll get back something like:
     {
       "pair_address": "<pool_address>",
       "protocol": "pumpswap",
-      "recent_volume_sol": 1234.56
+      "recent_volume_sol": 1234.56,
+      "status": "active"
     }
   ]
 }
 ```
 
-Pick the `pair_address` of the pool you want — usually the one with the highest `recent_volume_sol`.
+Pick the `pair_address` of the pool you want — for charting, the first pair.
 
 ## 2. Pull the latest candles for that pool
 
@@ -237,6 +238,10 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-11-10" description="Added: status on GET /api/v1/pairs rows">
+**Added.** Each pair from `GET /api/v1/pairs?token_address=...` has a `status`: `migrated` on a pump.fun bonding-curve pair once its token has graduated to an AMM pool, `active` otherwise. A migrated pair is now listed after the token's other pairs, so the first pair is the one to chart.
+</Update>
+
 <Update label="2026-11-10" description="Deprecated: GET /wallets/{w}/chart">
 **Deprecated.** `GET /wallets/{w}/chart` is deprecated; use `GET /v2/pnl/wallets/{wallet}/chart`, which returns a PnL chart (realized, unrealized and value per day) with a summary header. The old route is unchanged and still returns the daily portfolio value.
 </Update>
@@ -368,14 +373,14 @@ These are different pools — different LP accounts on-chain. They'll have small
 
 ## Discovery: find pairs for a token
 
-Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume.
+Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume. Each pair has a `status`: `migrated` on a pump.fun bonding-curve pair once the token has graduated to an AMM pool, `active` otherwise. A migrated pair is listed last.
 
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
   'https://api.dexploit.dev/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&limit=10'
 ```
 
-Pick the pool you want — usually the one with highest recent volume — and pass its `pair_address` to the OHLCV / swap endpoints.
+Pick the pool you want — for charting, the first pair — and pass its `pair_address` to the OHLCV / swap endpoints.
 
 ## What happens if you send `mint` or `pair`
 
