@@ -96,9 +96,10 @@
             "type": "string",
             "enum": [
               "active",
-              "migrated"
+              "migrated",
+              "trades_not_indexed"
             ],
-            "description": "`migrated` on a pump.fun bonding-curve pair once its token has graduated to an AMM pool; `active` otherwise. A migrated pair is listed after the token's other pairs, so pick the first pair for charting."
+            "description": "`migrated` on a pump.fun bonding-curve pair once its token has graduated to an AMM pool. `trades_not_indexed` when the token has graduated from pump.fun and its pool is known, but we hold no swaps for it yet: `recent_volume_sol` is 0 and there are no candles. It is temporary; once the swaps are indexed the pair shows `active`. `active` otherwise. A migrated pair is listed after the token's other pairs, so pick the first pair for charting."
           }
         }
       },
@@ -2159,6 +2160,13 @@
         "type": "object",
         "description": "Candle series for a token's top-volume pair.",
         "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "trades_not_indexed"
+            ],
+            "description": "Present only as `trades_not_indexed`: the token has graduated from pump.fun and `pair_address` is its known pool, but we hold no swaps for it yet, so `results` is empty. It is temporary. The key is absent on every other response."
+          },
           "pair_address": {
             "type": "string",
             "description": "The pair the series was sourced from."
@@ -2214,6 +2222,13 @@
         "type": "object",
         "description": "Chart-ready candle series with optional per-row market cap.",
         "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "trades_not_indexed"
+            ],
+            "description": "Present only as `trades_not_indexed`: the token has graduated from pump.fun and `pair_address` is its known pool, but we hold no swaps for it yet, so `results` is empty. It is temporary. The key is absent on every other response."
+          },
           "pair_address": {
             "type": "string"
           },

@@ -27,7 +27,7 @@ These are different pools — different LP accounts on-chain. They'll have small
 
 ## Discovery: find pairs for a token
 
-Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume. Each pair has a `status`: `migrated` on a pump.fun bonding-curve pair once the token has graduated to an AMM pool, `active` otherwise. A migrated pair is listed last.
+Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume. Each pair has a `status`: `migrated` on a pump.fun bonding-curve pair once the token has graduated to an AMM pool, `active` otherwise. A migrated pair is listed last. `trades_not_indexed` means the token has graduated and its pool is known, but we hold no swaps for it yet (`recent_volume_sol` is 0, no candles); it is temporary.
 
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
