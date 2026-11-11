@@ -331,6 +331,14 @@
           "ix_index": {
             "type": "integer",
             "description": "The swap's index within its transaction, as numbered by the decoder that read it. Each decoder starts at `0`, so two swaps of one transaction on different venues can both be `0`. Among swaps read by the same decoder it follows the order they ran. Swaps from before 2026-05-30 carry `0`."
+          },
+          "quote_mint": {
+            "type": "string",
+            "description": "Mint of the token the swap was priced in. Empty for a SOL-quoted swap."
+          },
+          "converted": {
+            "type": "integer",
+            "description": "`1` if the swap was made in a non-SOL quote token and its SOL amounts are a SOL-equivalent value, otherwise `0`."
           }
         }
       },
@@ -423,7 +431,9 @@
               "ix_index": 0,
               "block_tx_index": 157,
               "time_source": 1,
-              "agent_trade": 1
+              "agent_trade": 1,
+              "quote_mint": "",
+              "converted": 0
             },
             {
               "timestamp": 1791398356000,
@@ -456,7 +466,9 @@
               "ix_index": 1,
               "block_tx_index": 157,
               "time_source": 1,
-              "agent_trade": 1
+              "agent_trade": 1,
+              "quote_mint": "",
+              "converted": 0
             }
           ],
           "price_semantics": "pool_price=RAW vault ratio, uncorrected (not a tradeable price); price_impact_bps=CORRECTED at read time, null where not computed; for an executed price use price_per_token. See https://docs.dexploit.dev/concepts/coverage"
