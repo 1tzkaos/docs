@@ -238,6 +238,10 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-11-11" description="Added: trades_not_indexed status on /pairs, /price/history and /chart">
+**Added.** A token that has graduated from pump.fun can briefly have no swaps indexed yet. For such a token, `GET /api/v1/pairs?token_address=...` lists its known pool with `status: "trades_not_indexed"` and `recent_volume_sol` `0`, and `GET /price/history` and `GET /chart/{token}` return `200` with that pool as `pair_address`, `results: []` and a top-level `status: "trades_not_indexed"`. No candles are made up. It is temporary: once the swaps are indexed the pair shows `active` with real volume. The `status` key is absent on every other response.
+</Update>
+
 <Update label="2026-11-11" description="Added: status on GET /api/v1/pairs rows">
 **Added.** Each pair from `GET /api/v1/pairs?token_address=...` has a `status`: `migrated` on a pump.fun bonding-curve pair once its token has graduated to an AMM pool, `active` otherwise. A migrated pair is now listed after the token's other pairs, so the first pair is the one to chart.
 </Update>
@@ -373,7 +377,7 @@ These are different pools — different LP accounts on-chain. They'll have small
 
 ## Discovery: find pairs for a token
 
-Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume. Each pair has a `status`: `migrated` on a pump.fun bonding-curve pair once the token has graduated to an AMM pool, `active` otherwise. A migrated pair is listed last.
+Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume. Each pair has a `status`: `migrated` on a pump.fun bonding-curve pair once the token has graduated to an AMM pool, `active` otherwise. A migrated pair is listed last. `trades_not_indexed` means the token has graduated and its pool is known, but we hold no swaps for it yet (`recent_volume_sol` is 0, no candles); it is temporary.
 
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
