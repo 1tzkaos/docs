@@ -27,14 +27,14 @@ These are different pools — different LP accounts on-chain. They'll have small
 
 ## Discovery: find pairs for a token
 
-Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume.
+Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume. Each pair has a `status`: `migrated` on a pump.fun bonding-curve pair once the token has graduated to an AMM pool, `active` otherwise. A migrated pair is listed last.
 
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
   'https://api.dexploit.dev/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&limit=10'
 ```
 
-Pick the pool you want — usually the one with highest recent volume — and pass its `pair_address` to the OHLCV / swap endpoints.
+Pick the pool you want — for charting, the first pair — and pass its `pair_address` to the OHLCV / swap endpoints.
 
 ## What happens if you send `mint` or `pair`
 

@@ -91,6 +91,14 @@
           "recent_volume_sol": {
             "type": "number",
             "description": "Volume in **decimal SOL** over a recent rolling window — already divided by 1e9. NOTE: unlike the candle `volume_sol` field (which is **lamports** despite the same suffix), this `/pairs` field is real SOL — do **not** divide by 1e9 again."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "migrated"
+            ],
+            "description": "`migrated` on a pump.fun bonding-curve pair once its token has graduated to an AMM pool; `active` otherwise. A migrated pair is listed after the token's other pairs, so pick the first pair for charting."
           }
         }
       },
@@ -4348,7 +4356,7 @@
     "/api/v1/pairs": {
       "get": {
         "summary": "List pools (pairs)",
-        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings — the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol` and `recent_volume_sol`, sorted by recent SOL volume — the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
+        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings — the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol`, `recent_volume_sol` and `status`, sorted by recent SOL volume (a `migrated` pump.fun curve pair is listed last) — the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
         "operationId": "listPairs",
         "tags": [
           "Pairs"
