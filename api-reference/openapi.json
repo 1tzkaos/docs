@@ -471,7 +471,7 @@
               "converted": 0
             }
           ],
-          "price_semantics": "pool_price=venue-dependent: the pool's own price on raydium_clmm, and on meteora_damm_v2, orca, meteora_dlmm and meteora_dbc from each venue's cutover date; otherwise the RAW vault ratio, uncorrected (not a tradeable price); price_impact_bps=CORRECTED at read time, null where not computed; for an executed price use price_per_token. See https://docs.dexploit.dev/concepts/coverage"
+          "price_semantics": "pool_price=venue-dependent, never a tradeable price: the pool's own price on raydium_clmm, and on meteora_damm_v2, orca, meteora_dlmm and meteora_dbc from each venue's cutover date; the swap's executed price on meteora_pools; otherwise the RAW vault ratio, uncorrected; price_impact_bps=CORRECTED at read time, null where not computed; for an executed price use price_per_token. See https://docs.dexploit.dev/concepts/coverage"
         }
       },
       "Protocol": {
