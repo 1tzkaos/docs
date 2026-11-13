@@ -32,7 +32,7 @@ lower-snake string everywhere else. The authoritative, always-current list is
 | Raydium CPMM | `raydium_cpmm` | Yes | Reserve ratio — tracks the fill |
 | Orca Whirlpools | `orca` | Yes | Pool spot price from 2026-09-23 04:38 UTC; TVL reserves <sup>3</sup> |
 | Meteora DAMM v2 | `meteora_damm_v2` | Yes | Pool spot price from 2026-09-04; TVL reserves <sup>3</sup> |
-| Meteora DBC (bonding curve) | `meteora_dbc` | — | Pool spot price from 2026-09-24 23:39 UTC <sup>3</sup> |
+| Meteora DBC (bonding curve) | `meteora_dbc` | — | Pool spot price from 2026-09-24 23:38 UTC <sup>3</sup> |
 | Meteora DLMM | `meteora_dlmm` | Yes | Pool price from the active bin, from 2026-09-23 04:42 UTC; TVL reserves <sup>3</sup> |
 | Meteora Dynamic AMM (Pools) | `meteora_pools` | Not yet <sup>4</sup> | The trade's own executed price <sup>4</sup> |
 
@@ -104,16 +104,18 @@ the pool's own post-swap sqrt price; every row before it carries the vault ratio
 instead. There is no per-row fallback — the date is the whole rule. Rows on
 either side of it are not comparable as a price series.
 
-`orca`, `meteora_dlmm` and `meteora_dbc` have the same cutover, at these times
+`orca`, `meteora_dlmm` and `meteora_dbc` have a cutover too, at these times
 (UTC). From each, `pool_price` is the pool's own price — post-swap sqrt price on
-`orca` and `meteora_dbc`, the active bin on `meteora_dlmm`. Before it, the row
-carries the vault ratio.
+`orca` and `meteora_dbc`, the active bin on `meteora_dlmm`. Before it, rows
+usually carry the vault ratio; some re-processed rows already carry the pool
+price, and a row does not say which. On `meteora_dlmm`, a `pool_price` of `0`
+means no price yet.
 
 | Venue | Rows from |
 |---|---|
 | `orca` | 2026-09-23 04:38 |
 | `meteora_dlmm` | 2026-09-23 04:42 |
-| `meteora_dbc` | 2026-09-24 23:39 |
+| `meteora_dbc` | 2026-09-24 23:38 |
 
 #### <sup>4</sup> Meteora Dynamic AMM (Pools)
 
