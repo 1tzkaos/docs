@@ -30,10 +30,10 @@ lower-snake string everywhere else. The authoritative, always-current list is
 | Raydium AMM v4 | `raydium_amm` | Yes | Reserve ratio — tracks the fill |
 | Raydium CLMM | `raydium_clmm` | Yes | Pool spot price; TVL reserves <sup>3</sup> |
 | Raydium CPMM | `raydium_cpmm` | Yes | Reserve ratio — tracks the fill |
-| Orca Whirlpools | `orca` | Yes | Vault ratio — diverges; TVL reserves <sup>3</sup> |
+| Orca Whirlpools | `orca` | Yes | Pool spot price from 2026-09-23 04:38 UTC; TVL reserves <sup>3</sup> |
 | Meteora DAMM v2 | `meteora_damm_v2` | Yes | Pool spot price from 2026-09-04; TVL reserves <sup>3</sup> |
-| Meteora DBC (bonding curve) | `meteora_dbc` | — | Vault ratio — diverges sharply <sup>3</sup> |
-| Meteora DLMM | `meteora_dlmm` | Yes | Vault ratio — diverges; TVL reserves <sup>3</sup> |
+| Meteora DBC (bonding curve) | `meteora_dbc` | — | Pool spot price from 2026-09-24 23:39 UTC <sup>3</sup> |
+| Meteora DLMM | `meteora_dlmm` | Yes | Pool price from the active bin, from 2026-09-23 04:42 UTC; TVL reserves <sup>3</sup> |
 | Meteora Dynamic AMM (Pools) | `meteora_pools` | Not yet <sup>4</sup> | The trade's own executed price <sup>4</sup> |
 
 Orca and the three Meteora venues — DBC, DLMM, and Pools — were added on
@@ -60,8 +60,8 @@ On the constant-product and bonding-curve venues a pool's reserve ratio should
 land within roughly a swap fee of the price a trade actually executed at, and on
 `raydium_amm`, `raydium_cpmm` and `pumpfun` it does.
 
-On `orca`, `meteora_dlmm` and `meteora_dbc` it does not, and the gap is not a
-tail risk — it is the normal case. These are concentrated-liquidity venues: the
+On `orca`, `meteora_dlmm` and `meteora_dbc` it did not, and the gap was not a
+tail risk — it was the normal case. These are concentrated-liquidity venues: the
 reserves reported on a swap are the pool's total inventory across every price
 range, not the liquidity sitting at the price you traded at. The ratio of those
 totals is an inventory statistic, and on individual rows we have measured it
@@ -73,9 +73,11 @@ pump.fun-migrated pools hold part of their SOL side outside the account the swap
 reports. The shortfall is a fixed amount, so the error is negligible on a deep
 pool and grows without bound as the pool drains.
 
-**Do not use `pool_price` as a price on any venue.** Use `price_per_token`
-scaled by `10^(quote_decimals − base_decimals)`, which comes from the trade
-itself and is correct on every venue and for all history.
+Those three now report a pool price rather than the ratio — see footnote 3 for
+the dates — so this gap applies to rows before them. `pool_price` still differs
+by venue and by date, so for a price that is the same everywhere use
+`price_per_token` scaled by `10^(quote_decimals − base_decimals)`, which comes
+from the trade itself and is correct on every venue and for all history.
 
 #### <sup>2</sup> PumpSwap pools migrated from pump.fun
 
@@ -102,7 +104,16 @@ the pool's own post-swap sqrt price; every row before it carries the vault ratio
 instead. There is no per-row fallback — the date is the whole rule. Rows on
 either side of it are not comparable as a price series.
 
-`orca`, `meteora_dlmm`, and `meteora_dbc` report the vault ratio.
+`orca`, `meteora_dlmm` and `meteora_dbc` have the same cutover, at these times
+(UTC). From each, `pool_price` is the pool's own price — post-swap sqrt price on
+`orca` and `meteora_dbc`, the active bin on `meteora_dlmm`. Before it, the row
+carries the vault ratio.
+
+| Venue | Rows from |
+|---|---|
+| `orca` | 2026-09-23 04:38 |
+| `meteora_dlmm` | 2026-09-23 04:42 |
+| `meteora_dbc` | 2026-09-24 23:39 |
 
 #### <sup>4</sup> Meteora Dynamic AMM (Pools)
 
