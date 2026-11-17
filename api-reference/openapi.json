@@ -1875,7 +1875,18 @@
           },
           "ts_ms": {
             "type": "integer",
-            "description": "Unix epoch ms of the source candle."
+            "description": "Unix epoch ms of the last priced trade (same as `priced_at`). When `priced_at` is `null` it is the time of the newest candle, which carries the last price forward and is not a trade."
+          },
+          "priced_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix epoch ms of the last priced trade. `null` when there is no priced trade in the last hour."
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "`true` when the last priced trade is more than 600 seconds old, or there is none in the last hour. `price_sol` and `price_usd` are then the last price, not a current one."
           }
         }
       },
@@ -2269,6 +2280,17 @@
           "computed_at": {
             "type": "integer",
             "format": "int64"
+          },
+          "stale": {
+            "type": "boolean",
+            "description": "`true` when the pair has no fresh price: its last priced trade is more than 600 seconds old, or there is none in the last hour. The rows are then the last price carried forward."
+          },
+          "priced_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "Unix epoch ms of the pair's last priced trade. `null` when there is none in the last hour."
           }
         }
       },
@@ -4644,7 +4666,7 @@
     "/api/v1/candles/latest": {
       "get": {
         "summary": "Most recent candles for a pool",
-        "description": "Returns the most-recent N candles for `pair_address`.\n\n**Requires `pair_address`.** The legacy `protocol=&pair=` form is no longer accepted — sending `protocol`/`pair` (or `mint`) returns **HTTP 400** `invalid parameter: use pair_address` (discover the pool via [`/api/v1/pairs?token_address=`](#tag/pairs/get/api/v1/pairs)).",
+        "description": "Returns the most-recent N candles for `pair_address`.\n\n**Requires `pair_address`.** The legacy `protocol=&pair=` form is no longer accepted — sending `protocol`/`pair` (or `mint`) returns **HTTP 400** `invalid parameter: use pair_address` (discover the pool via [`/api/v1/pairs?token_address=`](#tag/pairs/get/api/v1/pairs)).\n\nThe body also carries `stale` and `priced_at` for the pool's price, not for each bar: a bar can carry the last close forward when nothing traded. `stale` is `true` when the pool's last priced trade is more than 600 seconds old, or there is none in the last hour; `priced_at` is that trade's time (`null` if none in the last hour). See [Stale prices](/concepts/swap-event-ohlcv#stale-prices).",
         "operationId": "listLatestCandles",
         "tags": [
           "Candles (OHLCV)"
@@ -4707,6 +4729,18 @@
                       "items": {
                         "$ref": "#/components/schemas/Candle"
                       }
+                    },
+                    "stale": {
+                      "type": "boolean",
+                      "description": "`true` when the pool has no fresh price: its last priced trade is more than 600 seconds old, or there is none in the last hour."
+                    },
+                    "priced_at": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "format": "date-time",
+                      "description": "Time of the pool's last priced trade. `null` when there is none in the last hour."
                     }
                   }
                 }
@@ -7326,7 +7360,7 @@
     "/price/multi": {
       "get": {
         "summary": "Batched price lookup",
-        "description": "Latest 1-minute close × SOL/USD per mint. Up to 100 mints. Mints with no recent (last-hour) candle return as `null` in the results map.",
+        "description": "Latest priced 1-minute close × SOL/USD per mint. Up to 100 mints. Mints with no candle in the last hour return as `null` in the results map.\n\nEach entry says how old its price is: `priced_at` is the time of the last priced trade and `stale` is `true` when that is more than 600 seconds ago. A token whose trades stop being priced in SOL keeps its last price here, with `stale: true`. `priced_at: null` means no priced trade in the last hour. See [Stale prices](/concepts/swap-event-ohlcv#stale-prices).",
         "operationId": "getPriceMulti",
         "tags": [
           "Price"
@@ -7653,7 +7687,7 @@
     "/chart/{token}": {
       "get": {
         "summary": "Chart-ready candle series with market cap",
-        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close × current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply` is reserved: accepted but currently has no effect. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.",
+        "description": "Candle series for the token's top-volume pair, optionally enriched with per-row `market_cap_sol` (= `close × current_supply_atomic / 10^decimals`). Use this when rendering a market-cap-aware chart without round-tripping a supply lookup yourself.\n\n`historicalSupply` is reserved: accepted but currently has no effect. When `marketCap=false` (the default), `market_cap_sol` is `null` on every row.\n\n`stale` and `priced_at` describe the pair's price, not each row: a row can carry the last close forward when nothing traded. `stale` is `true` when the pair's last priced trade is more than 600 seconds old, or there is none in the last hour. See [Stale prices](/concepts/swap-event-ohlcv#stale-prices).",
         "operationId": "getChart",
         "tags": [
           "Price"

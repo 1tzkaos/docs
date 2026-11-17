@@ -57,6 +57,17 @@ as stored — a bar is never re-derived at read time.
 
 <WhichPriceField />
 
+## Stale prices
+
+A candle with no trades repeats the previous close, so a candle's timestamp does not tell you how old its price is. A token whose trades stop being valued in SOL does the same: its candles keep the last price.
+
+`GET /price/multi`, `GET /api/v1/candles/latest`, `GET /chart/{token}` and the GraphQL `candles` field therefore say when the price was last set by a trade:
+
+- `priced_at`: the time of the last trade with a SOL value, within the last hour. `null` means there is none in the last hour.
+- `stale`: `true` when `priced_at` is more than **600 seconds** ago, or `null`. A stale answer still carries the last price. It is not a current one.
+
+The same rule applies to every token and pool, including a SOL pair that has simply stopped trading. `stale` describes the price of the token or pool, not each candle. In GraphQL, `stale` and `pricedAt` are `null` when you pass `end`: a window in the past says nothing about now. Screeners and lists may hide or grey stale prices.
+
 ## Comparison with the account-update model
 
 |  | Account-update model | Swap-event model (Dexploit) |

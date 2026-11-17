@@ -238,6 +238,12 @@ Full error catalog: see [Quotas & errors](/concepts/quotas-errors#error-codes).
 # changelog
 
 
+<Update label="2026-11-17" description="Added: stale and priced_at on prices and latest candles. Changed: ts_ms on /price/multi">
+**Added.** A price is now flagged when it is not current. A candle with no trades repeats the last close, so a token whose trades stopped being valued in SOL kept showing its last price as if it were live. `GET /price/multi` (per mint), `GET /api/v1/candles/latest`, `GET /chart/{token}` and the GraphQL `candles` field now return `stale` (`true` when the last priced trade is more than 600 seconds old, or there is none in the last hour) and `priced_at` (the time of that trade; `null` if none in the last hour). A stale answer still carries the last price. In GraphQL they are `null` when you pass `end`. See [Stale prices](/concepts/swap-event-ohlcv#stale-prices).
+
+**Changed.** On `GET /price/multi`, `ts_ms` is now the time of the last priced trade (the same as `priced_at`); it was the time of the newest candle, which a zero-trade candle kept fresh. When `priced_at` is `null`, `ts_ms` is still the newest candle's time.
+</Update>
+
 <Update label="2026-11-11" description="Added: trades_not_indexed status on /pairs, /price/history and /chart">
 **Added.** A token that has graduated from pump.fun can briefly have no swaps indexed yet. For such a token, `GET /api/v1/pairs?token_address=...` lists its known pool with `status: "trades_not_indexed"` and `recent_volume_sol` `0`, and `GET /price/history` and `GET /chart/{token}` return `200` with that pool as `pair_address`, `results: []` and a top-level `status: "trades_not_indexed"`. No candles are made up. It is temporary: once the swaps are indexed the pair shows `active` with real volume. The `status` key is absent on every other response.
 </Update>
@@ -568,6 +574,17 @@ the fixed shortfall dominates whatever is left.
 
 When you need a price you can act on, derive it from `price_per_token` over the
 swaps in the window rather than reading the bar close.
+## Stale prices
+
+A candle with no trades repeats the previous close, so a candle's timestamp does not tell you how old its price is. A token whose trades stop being valued in SOL does the same: its candles keep the last price.
+
+`GET /price/multi`, `GET /api/v1/candles/latest`, `GET /chart/{token}` and the GraphQL `candles` field therefore say when the price was last set by a trade:
+
+- `priced_at`: the time of the last trade with a SOL value, within the last hour. `null` means there is none in the last hour.
+- `stale`: `true` when `priced_at` is more than **600 seconds** ago, or `null`. A stale answer still carries the last price. It is not a current one.
+
+The same rule applies to every token and pool, including a SOL pair that has simply stopped trading. `stale` describes the price of the token or pool, not each candle. In GraphQL, `stale` and `pricedAt` are `null` when you pass `end`: a window in the past says nothing about now. Screeners and lists may hide or grey stale prices.
+
 ## Comparison with the account-update model
 
 |  | Account-update model | Swap-event model (Dexploit) |
@@ -2621,7 +2638,9 @@ X-API-Key: ohlcv_live_sk_<your_key>
 | `candles` | `pairAddress: String!` (the pool; `pair_address` in REST), `timeframe: String!` (`1s`, `30s`, `1m`, `5m`, `15m`, `1h`, `4h` or `1d`), `start: String`, `end: String` (RFC 3339 timestamps; `end` defaults to now), `limit: Int` (default `1000`, at most `10000`) | `[GqlCandle!]!`, **oldest first** |
 | `protocols` | none | `[String!]!` |
 
-A `GqlCandle` has `timestamp`, `pairAddress`, `tokenAddress`, `baseMint`, `timeframe`, `open`, `high`, `low`, `close`, `volumeSol`, `volumeToken`, `tradeCount`, `buyCount`, `sellCount` and `uniqueTraders`: the fields of [`GET /api/v1/candles`](/api-reference), with the same values and units, in GraphQL's camelCase (`volumeSol` is REST's `volume_sol`).
+A `GqlCandle` has `timestamp`, `pairAddress`, `tokenAddress`, `baseMint`, `timeframe`, `open`, `high`, `low`, `close`, `volumeSol`, `volumeToken`, `tradeCount`, `buyCount`, `sellCount`, `uniqueTraders`, `stale` and `pricedAt`: the fields of [`GET /api/v1/candles`](/api-reference), with the same values and units, in GraphQL's camelCase (`volumeSol` is REST's `volume_sol`).
+
+`stale` and `pricedAt` describe the pool's price, the same on every candle of the answer: `stale` is `true` when the pool's last priced trade is more than 600 seconds old, or there is none in the last hour, and `pricedAt` is that trade's time (RFC 3339, `null` if none in the last hour). Both are `null` when you pass `end`. See [Stale prices](/concepts/swap-event-ohlcv#stale-prices).
 
 A request reads at most about **10,000 candles in total**. That's the sum of `limit` over every `candles` in it, aliases included, so two aliases of `6000` are refused as one request. The exact ceiling is 10,500, shared with the request's other fields. A `limit` outside `1`–`10000` is refused with `limit must be <= 10000` (or `limit must be positive`), as it is on REST.
 
