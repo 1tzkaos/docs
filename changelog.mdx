@@ -3,6 +3,15 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-11-17" description="Changed: swaps in non-SOL quote tokens stream as native pairs on /ws/swaps and gRPC">
+**Changed.** A swap whose pool is quoted in a token other than SOL, and that has no SOL value (`quote_mint` set, `converted` 0), is now streamed instead of dropped. It carries no SOL figure, because none exists.
+
+- **`/ws/swaps`:** these frames carry `quote_mint`, `quote_amount` (a string), `quote_mint_decimals`, `native_price` and `converted: 0`. `amount_in` and `amount_out` are the quote and token amounts. `sol_amount`, `price_per_token`, `pool_price`, `virtual_sol_reserves`, `real_sol_reserves`, `price_impact_bps`, `fee`, `creator_fee` and `cashback` are `null`, which they never were before. If your client types these as non-nullable numbers (Rust `u64`, TypeScript `number`, Go `float64`), make them nullable before 2026-11-17, or it can fail to decode or read 0.
+- **gRPC:** `sol_amount` and `price_per_token` are absent on these messages. Absent means "no SOL value", not 0; check presence before reading them.
+- **Filters:** `min_sol` and `max_sol` never match these swaps.
+- **Unchanged:** SOL-quoted swaps, and swaps in another quote token that were converted to SOL (`converted: 1`), which carry both the native fields and their SOL fields.
+</Update>
+
 <Update label="2026-11-11" description="Added: trades_not_indexed status on /pairs, /price/history and /chart">
 **Added.** A token that has graduated from pump.fun can briefly have no swaps indexed yet. For such a token, `GET /api/v1/pairs?token_address=...` lists its known pool with `status: "trades_not_indexed"` and `recent_volume_sol` `0`, and `GET /price/history` and `GET /chart/{token}` return `200` with that pool as `pair_address`, `results: []` and a top-level `status: "trades_not_indexed"`. No candles are made up. It is temporary: once the swaps are indexed the pair shows `active` with real volume. The `status` key is absent on every other response.
 </Update>
