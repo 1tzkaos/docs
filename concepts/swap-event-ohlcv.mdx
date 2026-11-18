@@ -59,7 +59,7 @@ as stored — a bar is never re-derived at read time.
 
 ## Stale prices
 
-A candle with no trades repeats the previous close, so a candle's timestamp does not tell you how old its price is. A token whose trades stop being valued in SOL does the same: its candles keep the last price.
+A minute with no trades has no candle, so the newest candle's timestamp does not tell you how old a price is. A candle can also hold no trade: when a pool's swaps in an interval could not be valued in SOL, the candle has `trade_count` 0 and `volume_sol` 0, and its open, high, low and close are the previous close. Skip these if you only want traded bars.
 
 `GET /price/multi`, `GET /api/v1/candles/latest`, `GET /chart/{token}` and the GraphQL `candles` field therefore say when the price was last set by a trade:
 
