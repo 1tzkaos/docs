@@ -130,7 +130,7 @@ The history check applies to these endpoints:
 | --- | --- | --- |
 | Swaps | `/swaps` | none (newest swaps, last 14 days only), or `signature` (the swap's own time) |
 | Swaps | `/swaps/range` | `start_time`, `end_time`, or `signature` (the swap's own time); with no `start_time`, last 14 days only |
-| Swaps | `/swaps/whale` | `since_ms` (omitted: the last 24 hours; earliest 14 days; `0` or less is refused) |
+| Swaps | `/swaps/whale` | `since_ms` (omitted: the last 24 hours; on a Free key the earliest is 14 days and `0` or less is refused) |
 | Swaps | `/swaps/{signature}` | the swap's own time |
 | Swaps | `/swaps/trader/{wallet}`, `/swaps/token/{mint}` | none (last 14 days only), or `cursor` |
 | Swaps | `/pool-events` | none (last 14 days only), or `before` |
