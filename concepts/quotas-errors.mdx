@@ -122,24 +122,25 @@ A Free key whose request **names a time** older than 14 days gets HTTP 403 with 
 
 A GraphQL `candles` query returns the same three keys (`code`, `oldest_allowed`, `window_days`) in `errors[].extensions`.
 
-A candles request (REST or GraphQL) that names no `start`, or an actor chart (such as `/holders/chart/{token}`) that names no `from`, is not refused. Its range begins no earlier than the window, so a Free key gets the last 14 days at most, and fewer rows than `limit` on candles when the default range is longer.
+A request that names no time is not refused, but a Free key is still read from 14 days ago and never earlier. A newest-first swaps list such as `/swaps`, a candles request (REST or GraphQL) with no `start`, `/api/v1/candles/latest`, `/chart/{token}`, `/price/history`, and an actor chart (such as `/holders/chart/{token}`) with no `from` return the last 14 days at most. A candles request returns fewer rows than `limit` when its default range is longer.
 
 The history check applies to these endpoints:
 
 | Service | Endpoint | Time parameter |
 | --- | --- | --- |
-| Swaps | `/swaps` | `signature` (the swap's own time) |
+| Swaps | `/swaps` | none (newest swaps, last 14 days only), or `signature` (the swap's own time) |
 | Swaps | `/swaps/range` | `start_time`, `end_time`, or `signature` (the swap's own time) |
 | Swaps | `/swaps/whale` | `since_ms` (`0` or less means the beginning of time) |
 | Swaps | `/swaps/{signature}` | the swap's own time |
-| Swaps | `/swaps/trader/{wallet}`, `/swaps/token/{mint}` | `cursor` |
-| Swaps | `/pool-events` | `before` |
+| Swaps | `/swaps/trader/{wallet}`, `/swaps/token/{mint}` | none (last 14 days only), or `cursor` |
+| Swaps | `/pool-events` | none (last 14 days only), or `before` |
 | OHLCV | `/api/v1/candles` | `start`, `end` |
+| OHLCV | `/api/v1/candles/latest`, `/chart/{token}`, `/price/history` | none (last 14 days only) |
 | OHLCV | `/price/history/timestamp` | `timestamp` |
 | OHLCV | `/price/history/range` | `from`, `to` |
 | OHLCV | `/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`, `/tokens/{mint}/actor-chart` | `from`, `to` |
 
-The GraphQL `candles` query is checked the same way, on `start` and `end`. `/price/history`, `/chart/{token}`, `/api/v1/candles/latest` and aggregates are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
+The GraphQL `candles` query is checked the same way, on `start` and `end`, and the GraphQL swaps queries follow their REST routes. Aggregates (such as `/stats/*`, trader and token stats, and trending) are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
 
 ## Tier-locked features
 
