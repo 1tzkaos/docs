@@ -129,8 +129,8 @@ The history check applies to these endpoints:
 | Service | Endpoint | Time parameter |
 | --- | --- | --- |
 | Swaps | `/swaps` | none (newest swaps, last 14 days only), or `signature` (the swap's own time) |
-| Swaps | `/swaps/range` | `start_time`, `end_time`, or `signature` (the swap's own time) |
-| Swaps | `/swaps/whale` | `since_ms` (`0` or less means the beginning of time) |
+| Swaps | `/swaps/range` | `start_time`, `end_time`, or `signature` (the swap's own time); with no `start_time`, last 14 days only |
+| Swaps | `/swaps/whale` | `since_ms` (omitted: last 14 days only; `0` or less is refused) |
 | Swaps | `/swaps/{signature}` | the swap's own time |
 | Swaps | `/swaps/trader/{wallet}`, `/swaps/token/{mint}` | none (last 14 days only), or `cursor` |
 | Swaps | `/pool-events` | none (last 14 days only), or `before` |
@@ -140,7 +140,7 @@ The history check applies to these endpoints:
 | OHLCV | `/price/history/range` | `from`, `to` |
 | OHLCV | `/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`, `/tokens/{mint}/actor-chart` | `from`, `to` |
 
-The GraphQL `candles` query is checked the same way, on `start` and `end`, and the GraphQL swaps queries follow their REST routes. Aggregates (such as `/stats/*`, trader and token stats, and trending) are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
+The GraphQL `candles` query is checked the same way, on `start` and `end`, and the GraphQL swaps queries follow their REST routes. Aggregates (such as `/stats/*` and trending) are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
 
 ## Tier-locked features
 
