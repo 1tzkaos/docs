@@ -122,7 +122,7 @@ A Free key whose request **names a time** older than 14 days gets HTTP 403 with 
 
 A GraphQL `candles` query returns the same three keys (`code`, `oldest_allowed`, `window_days`) in `errors[].extensions`.
 
-A request that names no `start` is not refused. Its range begins no earlier than the window, so a Free key gets the last 14 days at most, and fewer rows than `limit` when the default range is longer.
+A candles request (REST or GraphQL) that names no `start`, or an actor chart (such as `/holders/chart/{token}`) that names no `from`, is not refused. Its range begins no earlier than the window, so a Free key gets the last 14 days at most, and fewer rows than `limit` on candles when the default range is longer.
 
 The history check applies to these endpoints:
 
