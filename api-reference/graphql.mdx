@@ -1,9 +1,9 @@
 ---
 title: "GraphQL"
-description: "GraphQL endpoint for OHLCV candles and the protocol list: several candle series in one round-trip."
+description: "GraphQL endpoint for OHLCV candles, the protocol list and swaps, trader and token reads: several of them in one round-trip."
 ---
 
-The GraphQL endpoint serves two root fields: `candles`, the OHLCV candles of one pool, and `protocols`, the list of protocols. It is a small subset of the REST surface: swaps, trader stats, tokens, holders and everything else are REST only. Use GraphQL when you want several candle series (and the protocol list) in one round-trip, and REST for everything else.
+The GraphQL endpoint serves `candles` (the OHLCV candles of one pool), `protocols` (the list of protocols) and the swaps roots `swaps`, `swap`, `swapsBySignature`, `trader`, `token`, `globalStats`, `whaleSwaps`, `swapsRange`, `traderSwaps`, `tokenSwaps` and `health`, all in one schema, so one request can mix them. It is a subset of the REST surface: holders, PnL, tags and everything else are REST only. Use GraphQL when you want several reads in one round-trip, and REST for everything else.
 
 ## Endpoint
 
@@ -21,12 +21,19 @@ X-API-Key: ohlcv_live_sk_<your_key>
 | --- | --- | --- |
 | `candles` | `pairAddress: String!` (the pool; `pair_address` in REST), `timeframe: String!` (`1s`, `30s`, `1m`, `5m`, `15m`, `1h`, `4h` or `1d`), `start: String`, `end: String` (RFC 3339 timestamps; `end` defaults to now), `limit: Int` (default `1000`, at most `10000`) | `[GqlCandle!]!`, **oldest first** |
 | `protocols` | none | `[String!]!` |
+| `swaps`, `swap`, `swapsBySignature`, `trader`, `token`, `globalStats`, `whaleSwaps`, `swapsRange`, `traderSwaps`, `tokenSwaps`, `health` | the filters of the matching REST routes ([`/swaps`](/api-reference), [`/swaps/range`](/api-reference), `/stats/trader`, and so on); introspect the schema for the exact arguments | the REST route's fields, in camelCase |
 
 A `GqlCandle` has `timestamp`, `pairAddress`, `tokenAddress`, `baseMint`, `timeframe`, `open`, `high`, `low`, `close`, `volumeSol`, `volumeToken`, `tradeCount`, `buyCount`, `sellCount`, `uniqueTraders`, `stale` and `pricedAt`: the fields of [`GET /api/v1/candles`](/api-reference), with the same values and units, in GraphQL's camelCase (`volumeSol` is REST's `volume_sol`).
 
 `stale` and `pricedAt` describe the pool's price, the same on every candle of the answer: `stale` is `true` when the pool's last priced trade is more than 600 seconds old, or there is none in the last hour, and `pricedAt` is that trade's time (RFC 3339, `null` if none in the last hour). Both are `null` when you pass `end`. See [Stale prices](/concepts/swap-event-ohlcv#stale-prices).
 
 A request reads at most about **10,000 candles in total**. That's the sum of `limit` over every `candles` in it, aliases included, so two aliases of `6000` are refused as one request. The exact ceiling is 10,500, shared with the request's other fields. A `limit` outside `1`–`10000` is refused with `limit must be <= 10000` (or `limit must be positive`), as it is on REST.
+
+Swaps rows share that ceiling at a higher price: a request may ask for at most **1,500 swaps rows in total** (the sum of `limit` over every swaps list field, aliases included), and each of `trader`, `token`, `swap`, `swapsBySignature` and `globalStats` counts as a fixed 25 of the same budget. The REST limits apply as they do there (for example `swapsRange` windows and the 1,000-row page).
+
+## Rate limits
+
+Each top-level field counts as one request against your per-second rate limit, and a request may hold at most **10** top-level fields (aliases included; more is refused with `too_many_root_fields`). If your key cannot cover all of them, the whole request is refused with HTTP `429` and `Retry-After: 1`, and none of it runs. On a Free key each top-level field also counts one request against the monthly cap. A JSON array of several operations in one body is not accepted: send one operation per request.
 
 <Warning>
 `candles` returns candles **oldest first**, starting at `start`. Without `start` it starts at the pool's **first** candle (on a Free key, at the start of its 14-day window), so `limit: 60` returns the oldest hour from there, not the latest. Pass `start` to get a recent window.
@@ -116,6 +123,6 @@ An error inside a well-formed query comes back as HTTP `200` with the GraphQL `e
 | Need | Use |
 | --- | --- |
 | One resource, paginate, possibly cache | REST |
-| Several candle series (and the protocol list) in one round-trip | GraphQL |
-| Swaps, trader stats, tokens, holders and everything else | REST only |
+| Several candle series, swaps, trader or token reads in one round-trip | GraphQL |
+| Holders, PnL, tags and everything else | REST only |
 | WebSocket-style subscriptions | [WebSocket](/streaming/websocket), not GraphQL subscriptions |

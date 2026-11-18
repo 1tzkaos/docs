@@ -70,6 +70,8 @@ Paid tiers are **capped requests-per-second with unlimited monthly usage.** The 
 
 Over the limit you get a 429 with `Retry-After: 1`.
 
+**GraphQL:** each top-level field counts as one request against your per-second limit (max 10 per request), and a request your key cannot cover is refused whole with a 429. See [GraphQL](/api-reference/graphql#rate-limits).
+
 ## Inspecting your usage
 
 Call `GET /credits` at any time to see your current tier, RPS cap, how much of your per-second allowance is in use, and feature flags:
