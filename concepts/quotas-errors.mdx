@@ -120,7 +120,7 @@ A Free key whose request **names a time** older than 14 days gets HTTP 403 with 
 }
 ```
 
-GraphQL returns the same three keys (`code`, `oldest_allowed`, `window_days`) in `errors[].extensions`.
+A GraphQL `candles` query returns the same three keys (`code`, `oldest_allowed`, `window_days`) in `errors[].extensions`.
 
 The history check applies to these endpoints:
 
@@ -137,7 +137,7 @@ The history check applies to these endpoints:
 | OHLCV | `/price/history/range` | `from`, `to` |
 | OHLCV | `/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`, `/tokens/{mint}/actor-chart` | `from`, `to` |
 
-The GraphQL equivalents are checked the same way. `/price/history`, `/chart/{token}`, `/api/v1/candles/latest` and aggregates are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
+The GraphQL `candles` query is checked the same way, on `start` and `end`. `/price/history`, `/chart/{token}`, `/api/v1/candles/latest` and aggregates are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
 
 ## Tier-locked features
 
@@ -196,9 +196,9 @@ A few wallet routes answer from a short-lived copy so that a burst of identical 
 | `/v2/pnl/wallets/{wallet}/history` and `/chart` | 90 seconds |
 | `/v2/pnl/wallets/{wallet}/performance` | 15 seconds for a wallet that traded in the last 5 minutes, otherwise 40 seconds |
 | `/wallets/{w}/chart` | 6 minutes |
-| `/stats/trader/{wallet}`, the `stats` block of `/swaps/trader/{wallet}`, and GraphQL `trader { stats }` | 60 seconds for a wallet whose stats compute quickly, about 4 minutes for the largest wallets, and never more than 10 minutes |
+| `/stats/trader/{wallet}` and the `stats` block of `/swaps/trader/{wallet}` | 60 seconds for a wallet whose stats compute quickly, about 4 minutes for the largest wallets, and never more than 10 minutes |
 
-If a refresh fails or times out, the `/stats/trader`, `/swaps/trader` and GraphQL `trader` routes return the stored copy (no older than 10 minutes, marked stale) instead of an error. With no copy to fall back on, a computation that runs out of time (the database's time limit or 40 seconds in total) is a `503` with `Retry-After: 5` and `{ "error": "service_unavailable", ... }`: retry. GraphQL returns the same message in `errors[]`. This is true of every `/swaps/*` and `/stats/*` route: a request that times out is a `503`, never a `500`.
+If a refresh fails or times out, the `/stats/trader` and `/swaps/trader` routes return the stored copy (no older than 10 minutes, marked stale) instead of an error. With no copy to fall back on, a computation that runs out of time (the database's time limit or 40 seconds in total) is a `503` with `Retry-After: 5` and `{ "error": "service_unavailable", ... }`: retry. This is true of every `/swaps/*` and `/stats/*` route: a request that times out is a `503`, never a `500`.
 
 ## Error codes
 

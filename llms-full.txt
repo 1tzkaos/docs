@@ -532,9 +532,9 @@ Per-venue numbers are in [Data coverage](/concepts/coverage).
 
 ### `price_impact_bps` is `null` where it wasn't computed
 
-`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`),
-GraphQL (`Int`, previously `Int!`) and WebSocket all return `null` where no impact was computed. (The gRPC
-streams don't carry the field.) None of them returns `0` for that case, so on REST and GraphQL a `0` is a
+`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`)
+and WebSocket both return `null` where no impact was computed. (The gRPC
+streams don't carry the field.) Neither returns `0` for that case, so on REST a `0` is a
 real reading. The WebSocket exception is below.
 
 It's computed on these venues:
@@ -553,9 +553,9 @@ It's `null`:
 - on trades made by pump.fun's own Mayhem program (`agent_trade = 2`), and on older zero-fee `pumpfun` trades by the same program from before `agent_trade` existed;
 - on **dust trades**, where the smaller leg (`sol_amount` or `token_amount`, in base units) is under **10,000**. At that size one unit of integer rounding moves the executed price by more than 1 bp, so any number would be rounding noise.
 
-In rare cases a stream frame carries `0` for a swap that REST and GraphQL serve as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
+In rare cases a stream frame carries `0` for a swap that REST serves as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
 
-On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, GraphQL and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST and GraphQL clamp `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
+On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST clamps `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
 
 ### For a price series, use candles
 
@@ -776,7 +776,7 @@ A Free key whose request **names a time** older than 14 days gets HTTP 403 with 
 }
 ```
 
-GraphQL returns the same three keys (`code`, `oldest_allowed`, `window_days`) in `errors[].extensions`.
+A GraphQL `candles` query returns the same three keys (`code`, `oldest_allowed`, `window_days`) in `errors[].extensions`.
 
 The history check applies to these endpoints:
 
@@ -793,7 +793,7 @@ The history check applies to these endpoints:
 | OHLCV | `/price/history/range` | `from`, `to` |
 | OHLCV | `/holders/chart/{token}`, `/snipers/chart/{token}`, `/insiders/chart/{token}`, `/bundlers/chart/{token}`, `/tokens/{mint}/actor-chart` | `from`, `to` |
 
-The GraphQL equivalents are checked the same way. `/price/history`, `/chart/{token}`, `/api/v1/candles/latest` and aggregates are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
+The GraphQL `candles` query is checked the same way, on `start` and `end`. `/price/history`, `/chart/{token}`, `/api/v1/candles/latest` and aggregates are not windowed. Ask for a time inside the window, or upgrade for full history. Paid keys are not affected by either limit.
 
 ## Tier-locked features
 
@@ -852,9 +852,9 @@ A few wallet routes answer from a short-lived copy so that a burst of identical 
 | `/v2/pnl/wallets/{wallet}/history` and `/chart` | 90 seconds |
 | `/v2/pnl/wallets/{wallet}/performance` | 15 seconds for a wallet that traded in the last 5 minutes, otherwise 40 seconds |
 | `/wallets/{w}/chart` | 6 minutes |
-| `/stats/trader/{wallet}`, the `stats` block of `/swaps/trader/{wallet}`, and GraphQL `trader { stats }` | 60 seconds for a wallet whose stats compute quickly, about 4 minutes for the largest wallets, and never more than 10 minutes |
+| `/stats/trader/{wallet}` and the `stats` block of `/swaps/trader/{wallet}` | 60 seconds for a wallet whose stats compute quickly, about 4 minutes for the largest wallets, and never more than 10 minutes |
 
-If a refresh fails or times out, the `/stats/trader`, `/swaps/trader` and GraphQL `trader` routes return the stored copy (no older than 10 minutes, marked stale) instead of an error. With no copy to fall back on, a computation that runs out of time (the database's time limit or 40 seconds in total) is a `503` with `Retry-After: 5` and `{ "error": "service_unavailable", ... }`: retry. GraphQL returns the same message in `errors[]`. This is true of every `/swaps/*` and `/stats/*` route: a request that times out is a `503`, never a `500`.
+If a refresh fails or times out, the `/stats/trader` and `/swaps/trader` routes return the stored copy (no older than 10 minutes, marked stale) instead of an error. With no copy to fall back on, a computation that runs out of time (the database's time limit or 40 seconds in total) is a `503` with `Retry-After: 5` and `{ "error": "service_unavailable", ... }`: retry. This is true of every `/swaps/*` and `/stats/*` route: a request that times out is a `503`, never a `500`.
 
 ## Error codes
 
@@ -1190,9 +1190,9 @@ Per-venue numbers are in [Data coverage](/concepts/coverage).
 
 ### `price_impact_bps` is `null` where it wasn't computed
 
-`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`),
-GraphQL (`Int`, previously `Int!`) and WebSocket all return `null` where no impact was computed. (The gRPC
-streams don't carry the field.) None of them returns `0` for that case, so on REST and GraphQL a `0` is a
+`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`)
+and WebSocket both return `null` where no impact was computed. (The gRPC
+streams don't carry the field.) Neither returns `0` for that case, so on REST a `0` is a
 real reading. The WebSocket exception is below.
 
 It's computed on these venues:
@@ -1211,9 +1211,9 @@ It's `null`:
 - on trades made by pump.fun's own Mayhem program (`agent_trade = 2`), and on older zero-fee `pumpfun` trades by the same program from before `agent_trade` existed;
 - on **dust trades**, where the smaller leg (`sol_amount` or `token_amount`, in base units) is under **10,000**. At that size one unit of integer rounding moves the executed price by more than 1 bp, so any number would be rounding noise.
 
-In rare cases a stream frame carries `0` for a swap that REST and GraphQL serve as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
+In rare cases a stream frame carries `0` for a swap that REST serves as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
 
-On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, GraphQL and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST and GraphQL clamp `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
+On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST clamps `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
 
 ### For a price series, use candles
 
@@ -1561,7 +1561,7 @@ A few things worth flagging:
 - **`pool_address`** is what we elsewhere call `pair_address` — same concept (the on-chain pool/LP account). The swaps stream keys it as `pool_address`; REST and the [OHLCV WebSocket](/streaming/ohlcv) key the *same* account as `pair_address`.
 - **`maker_tags`** carries the wallet classification of the trader at swap time (`sniper`, `insider`, `whale`, …). Useful for live alerting on smart-money buys.
 - **No `price_semantics` field.** REST responses carry a `price_semantics` label describing how the price fields are derived; streaming frames do not. The derivations are the same — `pool_price` is a raw vault ratio and not a tradeable price, `price_impact_bps` is corrected, `price_per_token` is the executed price — see [Coverage](/concepts/coverage).
-- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee` is `null` where it is not known to be correct, and `creator_fee` where it is unknown: the same swaps REST and GraphQL return `null` for. **`null` means unknown, not zero.** `price_impact_bps` and `cashback` come back null on protocols that don't report them. `price_impact_bps` is `null` wherever no impact was computed, the same swaps REST and GraphQL return `null` for; see below.
+- **Nullable fields.** `virtual_*_reserves` are non-null only on pump.fun. `fee` is `null` where it is not known to be correct, and `creator_fee` where it is unknown: the same swaps REST returns `null` for. **`null` means unknown, not zero.** `price_impact_bps` and `cashback` come back null on protocols that don't report them. `price_impact_bps` is `null` wherever no impact was computed, the same swaps REST returns `null` for; see below.
 
 ## Which price field should I use?
 
@@ -1622,9 +1622,9 @@ Per-venue numbers are in [Data coverage](/concepts/coverage).
 
 ### `price_impact_bps` is `null` where it wasn't computed
 
-`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`),
-GraphQL (`Int`, previously `Int!`) and WebSocket all return `null` where no impact was computed. (The gRPC
-streams don't carry the field.) None of them returns `0` for that case, so on REST and GraphQL a `0` is a
+`price_impact_bps` is **nullable on every surface that carries it**. REST (`/swaps*` and `/swaps/{signature}`)
+and WebSocket both return `null` where no impact was computed. (The gRPC
+streams don't carry the field.) Neither returns `0` for that case, so on REST a `0` is a
 real reading. The WebSocket exception is below.
 
 It's computed on these venues:
@@ -1643,9 +1643,9 @@ It's `null`:
 - on trades made by pump.fun's own Mayhem program (`agent_trade = 2`), and on older zero-fee `pumpfun` trades by the same program from before `agent_trade` existed;
 - on **dust trades**, where the smaller leg (`sol_amount` or `token_amount`, in base units) is under **10,000**. At that size one unit of integer rounding moves the executed price by more than 1 bp, so any number would be rounding noise.
 
-In rare cases a stream frame carries `0` for a swap that REST and GraphQL serve as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
+In rare cases a stream frame carries `0` for a swap that REST serves as `null`: a swap on one of the six venues in the second row whose computed value landed on exactly `0`. Treat both as unknown.
 
-On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST, GraphQL and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST and GraphQL clamp `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
+On `pumpswap` the comparison is corrected for the SOL a pump.fun-migrated pool holds outside the account the swap reports, so it does **not** inherit the understatement described for `pool_price`. The same correction is applied on REST and WebSocket, so the surfaces agree for a given swap, apart from the rare `0` above and one more documented limit: REST clamps `price_impact_bps` to the Int16 range (−32,768 to 32,767), while the WebSocket feed carries the full value, so beyond that range they differ by design. It measures impact relative to the pool, not slippage against an external reference — for that, compare `price_per_token` to a reference you control.
 
 ### For a price series, use candles
 
