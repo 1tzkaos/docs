@@ -771,7 +771,7 @@ When you go over your tier's limit you get HTTP 429 with `code: "RATE_LIMIT_EXCE
 
 While `monthly_enforced` is `true` in [`/credits`](#inspecting-your-usage), a Free key that has used its 10,000 requests for the calendar month gets HTTP 429 with `code: "MONTHLY_QUOTA_EXCEEDED"`. The error carries `error.limit`, `error.used` and `error.reset_at`, where `reset_at` is an RFC 3339 timestamp, 00:00 UTC on the 1st (for example `"2026-11-01T00:00:00Z"`). Retrying sooner will not help; wait for the reset or upgrade.
 
-A Free key whose request **names a time** older than 14 days gets HTTP 403 with `code: "HISTORY_WINDOW_EXCEEDED"`. A request that names no time is not trimmed to the window. The time can be a `start`/`end`, `from`/`to`, `timestamp`, `start_time`/`end_time`, `since_ms`, `before`, a pagination `cursor`, or a swap looked up by a signature older than that. The error carries `error.oldest_allowed` (RFC 3339 UTC, the earliest time the key may request) and `error.window_days`:
+A Free key whose request **names a time** older than 14 days gets HTTP 403 with `code: "HISTORY_WINDOW_EXCEEDED"`. The time can be a `start`/`end`, `from`/`to`, `timestamp`, `start_time`/`end_time`, `since_ms`, `before`, a pagination `cursor`, or a swap looked up by a signature older than that. The error carries `error.oldest_allowed` (RFC 3339 UTC, the earliest time the key may request) and `error.window_days`:
 
 ```json
 {
@@ -786,6 +786,8 @@ A Free key whose request **names a time** older than 14 days gets HTTP 403 with 
 ```
 
 A GraphQL `candles` query returns the same three keys (`code`, `oldest_allowed`, `window_days`) in `errors[].extensions`.
+
+A request that names no `start` is not refused. Its range begins no earlier than the window, so a Free key gets the last 14 days at most, and fewer rows than `limit` when the default range is longer.
 
 The history check applies to these endpoints:
 
@@ -2667,7 +2669,7 @@ A `GqlCandle` has `timestamp`, `pairAddress`, `tokenAddress`, `baseMint`, `timef
 A request reads at most about **10,000 candles in total**. That's the sum of `limit` over every `candles` in it, aliases included, so two aliases of `6000` are refused as one request. The exact ceiling is 10,500, shared with the request's other fields. A `limit` outside `1`–`10000` is refused with `limit must be <= 10000` (or `limit must be positive`), as it is on REST.
 
 <Warning>
-`candles` returns candles **oldest first**, starting at `start`. Without `start` it starts at the pool's **first** candle, so `limit: 60` returns the pool's oldest hour, not its latest. Pass `start` to get a recent window.
+`candles` returns candles **oldest first**, starting at `start`. Without `start` it starts at the pool's **first** candle (on a Free key, at the start of its 14-day window), so `limit: 60` returns the oldest hour from there, not the latest. Pass `start` to get a recent window.
 </Warning>
 
 ## Sample queries
