@@ -33,7 +33,7 @@ Swaps rows share that ceiling at a higher price: a request may ask for at most *
 
 ## Rate limits
 
-Each top-level field counts as one request against your per-second rate limit, and a request may hold at most **10** top-level fields (aliases included; more is refused with `too_many_root_fields`). If your key cannot cover all of them, the whole request is refused with HTTP `429` and `Retry-After: 1`, and none of it runs. On a Free key each top-level field also counts one request against the monthly cap. A JSON array of several operations in one body is not accepted: send one operation per request.
+Each top-level field counts as one request against your per-second rate limit, and a request may hold at most **10** top-level fields (aliases included; more is refused with `too_many_root_fields`). If your key cannot cover all of them, the whole request is refused with HTTP `429` and `Retry-After: 1`, and none of it runs. While the monthly cap is enforced (`monthly_enforced` in [`/credits`](/concepts/quotas-errors#inspecting-your-usage)), each top-level field that is served also counts one request against a Free key's monthly cap; a field that fails is not counted. A JSON array of several operations in one body is not accepted: send one operation per request.
 
 <Warning>
 `candles` returns candles **oldest first**, starting at `start`. Without `start` it starts at the pool's **first** candle (on a Free key, at the start of its 14-day window), so `limit: 60` returns the oldest hour from there, not the latest. Pass `start` to get a recent window.
