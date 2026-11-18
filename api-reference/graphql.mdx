@@ -29,7 +29,7 @@ A `GqlCandle` has `timestamp`, `pairAddress`, `tokenAddress`, `baseMint`, `timef
 A request reads at most about **10,000 candles in total**. That's the sum of `limit` over every `candles` in it, aliases included, so two aliases of `6000` are refused as one request. The exact ceiling is 10,500, shared with the request's other fields. A `limit` outside `1`–`10000` is refused with `limit must be <= 10000` (or `limit must be positive`), as it is on REST.
 
 <Warning>
-`candles` returns candles **oldest first**, starting at `start`. Without `start` it starts at the pool's **first** candle, so `limit: 60` returns the pool's oldest hour, not its latest. Pass `start` to get a recent window.
+`candles` returns candles **oldest first**, starting at `start`. Without `start` it starts at the pool's **first** candle (on a Free key, at the start of its 14-day window), so `limit: 60` returns the oldest hour from there, not the latest. Pass `start` to get a recent window.
 </Warning>
 
 ## Sample queries
