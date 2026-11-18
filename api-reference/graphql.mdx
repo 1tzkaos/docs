@@ -31,6 +31,8 @@ A request reads at most about **10,000 candles in total**. That's the sum of `li
 
 Swaps rows share that ceiling at a higher price: a request may ask for at most **1,500 swaps rows in total** (the sum of `limit` over every swaps list field, aliases included), and each of `trader`, `token`, `swap`, `swapsBySignature` and `globalStats` counts as a fixed 25 of the same budget. The REST limits apply as they do there (for example `swapsRange` windows and the 1,000-row page).
 
+`whaleSwaps` returns the largest swaps by SOL value, and it means the same as `GET /swaps/whale`: with no time argument it covers the **last 24 hours**. Pass `sinceMs` (Unix milliseconds, the REST `since_ms`) to start later or earlier, or `sinceMs: 0` for the all-time size ranking. On a free key a `sinceMs` older than the history window, and `0`, are refused with `HISTORY_WINDOW_EXCEEDED`, as on REST. `minSol` is in lamports (the default is 10 SOL, `10000000000`).
+
 ## Rate limits
 
 Each top-level field counts as one request against your per-second rate limit, and a request may hold at most **10** top-level fields (aliases included; more is refused with `too_many_root_fields`). If your key cannot cover all of them, the whole request is refused with HTTP `429` and `Retry-After: 1`, and none of it runs. While the monthly cap is enforced (`monthly_enforced` in [`/credits`](/concepts/quotas-errors#inspecting-your-usage)), each top-level field that is served also counts one request against a Free key's monthly cap; a field that fails is not counted. A JSON array of several operations in one body is not accepted: send one operation per request.
