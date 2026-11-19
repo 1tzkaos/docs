@@ -363,6 +363,10 @@
           "price_semantics": {
             "type": "string",
             "description": "A short, machine-readable note on how the price fields in this response are derived. Emitted on every response so a client never has to infer it from the docs. Treat it as informational text, not a stable enum — the wording may change as derivations change."
+          },
+          "since_ms": {
+            "type": "integer",
+            "description": "Present only on `/swaps` when the read was cut to a window: Unix milliseconds, the start of the window the swaps were read from. Older swaps may exist. Absent when the page is complete."
           }
         }
       },
@@ -4793,7 +4797,7 @@
     "/swaps": {
       "get": {
         "summary": "Latest swaps",
-        "description": "Returns recent swaps with optional filters. Use this for a real-time-ish polling view; for true real-time, use [WebSocket](/streaming/websocket) or [gRPC](/streaming/grpc).",
+        "description": "Returns recent swaps with optional filters. Use this for a real-time-ish polling view; for true real-time, use [WebSocket](/streaming/websocket) or [gRPC](/streaming/grpc). With `token`, `trader` or `pool`, the read starts at the newest hour and widens (1 hour, 1 day, 7 days, 31 days, then the start of the data) until the page is full. If a very busy wallet or pool cannot be widened within one request, the page holds the newest swaps of the window that was read: the response carries `since_ms` (Unix milliseconds, the start of that window) and an `X-Swaps-Window-Secs` header (its length), and older swaps may exist. With none of `token`, `trader`, `pool` or `signature`, only the last hour is read.",
         "operationId": "listSwaps",
         "tags": [
           "Swaps"
@@ -4904,6 +4908,14 @@
                   "$ref": "#/components/schemas/SwapsPage"
                 }
               }
+            },
+            "headers": {
+              "X-Swaps-Window-Secs": {
+                "description": "Present when the page was read from a window shorter than the full history: the length of that window in seconds. The same window starts at `since_ms` in the body.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
             }
           },
           "401": {
@@ -4932,7 +4944,7 @@
     "/swaps/range": {
       "get": {
         "summary": "Swaps in a time or slot range",
-        "description": "Page through historical swaps within a `[start_time, end_time]` (Unix epoch **seconds**) or `[start_slot, end_slot]` range. Combine with the same filters as [/swaps](#tag/swaps/get/swaps). A time window is limited to 31 days: a wider one (or an `end_time` with no `start_time`) is refused with `400`; split the request into windows of 31 days or less.",
+        "description": "Page through historical swaps within a `[start_time, end_time]` (Unix epoch **seconds**) or `[start_slot, end_slot]` range. Combine with the same filters as [/swaps](#tag/swaps/get/swaps). Name a time window: with a `token`, `trader` or `pool` it can be up to 31 days (a request that names no `start_time` and no `end_time` is refused with `400`, and so is one that is wider than 31 days or has an `end_time` with no `start_time`); without one of those it can be at most 1 hour. A request that is too wide for a busy `trader` or `pool` is refused with `400` and says the width that fits. Split the request into smaller windows. For a token's or a trader's newest swaps, use [/swaps/token/{mint}](#tag/swaps/get/swaps/token/{mint}) or [/swaps/trader/{wallet}](#tag/swaps/get/swaps/trader/{wallet}), which page by `cursor`.",
         "operationId": "listSwapsRange",
         "tags": [
           "Swaps"
@@ -5263,7 +5275,7 @@
                     },
                     "next_cursor": {
                       "type": "string",
-                      "description": "Pass as `cursor` to get the next page. Present whenever this page is full, and absent once a page reaches the end of the history. The page after the last full page can be empty."
+                      "description": "Pass as `cursor` to get the next page. Absent only when the page reaches the end of the history. A page can be short, or even empty, and still carry one (a request reads a bounded number of time windows, so a wallet with no swaps in the newest weeks gets an empty page and a `next_cursor`): keep following it until it is absent."
                     }
                   }
                 }
