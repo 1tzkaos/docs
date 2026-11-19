@@ -90,7 +90,7 @@
           },
           "recent_volume_sol": {
             "type": "number",
-            "description": "Volume in **decimal SOL** over a recent rolling window — already divided by 1e9. NOTE: unlike the candle `volume_sol` field (which is **lamports** despite the same suffix), this `/pairs` field is real SOL — do **not** divide by 1e9 again."
+            "description": "Volume in **decimal SOL** over a recent rolling window — already divided by 1e9. NOTE: unlike the candle `volume_sol` field (which is **lamports** despite the same suffix), this `/pairs` field is real SOL — do **not** divide by 1e9 again. A pool quoted in another token reads `0` here unless some of its trades could be valued in SOL; read `recent_volume_quote` for its real volume."
           },
           "status": {
             "type": "string",
@@ -100,6 +100,46 @@
               "trades_not_indexed"
             ],
             "description": "`migrated` on a pump.fun bonding-curve pair once its token has graduated to an AMM pool. `trades_not_indexed` when the token has graduated from pump.fun and its pool is known, but we hold no swaps for it yet: `recent_volume_sol` is 0 and there are no candles. It is temporary; once the swaps are indexed the pair shows `active`. `active` otherwise. A migrated pair is listed after the token's other pairs, so pick the first pair for charting."
+          },
+          "quote_mint": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The token this pool is quoted in: the wrapped-SOL mint (`So11111111111111111111111111111111111111112`) for a SOL pool, otherwise the quote token's mint (for example USDC). `null` on a `trades_not_indexed` pair, where nothing is known about the pool's quote side."
+          },
+          "quote_symbol": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Symbol of the quote token: `SOL`, `USDC` or `USDT`, otherwise the symbol we hold for that mint. `null` when we hold none (we never guess one), and on a `trades_not_indexed` pair."
+          },
+          "quote_kind": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "sol",
+              "token",
+              null
+            ],
+            "description": "`sol` for a pool quoted in SOL, `token` for a pool quoted in another token (a native pair). `null` on a `trades_not_indexed` pair."
+          },
+          "native_candles": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "`true` when we hold 1-minute candles for this pool priced in its quote token rather than in SOL. `false` for a SOL pool. `null` when this could not be read for this request, and on a `trades_not_indexed` pair."
+          },
+          "recent_volume_quote": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Volume over the same recent window as `recent_volume_sol`, in the quote token's **atomic units** (a decimal string, so a large sum stays exact). Only for a pool quoted in a token; `\"0\"` when it was idle. `null` for a SOL pool (read `recent_volume_sol`), when it could not be read, and on a `trades_not_indexed` pair."
           }
         }
       },
@@ -4405,7 +4445,7 @@
     "/api/v1/pairs": {
       "get": {
         "summary": "List pools (pairs)",
-        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings — the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol`, `recent_volume_sol` and `status`, sorted by recent SOL volume (a `migrated` pump.fun curve pair is listed last) — the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
+        "description": "List on-chain pools indexed by Dexploit. **Response shape varies with input:**\n\n- **No `token_address`** (or only `protocol`): `data` is a flat array of `pair_address` strings — the cheapest way to enumerate pools.\n- **With `token_address`** (or `token_addresses`): `data` is an array of `Pair` objects with `protocol`, `recent_volume_sol`, `status` and the pool's quote side (`quote_mint`, `quote_symbol`, `quote_kind`, `native_candles`, `recent_volume_quote`), sorted by recent SOL volume (a `migrated` pump.fun curve pair is listed last). The sort uses `recent_volume_sol` only, so a pool quoted in another token, which reads `0` there, is listed after the pools with SOL volume and can fall outside a small `limit` — the discovery path for the `pair_address` you'll pass to candle and swap endpoints.",
         "operationId": "listPairs",
         "tags": [
           "Pairs"
