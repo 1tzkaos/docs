@@ -3,6 +3,16 @@ title: "Changelog"
 description: "Changes to the Dexploit API that affect your client, newest first."
 ---
 
+<Update label="2026-11-19" description="Added: quote side of each pool on GET /api/v1/pairs">
+**Added.** Each pair returned for a token now says what the pool is quoted in. A pool quoted in a token other than SOL used to read like an idle SOL pool, because its `recent_volume_sol` is `0`. Five keys are added to every `Pair`; existing keys are unchanged.
+
+- **`quote_mint`, `quote_symbol`, `quote_kind`:** the quote token's mint and symbol, and `sol` or `token`. `quote_symbol` is `null` when we hold no symbol for the mint.
+- **`native_candles`:** `true` when we hold 1-minute candles for the pool priced in its quote token.
+- **`recent_volume_quote`:** the recent volume in the quote token's atomic units, as a string. It is `null` for a SOL pool.
+- **Unknown is `null`:** a `trades_not_indexed` pair carries `null` for all five.
+- **Ordering is unchanged:** the list is still sorted by `recent_volume_sol`, so a pool quoted in another token is listed after the pools with SOL volume.
+</Update>
+
 <Update label="2026-11-17" description="Added: stale and priced_at on prices and latest candles. Changed: ts_ms on /price/multi">
 **Added.** A price is now flagged when it is not current. A candle's timestamp does not show how old its price is, and a token whose trades stopped being valued in SOL kept showing its last price as if it were live. `GET /price/multi` (per mint), `GET /api/v1/candles/latest`, `GET /chart/{token}` and the GraphQL `candles` field now return `stale` (`true` when the last priced trade is more than 600 seconds old, or there is none in the last hour) and `priced_at` (the time of that trade; `null` if none in the last hour). A stale answer still carries the last price. In GraphQL they are `null` when you pass `end`. See [Stale prices](/concepts/swap-event-ohlcv#stale-prices).
 

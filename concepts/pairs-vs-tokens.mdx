@@ -29,6 +29,8 @@ These are different pools — different LP accounts on-chain. They'll have small
 
 Use [`GET /api/v1/pairs?token_address=...`](/api-reference) to list every pool we index for a given token, sorted by recent volume. Each pair has a `status`: `migrated` on a pump.fun bonding-curve pair once the token has graduated to an AMM pool, `active` otherwise. A migrated pair is listed last. `trades_not_indexed` means the token has graduated and its pool is known, but we hold no swaps for it yet (`recent_volume_sol` is 0, no candles); it is temporary.
 
+Each pair also names its quote side: `quote_mint`, `quote_symbol` and `quote_kind` (`sol`, or `token` for a pool quoted in another token such as USDC), plus `native_candles` and `recent_volume_quote`. A pool quoted in another token reads `recent_volume_sol: 0` unless some of its trades could be valued in SOL; its volume is in `recent_volume_quote`, in the quote token's atomic units. The list is still sorted by `recent_volume_sol`, so such a pool is listed after the pools with SOL volume. A `trades_not_indexed` pair carries `null` for all five.
+
 ```bash
 curl -H 'X-API-Key: ohlcv_live_sk_<your_key>' \
   'https://api.dexploit.dev/api/v1/pairs?token_address=DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263&limit=10'
