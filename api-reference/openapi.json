@@ -1309,9 +1309,23 @@
             "$ref": "#/components/schemas/TagStatus",
             "description": "Only on `sniper`, `insider` and `bundler`. Whether tagging has completed for this mint; it is the value the matching list endpoint (`/snipers`, `/insiders`, `/bundlers`) returns for the same mint."
           },
+          "pct_bought": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Only on `bundler`, and only when `tag_status` is `ok`. The share of total supply (0.0\u20131.0) the bundlers bought in the creation slot. `null` is unknown, never 0: there is no supply figure, or a bundler row comes from an older rule, or the read failed."
+          },
+          "pct_held": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Only on `bundler`, and only when `tag_status` is `ok`. The share of circulating supply the bundlers still hold (0.0\u20131.0), the same figure as `pct_of_circulating`. A cohort that sold out is `0.0` on a complete holder census and `null` otherwise."
+          },
           "fetch_url": {
             "type": "string",
-            "description": "Path to the full list endpoint. Present only for actor types that have a dedicated endpoint (sniper, insider, smart_money, whale)."
+            "description": "Path to the full list endpoint. Present only for actor types that have a dedicated endpoint (sniper, insider, bundler, smart_money, whale)."
           }
         }
       },
@@ -1579,9 +1593,10 @@
           "ok",
           "computing",
           "untagged",
+          "unknown",
           "unavailable"
         ],
-        "description": "Whether tagging has completed for this mint, so you can tell \"tagging ran and found no one\" from \"this mint has not been tagged yet\". Each list is judged on its own tagging: `/snipers`, `/insiders` and `/bundlers` can report different values for the same mint.\n\n- `ok`: the list is the answer. A pass completed, or the mint was first seen before pass completion was recorded and is served as it was before. An empty list means no wallet was tagged.\n- `computing`: a new mint that has not had time to be tagged (roughly its first 2 minutes). The list, `count` and `next_cursor` are `null`.\n- `untagged`: no completed pass yet, and the mint is past that first window. The list, `count` and `next_cursor` are `null`. It can still change to `ok`: a pass usually runs about 60 seconds after the mint's first swap and can be delayed by up to 600 seconds. **It can also stay `untagged` indefinitely.** A mint that never trades gets no `sniper` or `bundler` pass, and an `insider` pass needs the mint's holder records, which most new mints never get. Retry with backoff for a few minutes, then treat it as \"not covered\", not as \"none\".\n- `unavailable`: the answer could not be established, because a read failed or the mint is not in the token registry. The list, `count` and `next_cursor` are `null`. A failed read is transient, so retry. A mint the registry has not seen stays `unavailable` until it is seen.\n\nWhen the value is not `ok`, the list and `count` are `null`, never `[]` or `0`: an empty list or a zero count is an answer only when `tag_status` is `ok`. A response with no `tag_status` does not report tagging coverage; its list is an answer, as these lists always were."
+        "description": "Whether tagging has completed for this mint, so you can tell \"tagging ran and found no one\" from \"this mint has not been tagged yet\". Each list is judged on its own tagging: `/snipers`, `/insiders` and `/bundlers` can report different values for the same mint.\n\n- `ok`: the list is the answer. A pass completed, or the mint was first seen before pass completion was recorded and is served as it was before. An empty list means no wallet was tagged.\n- `computing`: a new mint that has not had time to be tagged (roughly its first 2 minutes). The list, `count` and `next_cursor` are `null`.\n- `untagged`: no completed pass yet, and the mint is past that first window. The list, `count` and `next_cursor` are `null`. It can still change to `ok`: a pass usually runs about 60 seconds after the mint's first swap and can be delayed by up to 600 seconds. **It can also stay `untagged` indefinitely.** A mint that never trades gets no `sniper` or `bundler` pass, and an `insider` pass needs the mint's holder records, which most new mints never get. Retry with backoff for a few minutes, then treat it as \"not covered\", not as \"none\".\n- `unknown`: only for `sniper` and `bundler`. The mint's launch is not in our data (it launched before our ingest began on 2026-04-08, or we hold no launch time and never saw it created), so who bought first cannot be known here. The list, `count` and `next_cursor` are `null`. It does not change: do not retry, and treat it as \"can't tell\", not as \"none\" and not as \"not tagged yet\". `insider` is never `unknown`.\n- `unavailable`: the answer could not be established, because a read failed or the mint is not in the token registry. The list, `count` and `next_cursor` are `null`. A failed read is transient, so retry. A mint the registry has not seen stays `unavailable` until it is seen.\n\nWhen the value is not `ok`, the list and `count` are `null`, never `[]` or `0`: an empty list or a zero count is an answer only when `tag_status` is `ok`. A response with no `tag_status` does not report tagging coverage; its list is an answer, as these lists always were."
       },
       "RiskResponse": {
         "type": "object",
