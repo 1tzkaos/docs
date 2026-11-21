@@ -973,8 +973,13 @@ Twelve signals across six categories. "Graded" signals scale their contribution 
 
 | `code` | Trigger | Weight | Notes |
 |---|---|---|---|
-| `snipers_count_high` | ≥ 10 wallets bought within first 30 slots | 3500 | Graded by count (10 → 0.1, 50+ → 1.0). A fire never yields 0 contribution. |
+| `snipers_count_high` | ≥ 10 wallets bought within first 30 slots (not the creator, dev or a bundler) | 3500 | Graded by count (10 → 0.1, 50+ → 1.0). A fire never yields 0 contribution. |
 | `snipers_pct_high` | snipers hold &gt; 30% of supply | 7500 | Graded across 30–50%. |
+| `bundlers_count_high` | ≥ 3 wallets (not the creator) bought in the creation slot | 3000 | Graded by count (3 → 0.1, 20+ → 1.0). A fire never yields 0 contribution. |
+
+A **sniper** is a wallet that bought in the mint's first 30 slots, other than the creator, the dev and the mint's bundlers. A **bundler** is a wallet, other than the creator, that bought in the creation slot; there is no habitual-buyer test. A bundler is never counted as a sniper. `/intel` gives the bundler cohort `pct_bought` (the share of total supply it bought in the creation slot) and `pct_held` (the share it still holds).
+
+Both answers need the mint's launch to be in our data. For a mint that launched before our ingest began (2026-04-08), or whose launch we never saw, `tag_status` is `unknown` for `sniper` and `bundler`: the count and the shares are `null`, not 0. `unknown` means we can't tell who bought first; it is not "none" and not "not tagged yet", and retrying does not change it.
 
 ### Insider concentration (graded)
 
